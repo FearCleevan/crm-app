@@ -14,6 +14,7 @@ import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useProspects } from '@/hooks/useProspects'
 import { useFilterOptions } from '@/hooks/useFilterOptions'
 import { prospectsService } from '@/services/prospects.service'
+import { rateLimiter } from '@/services/rateLimiter.service'
 import type { ProspectRow, ProspectInsert, ProspectUpdate } from '@/types/database'
 import type { Prospect } from '@/constants/mockData'
 import type { ProspectFormValues } from '@/components/prospects/ProspectForm'
@@ -229,6 +230,8 @@ export function ProspectsPage() {
   }
 
   const handleAdd = useCallback(async (values: ProspectFormValues) => {
+    const { allowed } = await rateLimiter.check(user?.id ?? 'anon', 'add_prospect')
+    if (!allowed) return
     const created = await create(formToInsert(values, user?.id ?? ''))
     toast.success(`${created.fullname ?? 'Prospect'} added successfully`)
   }, [create, user])
@@ -276,9 +279,11 @@ export function ProspectsPage() {
   }, [remove])
 
   const handleBulkDelete = useCallback(async (ids: string[]) => {
+    const { allowed } = await rateLimiter.check(user?.id ?? 'anon', 'bulk_delete')
+    if (!allowed) return
     await bulkRemove(ids.map(Number))
     toast.success(`${ids.length} prospects deleted`)
-  }, [bulkRemove])
+  }, [bulkRemove, user])
 
   const handleBulkStatusChange = useCallback(async (ids: string[], status: Prospect['status']) => {
     await bulkUpdateStatus(ids.map(Number), status)
@@ -310,6 +315,8 @@ export function ProspectsPage() {
   ]
 
   async function exportCSV() {
+    const { allowed } = await rateLimiter.check(user?.id ?? 'anon', 'export')
+    if (!allowed) return
     try {
       const rows = await prospectsService.exportProspects(serviceFilters, search)
       const csv = Papa.unparse(rows.map(p => ({

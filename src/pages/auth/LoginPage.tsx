@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
+import { rateLimiter } from '@/services/rateLimiter.service'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/constants/routes'
 
@@ -41,6 +42,8 @@ export function LoginPage() {
 
   async function onSubmit(data: LoginForm) {
     setAuthError(null)
+    const { allowed } = await rateLimiter.check(data.email.toLowerCase(), 'login')
+    if (!allowed) return
     try {
       await login(data.email, data.password, data.rememberMe)
       // redirect handled by the isAuthenticated guard above once profile loads

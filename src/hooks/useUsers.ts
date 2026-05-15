@@ -39,5 +39,23 @@ export function useUsers() {
     return updated
   }, [])
 
-  return { data, loading, error, refetch: fetch, updateRole, setActive, updateUser }
+  const invite = useCallback(async (payload: {
+    email: string
+    first_name: string
+    last_name: string
+    role: CRMUserRow['role']
+    department?: string
+    phone_no?: string
+  }) => {
+    const newUser = await usersService.inviteUser(payload)
+    setData(prev => [newUser, ...prev])
+    return newUser
+  }, [])
+
+  const remove = useCallback(async (id: string) => {
+    await usersService.deactivateUser(id)
+    setData(prev => prev.filter(u => u.id !== id))
+  }, [])
+
+  return { data, loading, error, refetch: fetch, updateRole, setActive, updateUser, invite, remove }
 }

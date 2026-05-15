@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { X, Pencil, AlertCircle } from 'lucide-react'
+import { X, Pencil, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
-import type { CRMUser } from '@/constants/mockData'
+import type { CRMUserRow } from '@/types/database'
 
-const ROLE_BADGE: Record<CRMUser['role'], string> = {
+const ROLE_BADGE: Record<CRMUserRow['role'], string> = {
   'Super Admin':  'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
   'Data Analyst': 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   'Agent':        'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
@@ -22,24 +22,32 @@ const inputCls = cn(
 
 interface EditUserModalProps {
   open: boolean
-  user: CRMUser
+  user: CRMUserRow
   isSelf: boolean
   onClose: () => void
-  onSave: (updated: CRMUser) => void
+  onSave: (id: string, updates: Partial<CRMUserRow>) => Promise<void>
 }
 
 export function EditUserModal({ open, user, isSelf, onClose, onSave }: EditUserModalProps) {
-  const [role, setRole]         = useState<CRMUser['role']>(user.role)
+  const [role, setRole]         = useState<CRMUserRow['role']>(user.role)
   const [isActive, setIsActive] = useState(user.is_active)
-  const [department, setDept]   = useState(user.department)
-  const [phone, setPhone]       = useState(user.phone_no)
+  const [department, setDept]   = useState(user.department ?? '')
+  const [phone, setPhone]       = useState(user.phone_no ?? '')
+  const [saving, setSaving]     = useState(false)
 
   if (!open) return null
 
-  function handleSave() {
-    onSave({ ...user, role, is_active: isActive, department, phone_no: phone })
-    toast.success('User updated')
-    onClose()
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await onSave(user.id, { role, is_active: isActive, department: department || null, phone_no: phone || null })
+      toast.success('User updated')
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save changes')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -70,7 +78,7 @@ export function EditUserModal({ open, user, isSelf, onClose, onSave }: EditUserM
           {/* User info (read-only) */}
           <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 border border-border">
             <div className="h-10 w-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-sm font-bold text-brand-700 dark:text-brand-300 shrink-0">
-              {user.first_name[0]}{user.last_name[0]}
+              {(user.first_name?.[0] ?? '?')}{(user.last_name?.[0] ?? '')}
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">{user.first_name} {user.last_name}</p>
@@ -83,14 +91,14 @@ export function EditUserModal({ open, user, isSelf, onClose, onSave }: EditUserM
 
           {/* Role */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground">Role</label>
+            <label htmlFor="edit-user-role" className="text-xs font-semibold text-foreground">Role</label>
             {isSelf ? (
               <div className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20">
                 <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <p className="text-xs text-amber-700 dark:text-amber-300">You cannot change your own role.</p>
               </div>
             ) : (
-              <select value={role} onChange={e => setRole(e.target.value as CRMUser['role'])} className={selectCls}>
+              <select id="edit-user-role" value={role} onChange={e => setRole(e.target.value as CRMUserRow['role'])} className={selectCls}>
                 <option value="Super Admin">Super Admin</option>
                 <option value="Data Analyst">Data Analyst</option>
                 <option value="Agent">Agent</option>
@@ -135,9 +143,10 @@ export function EditUserModal({ open, user, isSelf, onClose, onSave }: EditUserM
             className="h-9 px-4 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors">
             Cancel
           </button>
-          <button type="button" onClick={handleSave}
-            className="h-9 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-            Save Changes
+          <button type="button" onClick={handleSave} disabled={saving}
+            className="h-9 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition-colors flex items-center gap-1.5">
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {saving ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
       </div>

@@ -4,6 +4,8 @@ import { X, Upload, FileText, CheckCircle2, AlertCircle, ChevronDown, GitMerge, 
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { prospectsService } from '@/services/prospects.service'
+import { importService } from '@/services/import.service'
+import { rateLimiter } from '@/services/rateLimiter.service'
 import type { ProspectInsert, ProspectRow } from '@/types/database'
 
 const CHUNK_SIZE = 100
@@ -164,6 +166,8 @@ export function ImportModal({ open, onClose, onImported, userId }: ImportModalPr
 
   async function startImport() {
     if (!file) return
+    const { allowed } = await rateLimiter.check(userId || 'anon', 'csv_import')
+    if (!allowed) return
     setStep('importing')
 
     const allRows: Record<string, string>[] = await new Promise(resolve => {
@@ -179,6 +183,19 @@ export function ImportModal({ open, onClose, onImported, userId }: ImportModalPr
       chunks.push(allRows.slice(i, i + CHUNK_SIZE))
     }
     setTotalChunks(chunks.length)
+
+    // ── Create audit session (non-blocking — don't abort if it fails) ──
+    const sessionIdStr = `import_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    try {
+      await importService.createSession({
+        session_id:      sessionIdStr,
+        total_chunks:    chunks.length,
+        total_prospects: allRows.length,
+        created_by:      userId,
+      })
+    } catch {
+      // session tracking unavailable — import still proceeds
+    }
 
     let inserted = 0, merged = 0, skipped = 0, failed = 0
     const errors: string[] = []
@@ -241,7 +258,7 @@ export function ImportModal({ open, onClose, onImported, userId }: ImportModalPr
       }
 
       try {
-        // ── Dedup check ────────────────────────────────────
+        // ── Dedup check (client-side) ──────────────────────
         const emails = validRows.map(r => r.email!).filter(Boolean)
         const existingMap = await prospectsService.findByEmails(emails)
 
@@ -251,7 +268,6 @@ export function ImportModal({ open, onClose, onImported, userId }: ImportModalPr
 
         for (const row of validRows) {
           const existing = row.email ? existingMap.get(row.email.toLowerCase()) : undefined
-
           if (!existing) {
             toInsert.push(row)
           } else if (dupMode === 'skip') {
@@ -259,28 +275,30 @@ export function ImportModal({ open, onClose, onImported, userId }: ImportModalPr
           } else if (dupMode === 'merge') {
             toMerge.push(buildMerge(existing, row))
           } else {
-            // overwrite
             toOverwrite.push({ ...row, id: existing.id })
           }
         }
 
-        // ── Commit ──────────────────────────────────────────
-        if (toInsert.length > 0) {
-          await prospectsService.bulkCreateProspects(toInsert)
-          inserted += toInsert.length
-        }
-        if (toMerge.length > 0) {
-          await prospectsService.bulkMergeProspects(toMerge)
-          merged += toMerge.length
-        }
-        if (toOverwrite.length > 0) {
-          await prospectsService.bulkOverwriteProspects(toOverwrite)
-          merged += toOverwrite.length // overwrite counts as "merged" for display
-        }
+        // ── Commit via Edge Function (falls back to direct) ──
+        const result = await importService.processChunk({
+          toInsert,
+          toMerge,
+          toOverwrite,
+          sessionId:          sessionIdStr,
+          chunkIndex:         ci,
+          totalChunks:        chunks.length,
+          cumulativeInserted: inserted,
+          cumulativeMerged:   merged,
+          cumulativeFailed:   failed,
+        })
+
+        inserted += result.inserted
+        merged   += result.merged
+        failed   += result.failed
+        if (result.errors.length > 0) errors.push(...result.errors)
 
       } catch (err) {
-        const n = validRows.length
-        failed += n
+        failed += validRows.length
         errors.push(`Chunk ${ci + 1}: ${err instanceof Error ? err.message : 'Insert failed'}`)
       }
 

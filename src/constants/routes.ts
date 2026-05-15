@@ -1,6 +1,7 @@
 export const ROUTES = {
   ROOT:        '/',
-  LOGIN:       '/login',
+  LOGIN:          '/login',
+  ACCEPT_INVITE:  '/accept-invite',
   DASHBOARD:   '/dashboard',
   PROSPECTS:   '/prospects',
   PROSPECT_DETAIL: '/prospects/:id',

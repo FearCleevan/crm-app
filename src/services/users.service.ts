@@ -60,4 +60,30 @@ export const usersService = {
       .update({ last_login: new Date().toISOString() })
       .eq('id', id)
   },
+
+  async inviteUser(payload: {
+    email: string
+    first_name: string
+    last_name: string
+    role: CRMUserRow['role']
+    department?: string
+    phone_no?: string
+  }): Promise<CRMUserRow> {
+    const { data, error } = await supabase.functions.invoke('invite-user', { body: payload })
+    if (error) {
+      const body = await (error as { context?: Response }).context?.json().catch(() => null)
+      throw new Error(body?.error ?? error.message)
+    }
+    if (data?.error) throw new Error(data.error)
+    return data as CRMUserRow
+  },
+
+  async deactivateUser(id: string): Promise<void> {
+    const { data, error } = await supabase.functions.invoke('deactivate-user', { body: { id } })
+    if (error) {
+      const body = await (error as { context?: Response }).context?.json().catch(() => null)
+      throw new Error(body?.error ?? error.message)
+    }
+    if (data?.error) throw new Error(data.error)
+  },
 }

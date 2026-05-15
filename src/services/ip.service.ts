@@ -71,4 +71,10 @@ export const ipService = {
     if (error) throw new Error(error.message)
     return data as IPEntryRow
   },
+
+  async checkCurrentIP(): Promise<{ allowed: boolean; ip: string; reason?: string }> {
+    const { data, error } = await supabase.functions.invoke('ip-validator')
+    if (error) throw new Error(error.message)
+    return data as { allowed: boolean; ip: string; reason?: string }
+  },
 }

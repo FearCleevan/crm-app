@@ -3,7 +3,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, UserPlus, AlertCircle, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { CRMUser } from '@/constants/mockData'
+import { usersService } from '@/services/users.service'
+import type { CRMUserRow } from '@/types/database'
 
 const schema = z.object({
   first_name:  z.string().min(1, 'First name is required'),
@@ -37,11 +38,11 @@ const inputCls = (err?: boolean) => cn(
 interface InviteUserModalProps {
   open: boolean
   onClose: () => void
-  onInvite: (user: CRMUser) => void
+  onInvite: (user: CRMUserRow) => void
 }
 
 export function InviteUserModal({ open, onClose, onInvite }: InviteUserModalProps) {
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { role: 'Agent' },
   })
@@ -49,23 +50,14 @@ export function InviteUserModal({ open, onClose, onInvite }: InviteUserModalProp
   if (!open) return null
 
   async function onSubmit(data: FormValues) {
-    await new Promise(r => setTimeout(r, 500))
-    const newUser: CRMUser = {
-      id: `usr-${Date.now()}`,
-      first_name:  data.first_name,
-      last_name:   data.last_name,
-      email:       data.email,
-      role:        data.role,
-      permissions: [],
-      last_login:  '—',
-      is_active:   false,
-      profile_url: '',
-      department:  data.department ?? '',
-      phone_no:    data.phone_no ?? '',
+    try {
+      const newUser = await usersService.inviteUser(data)
+      onInvite(newUser)
+      reset()
+      onClose()
+    } catch (err) {
+      setError('root', { message: err instanceof Error ? err.message : 'Failed to send invitation' })
     }
-    onInvite(newUser)
-    reset()
-    onClose()
   }
 
   return (
@@ -92,6 +84,14 @@ export function InviteUserModal({ open, onClose, onInvite }: InviteUserModalProp
 
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="overflow-y-auto px-6 py-5 space-y-4 flex-1">
+
+          {errors.root && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800">
+              <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-rose-700 dark:text-rose-300">{errors.root.message}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="First Name" required error={errors.first_name?.message}>
               <input {...register('first_name')} placeholder="Alice" className={inputCls(!!errors.first_name)} />

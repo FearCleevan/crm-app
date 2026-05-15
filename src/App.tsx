@@ -4,11 +4,15 @@ import { ThemeProvider } from '@/context/ThemeContext'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { IPBlockedPage } from '@/components/auth/IPBlockedPage'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { PageWrapper } from '@/components/layout/PageWrapper'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { AcceptInvitePage } from '@/pages/auth/AcceptInvitePage'
 import { ForbiddenPage } from '@/pages/auth/ForbiddenPage'
 import { NotFoundPage } from '@/pages/auth/NotFoundPage'
+import { useIPCheck } from '@/hooks/useIPCheck'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ProspectsPage } from '@/pages/ProspectsPage'
 import { DealsPage } from '@/pages/DealsPage'
@@ -34,6 +38,13 @@ function PlaceholderPage({ name }: { name: string }) {
   )
 }
 
+function IPGate({ children }: { children: React.ReactNode }) {
+  const { allowed, loading, ip, reason } = useIPCheck()
+  if (loading) return <PageLoader />
+  if (!allowed) return <IPBlockedPage ip={ip} reason={reason} />
+  return <>{children}</>
+}
+
 function AuthenticatedShell() {
   const { user, logout } = useAuth()
   return (
@@ -49,14 +60,27 @@ function AuthenticatedShell() {
   )
 }
 
+// Supabase sends auth errors (expired invite, etc.) back to Site URL ("/").
+// Forward those error hashes to /accept-invite so the error state is shown.
+function RootRedirect() {
+  const hash = window.location.hash
+  const params = new URLSearchParams(hash.replace(/^#/, ''))
+  if (params.has('error')) {
+    return <Navigate to={`${ROUTES.ACCEPT_INVITE}${hash}`} replace />
+  }
+  return <Navigate to={ROUTES.DASHBOARD} replace />
+}
+
 // Data router — required for useBlocker (unsaved-changes guard) and future loader/action support
 const router = createBrowserRouter([
   // Public
-  { path: ROUTES.LOGIN,     element: <LoginPage /> },
-  { path: ROUTES.FORBIDDEN, element: <ForbiddenPage /> },
+  { path: ROUTES.LOGIN,          element: <LoginPage /> },
+  { path: ROUTES.ACCEPT_INVITE,  element: <AcceptInvitePage /> },
+  { path: ROUTES.FORBIDDEN,      element: <ForbiddenPage /> },
 
-  // Root redirect
-  { path: '/', element: <Navigate to={ROUTES.DASHBOARD} replace /> },
+  // Root redirect — forward auth error hashes (expired invite, etc.) to accept-invite
+  // so the error state is shown instead of silently redirecting to dashboard.
+  { path: '/', element: <RootRedirect /> },
 
   // Protected — requires authentication
   {
@@ -131,7 +155,9 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <ErrorBoundary>
-          <RouterProvider router={router} />
+          <IPGate>
+            <RouterProvider router={router} />
+          </IPGate>
         </ErrorBoundary>
         <Toaster
           position="top-right"

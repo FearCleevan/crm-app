@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Handshake, StickyNote, Mail, BarChart3,
   Zap, Settings, HelpCircle, ChevronLeft, ChevronRight,
-  Star, FolderOpen, Plus, MoreHorizontal, Users,
+  Star, FolderOpen, Plus, MoreHorizontal, Users, UserCog,
   Pencil, Trash2, ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -387,6 +387,15 @@ export function Sidebar({ user }: SidebarProps) {
           label="Prospects"
           collapsed={collapsed}
         />
+
+        {user?.role === 'Super Admin' && (
+          <NavItem
+            to={ROUTES.USERS}
+            icon={UserCog}
+            label="User Management"
+            collapsed={collapsed}
+          />
+        )}
 
         {/* ── Favorites & Projects — hidden when collapsed ── */}
         {!collapsed && (

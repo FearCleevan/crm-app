@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '@/lib/supabase'
 import { signIn as sbSignIn, signOut as sbSignOut } from '@/lib/auth'
 import { ROLE_PERMISSIONS, type PermissionKey } from '@/constants/roles'
+import { usersService } from '@/services/users.service'
 import type { CRMUser } from '@/constants/mockData'
 
 interface AuthContextValue {
@@ -62,8 +63,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!session?.user) {
             setUser(null)
           } else {
-            const profile = await fetchProfile(session.user.id)
-            if (mounted) setUser(profile)
+            // Supabase clears the hash before firing INITIAL_SESSION, so we
+            // can't read type=invite from the hash here. Use the pathname instead —
+            // it's never modified by Supabase and is stable across the whole load.
+            const isInvitePage = window.location.pathname === '/accept-invite'
+
+            if (!isInvitePage) {
+              const profile = await fetchProfile(session.user.id)
+              if (mounted) setUser(profile)
+            }
           }
           if (mounted) setIsLoading(false)
         }
@@ -107,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(profile)
+      usersService.updateLastLogin(profile.id).catch(() => {})
       setIsLoading(false)
     } catch (err) {
       setIsLoading(false)
