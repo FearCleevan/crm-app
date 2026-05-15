@@ -7,8 +7,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Local dev secrets — never commit real keys
 .env
-.env.example
+.env.local
+.env.production
+# .env.example is intentionally tracked as a safe template
 
 node_modules
 dist

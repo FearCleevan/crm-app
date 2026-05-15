@@ -69,7 +69,10 @@ export const usersService = {
     department?: string
     phone_no?: string
   }): Promise<CRMUserRow> {
-    const { data, error } = await supabase.functions.invoke('invite-user', { body: payload })
+    // Pass the current origin so the Edge Function builds the correct redirectTo
+    // regardless of whether this is localhost or the production Vercel URL.
+    const body = { ...payload, site_url: window.location.origin }
+    const { data, error } = await supabase.functions.invoke('invite-user', { body })
     if (error) {
       const body = await (error as { context?: Response }).context?.json().catch(() => null)
       throw new Error(body?.error ?? error.message)
