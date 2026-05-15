@@ -12,7 +12,7 @@ import { ImportModal } from '@/components/prospects/ImportModal'
 import { ProspectDetailSheet } from '@/components/prospects/ProspectDetailSheet'
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useProspects } from '@/hooks/useProspects'
-import { useFilterOptions } from '@/hooks/useFilterOptions'
+import { useFilterOptions, invalidateFilterCache } from '@/hooks/useFilterOptions'
 import { prospectsService } from '@/services/prospects.service'
 import { rateLimiter } from '@/services/rateLimiter.service'
 import type { ProspectRow, ProspectInsert, ProspectUpdate } from '@/types/database'
@@ -22,128 +22,130 @@ import type { ProspectFormValues } from '@/components/prospects/ProspectForm'
 // ── Adapters ──────────────────────────────────────────────────
 function rowToProspect(row: ProspectRow): Prospect {
   return {
-    id:               String(row.id),
-    fullname:         row.fullname ?? '',
-    firstname:        row.firstname ?? '',
-    lastname:         row.lastname ?? '',
-    jobtitle:         row.jobtitle ?? '',
-    company:          row.company ?? '',
-    website:          row.website ?? '',
+    id: String(row.id),
+    fullname: row.fullname ?? '',
+    firstname: row.firstname ?? '',
+    lastname: row.lastname ?? '',
+    jobtitle: row.jobtitle ?? '',
+    company: row.company ?? '',
+    website: row.website ?? '',
     personallinkedin: row.personallinkedin ?? '',
-    companylinkedin:  row.companylinkedin ?? '',
-    altphonenumber:   row.altphonenumber,
+    companylinkedin: row.companylinkedin ?? '',
+    altphonenumber: row.altphonenumber,
     companyphonenumber: row.companyphonenumber,
-    email:            row.email ?? '',
-    emailcode:        (row.emailcode as Prospect['emailcode']) ?? 'EMA000',
-    dispositioncode:  row.dispositioncode ?? '',
-    providercode:     row.providercode ?? '',
-    status:           row.status,
-    country:          row.country ?? '',
-    industry:         row.industry ?? '',
-    employeesize:     row.employeesize,
-    annualrevenue:    row.annualrevenue,
-    createdon:        row.created_on,
-    createdby:        row.created_by ?? '',
-    department:       row.department ?? '',
-    seniority:        row.seniority ?? '',
-    address:          row.address ?? '',
-    street:           row.street ?? '',
-    city:             row.city ?? '',
-    state:            row.state ?? '',
-    postalcode:       row.postalcode ?? '',
-    comments:         row.comments ?? '',
-    isactive:         row.isactive,
+    email: row.email ?? '',
+    emailcode: (row.emailcode as Prospect['emailcode']) ?? 'EMA000',
+    dispositioncode: row.dispositioncode ?? '',
+    providercode: row.providercode ?? '',
+    status: row.status,
+    country: row.country ?? '',
+    industry: row.industry ?? '',
+    employeesize: row.employeesize,
+    annualrevenue: row.annualrevenue,
+    createdon: row.created_on,
+    createdby: row.created_by ?? '',
+    department: row.department ?? '',
+    seniority: row.seniority ?? '',
+    address: row.address ?? '',
+    street: row.street ?? '',
+    city: row.city ?? '',
+    state: row.state ?? '',
+    postalcode: row.postalcode ?? '',
+    comments: row.comments ?? '',
+    isactive: row.isactive,
   }
 }
 
 function formToInsert(values: ProspectFormValues, userId: string): ProspectInsert {
   return {
-    firstname:          values.firstname,
-    lastname:           values.lastname,
-    fullname:           `${values.firstname} ${values.lastname}`.trim(),
-    jobtitle:           values.jobtitle ?? '',
-    company:            values.company,
-    email:              values.email,
-    emailcode:          values.emailcode ?? null,
-    dispositioncode:    values.dispositioncode ?? null,
-    providercode:       values.providercode ?? null,
-    status:             values.status,
-    website:            values.website ?? null,
-    personallinkedin:   values.personallinkedin ?? null,
-    companylinkedin:    values.companylinkedin ?? null,
-    altphonenumber:     values.altphonenumber ?? '',
+    firstname: values.firstname,
+    lastname: values.lastname,
+    fullname: `${values.firstname} ${values.lastname}`.trim(),
+    jobtitle: values.jobtitle ?? '',
+    company: values.company,
+    email: values.email,
+    emailcode: values.emailcode ?? null,
+    dispositioncode: values.dispositioncode ?? null,
+    providercode: values.providercode ?? null,
+    status: values.status,
+    website: values.website ?? null,
+    personallinkedin: values.personallinkedin ?? null,
+    companylinkedin: values.companylinkedin ?? null,
+    altphonenumber: values.altphonenumber ?? '',
     companyphonenumber: values.companyphonenumber ?? '',
-    address:            values.address ?? null,
-    street:             values.street ?? null,
-    city:               values.city ?? null,
-    state:              values.state ?? null,
-    postalcode:         values.postalcode ?? null,
-    country:            values.country ?? null,
-    annualrevenue:      values.annualrevenue ?? 0,
-    industry:           values.industry ?? null,
-    employeesize:       values.employeesize ?? 0,
-    siccode:            0,
-    naicscode:          0,
-    comments:           values.comments ?? null,
-    isactive:           true,
-    department:         values.department ?? null,
-    seniority:          values.seniority ?? null,
-    created_by:         userId,
-    updated_by:         null,
+    address: values.address ?? null,
+    street: values.street ?? null,
+    city: values.city ?? null,
+    state: values.state ?? null,
+    postalcode: values.postalcode ?? null,
+    country: values.country ?? null,
+    annualrevenue: values.annualrevenue ?? 0,
+    industry: values.industry ?? null,
+    employeesize: values.employeesize ?? 0,
+    siccode: 0,
+    naicscode: 0,
+    comments: values.comments ?? null,
+    isactive: true,
+    department: values.department ?? null,
+    seniority: values.seniority ?? null,
+    created_by: userId,
+    updated_by: null,
   }
 }
 
 function formToUpdate(values: ProspectFormValues, userId: string): ProspectUpdate {
   return {
-    firstname:          values.firstname,
-    lastname:           values.lastname,
-    fullname:           `${values.firstname} ${values.lastname}`.trim(),
-    jobtitle:           values.jobtitle ?? '',
-    company:            values.company,
-    email:              values.email,
-    emailcode:          values.emailcode ?? null,
-    dispositioncode:    values.dispositioncode ?? null,
-    providercode:       values.providercode ?? null,
-    status:             values.status,
-    website:            values.website ?? null,
-    personallinkedin:   values.personallinkedin ?? null,
-    companylinkedin:    values.companylinkedin ?? null,
-    altphonenumber:     values.altphonenumber ?? '',
+    firstname: values.firstname,
+    lastname: values.lastname,
+    fullname: `${values.firstname} ${values.lastname}`.trim(),
+    jobtitle: values.jobtitle ?? '',
+    company: values.company,
+    email: values.email,
+    emailcode: values.emailcode ?? null,
+    dispositioncode: values.dispositioncode ?? null,
+    providercode: values.providercode ?? null,
+    status: values.status,
+    website: values.website ?? null,
+    personallinkedin: values.personallinkedin ?? null,
+    companylinkedin: values.companylinkedin ?? null,
+    altphonenumber: values.altphonenumber ?? '',
     companyphonenumber: values.companyphonenumber ?? '',
-    address:            values.address ?? null,
-    street:             values.street ?? null,
-    city:               values.city ?? null,
-    state:              values.state ?? null,
-    postalcode:         values.postalcode ?? null,
-    country:            values.country ?? null,
-    annualrevenue:      values.annualrevenue ?? 0,
-    industry:           values.industry ?? null,
-    employeesize:       values.employeesize ?? 0,
-    comments:           values.comments ?? null,
-    department:         values.department ?? null,
-    seniority:          values.seniority ?? null,
-    updated_by:         userId,
+    address: values.address ?? null,
+    street: values.street ?? null,
+    city: values.city ?? null,
+    state: values.state ?? null,
+    postalcode: values.postalcode ?? null,
+    country: values.country ?? null,
+    annualrevenue: values.annualrevenue ?? 0,
+    industry: values.industry ?? null,
+    employeesize: values.employeesize ?? 0,
+    comments: values.comments ?? null,
+    department: values.department ?? null,
+    seniority: values.seniority ?? null,
+    updated_by: userId,
   }
 }
 
 // ── Filter conversion ─────────────────────────────────────────
 function uiFiltersToService(f: ProspectFilters) {
   return {
-    status:           f.status.length          ? f.status          : undefined,
-    dispositioncode:  f.dispositioncode.length ? f.dispositioncode : undefined,
-    emailcode:        f.emailcode.length       ? f.emailcode       : undefined,
-    providercode:     f.providercode.length    ? f.providercode    : undefined,
-    country:          f.country.length         ? f.country         : undefined,
-    industry:         f.industry.length        ? f.industry        : undefined,
-    seniority:        f.seniority.length       ? f.seniority       : undefined,
-    department:       f.department.length      ? f.department      : undefined,
-    city:             f.city.length            ? f.city            : undefined,
-    employeesizeMin:  f.employeesizeMin  ? Number(f.employeesizeMin)  : undefined,
-    employeesizeMax:  f.employeesizeMax  ? Number(f.employeesizeMax)  : undefined,
+    status: f.status.length ? f.status : undefined,
+    dispositioncode: f.dispositioncode.length ? f.dispositioncode : undefined,
+    emailcode: f.emailcode.length ? f.emailcode : undefined,
+    providercode: f.providercode.length ? f.providercode : undefined,
+    country: f.country.length ? f.country : undefined,
+    industry: f.industry.length ? f.industry : undefined,
+    seniority: f.seniority.length ? f.seniority : undefined,
+    department: f.department.length ? f.department : undefined,
+    city: f.city.length ? f.city : undefined,
+    jobtitle: f.jobtitle.length ? f.jobtitle : undefined,
+    company: f.company.length ? f.company : undefined,
+    employeesizeMin: f.employeesizeMin ? Number(f.employeesizeMin) : undefined,
+    employeesizeMax: f.employeesizeMax ? Number(f.employeesizeMax) : undefined,
     annualrevenueMin: f.annualrevenueMin ? Number(f.annualrevenueMin) : undefined,
     annualrevenueMax: f.annualrevenueMax ? Number(f.annualrevenueMax) : undefined,
-    dateFrom:         f.dateFrom || undefined,
-    dateTo:           f.dateTo   || undefined,
+    dateFrom: f.dateFrom || undefined,
+    dateTo: f.dateTo || undefined,
   }
 }
 
@@ -170,10 +172,10 @@ export function ProspectsPage() {
   const { options: filterOptions, loading: filterOptionsLoading } = useFilterOptions()
 
   // ── Pagination & sort (server-side) ───────────────────────
-  const [page, setPage]         = useState(1)
+  const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
-  const [sortKey, setSortKey]   = useState<keyof Prospect>('createdon')
-  const [sortDir, setSortDir]   = useState<'asc' | 'desc'>('desc')
+  const [sortKey, setSortKey] = useState<keyof Prospect>('createdon')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   // ── Search & filters ──────────────────────────────────────
   const [searchInput, setSearchInput] = useState('')
@@ -194,10 +196,10 @@ export function ProspectsPage() {
   const prospects = useMemo(() => data.map(rowToProspect), [data])
 
   // ── UI state ──────────────────────────────────────────────
-  const [filterOpen, setFilterOpen]     = useState(false)
-  const [addOpen, setAddOpen]           = useState(false)
-  const [importOpen, setImportOpen]     = useState(false)
-  const [detailRow, setDetailRow]       = useState<ProspectRow | null>(null)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [detailRow, setDetailRow] = useState<ProspectRow | null>(null)
 
   const detailProspect = detailRow ? rowToProspect(detailRow) : null
 
@@ -233,6 +235,7 @@ export function ProspectsPage() {
     const { allowed } = await rateLimiter.check(user?.id ?? 'anon', 'add_prospect')
     if (!allowed) return
     const created = await create(formToInsert(values, user?.id ?? ''))
+    invalidateFilterCache() // new company/city/etc may appear in filter lists
     toast.success(`${created.fullname ?? 'Prospect'} added successfully`)
   }, [create, user])
 
@@ -240,34 +243,34 @@ export function ProspectsPage() {
     const existing = await prospectsService.getProspect(existingId)
     const b = <T,>(e: T, i: T): T => (e !== null && e !== undefined && e !== '' && e !== 0 ? e : i)
     const mergedUpdate: ProspectUpdate = {
-      firstname:          b(existing.firstname,        values.firstname),
-      lastname:           b(existing.lastname,         values.lastname),
-      fullname:           b(existing.fullname,         `${values.firstname} ${values.lastname}`.trim()),
-      jobtitle:           b(existing.jobtitle,         values.jobtitle ?? ''),
-      company:            b(existing.company,          values.company),
-      email:              b(existing.email,            values.email),
-      emailcode:          b(existing.emailcode,        values.emailcode ?? null),
-      dispositioncode:    b(existing.dispositioncode,  values.dispositioncode ?? null),
-      providercode:       b(existing.providercode,     values.providercode ?? null),
-      status:             b(existing.status,           values.status),
-      website:            b(existing.website,          values.website ?? null),
-      personallinkedin:   b(existing.personallinkedin, values.personallinkedin ?? null),
-      companylinkedin:    b(existing.companylinkedin,  values.companylinkedin ?? null),
-      altphonenumber:     b(existing.altphonenumber,   values.altphonenumber ?? ''),
+      firstname: b(existing.firstname, values.firstname),
+      lastname: b(existing.lastname, values.lastname),
+      fullname: b(existing.fullname, `${values.firstname} ${values.lastname}`.trim()),
+      jobtitle: b(existing.jobtitle, values.jobtitle ?? ''),
+      company: b(existing.company, values.company),
+      email: b(existing.email, values.email),
+      emailcode: b(existing.emailcode, values.emailcode ?? null),
+      dispositioncode: b(existing.dispositioncode, values.dispositioncode ?? null),
+      providercode: b(existing.providercode, values.providercode ?? null),
+      status: b(existing.status, values.status),
+      website: b(existing.website, values.website ?? null),
+      personallinkedin: b(existing.personallinkedin, values.personallinkedin ?? null),
+      companylinkedin: b(existing.companylinkedin, values.companylinkedin ?? null),
+      altphonenumber: b(existing.altphonenumber, values.altphonenumber ?? ''),
       companyphonenumber: b(existing.companyphonenumber, values.companyphonenumber ?? ''),
-      address:            b(existing.address,          values.address ?? null),
-      street:             b(existing.street,           values.street ?? null),
-      city:               b(existing.city,             values.city ?? null),
-      state:              b(existing.state,            values.state ?? null),
-      postalcode:         b(existing.postalcode,       values.postalcode ?? null),
-      country:            b(existing.country,          values.country ?? null),
-      annualrevenue:      b(existing.annualrevenue,    values.annualrevenue ?? 0),
-      industry:           b(existing.industry,         values.industry ?? null),
-      employeesize:       b(existing.employeesize,     values.employeesize ?? 0),
-      comments:           b(existing.comments,         values.comments ?? null),
-      department:         b(existing.department,       values.department ?? null),
-      seniority:          b(existing.seniority,        values.seniority ?? null),
-      updated_by:         user?.id ?? null,
+      address: b(existing.address, values.address ?? null),
+      street: b(existing.street, values.street ?? null),
+      city: b(existing.city, values.city ?? null),
+      state: b(existing.state, values.state ?? null),
+      postalcode: b(existing.postalcode, values.postalcode ?? null),
+      country: b(existing.country, values.country ?? null),
+      annualrevenue: b(existing.annualrevenue, values.annualrevenue ?? 0),
+      industry: b(existing.industry, values.industry ?? null),
+      employeesize: b(existing.employeesize, values.employeesize ?? 0),
+      comments: b(existing.comments, values.comments ?? null),
+      department: b(existing.department, values.department ?? null),
+      seniority: b(existing.seniority, values.seniority ?? null),
+      updated_by: user?.id ?? null,
     }
     await update(existingId, mergedUpdate)
     toast.success(`Merged into ${existing.fullname ?? 'existing prospect'} successfully`)
@@ -275,6 +278,7 @@ export function ProspectsPage() {
 
   const handleDelete = useCallback(async (id: string) => {
     await remove(Number(id))
+    invalidateFilterCache()
     toast.success('Prospect deleted')
   }, [remove])
 
@@ -282,6 +286,7 @@ export function ProspectsPage() {
     const { allowed } = await rateLimiter.check(user?.id ?? 'anon', 'bulk_delete')
     if (!allowed) return
     await bulkRemove(ids.map(Number))
+    invalidateFilterCache()
     toast.success(`${ids.length} prospects deleted`)
   }, [bulkRemove, user])
 
@@ -307,71 +312,85 @@ export function ProspectsPage() {
   // ── Export ────────────────────────────────────────────────
   // Exact company column order
   const CSV_HEADERS = [
-    'Fullname','Firstname','Lastname','Jobtitle','Company','Website',
-    'Personallinkedin','Companylinkedin','Altphonenumber','Companyphonenumber',
-    'Email','Emailcode','Address','Street','City','State','Postalcode','Country',
-    'Annualrevenue','Industry','Employeesize','Siccode','Naicscode',
-    'Dispositioncode','Providercode','Comments','Department','Seniority','Status','CreatedOn',
+    'Fullname', 'Firstname', 'Lastname', 'Jobtitle', 'Company', 'Website',
+    'Personallinkedin', 'Companylinkedin', 'Altphonenumber', 'Companyphonenumber',
+    'Email', 'Emailcode', 'Address', 'Street', 'City', 'State', 'Postalcode', 'Country',
+    'Annualrevenue', 'Industry', 'Employeesize', 'Siccode', 'Naicscode',
+    'Dispositioncode', 'Providercode', 'Comments', 'Department', 'Seniority', 'Status', 'CreatedOn',
   ]
 
   async function exportCSV() {
     const { allowed } = await rateLimiter.check(user?.id ?? 'anon', 'export')
     if (!allowed) return
+
+    const toastId = toast.loading(`Exporting… 0 rows`)
     try {
-      const rows = await prospectsService.exportProspects(serviceFilters, search)
-      const csv = Papa.unparse(rows.map(p => ({
-        Fullname:         p.fullname ?? '',
-        Firstname:        p.firstname ?? '',
-        Lastname:         p.lastname ?? '',
-        Jobtitle:         p.jobtitle ?? '',
-        Company:          p.company ?? '',
-        Website:          p.website ?? '',
-        Personallinkedin: p.personallinkedin ?? '',
-        Companylinkedin:  p.companylinkedin ?? '',
-        Altphonenumber:   p.altphonenumber,
-        Companyphonenumber: p.companyphonenumber,
-        Email:            p.email ?? '',
-        Emailcode:        p.emailcode ?? '',
-        Address:          p.address ?? '',
-        Street:           p.street ?? '',
-        City:             p.city ?? '',
-        State:            p.state ?? '',
-        Postalcode:       p.postalcode ?? '',
-        Country:          p.country ?? '',
-        Annualrevenue:    p.annualrevenue,
-        Industry:         p.industry ?? '',
-        Employeesize:     p.employeesize,
-        Siccode:          p.siccode,
-        Naicscode:        p.naicscode,
-        Dispositioncode:  p.dispositioncode ?? '',
-        Providercode:     p.providercode ?? '',
-        Comments:         p.comments ?? '',
-        Department:       p.department ?? '',
-        Seniority:        p.seniority ?? '',
-        Status:           p.status,
-        CreatedOn:        p.created_on,
-      })))
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
+      const csvRows: string[] = []
+      let exported = 0
+      let firstChunk = true
+
+      for await (const chunk of prospectsService.exportProspectsChunked(serviceFilters, search)) {
+        const mapped = chunk.map(p => ({
+          Fullname: p.fullname ?? '',
+          Firstname: p.firstname ?? '',
+          Lastname: p.lastname ?? '',
+          Jobtitle: p.jobtitle ?? '',
+          Company: p.company ?? '',
+          Website: p.website ?? '',
+          Personallinkedin: p.personallinkedin ?? '',
+          Companylinkedin: p.companylinkedin ?? '',
+          Altphonenumber: p.altphonenumber,
+          Companyphonenumber: p.companyphonenumber,
+          Email: p.email ?? '',
+          Emailcode: p.emailcode ?? '',
+          Address: p.address ?? '',
+          Street: p.street ?? '',
+          City: p.city ?? '',
+          State: p.state ?? '',
+          Postalcode: p.postalcode ?? '',
+          Country: p.country ?? '',
+          Annualrevenue: p.annualrevenue,
+          Industry: p.industry ?? '',
+          Employeesize: p.employeesize,
+          Siccode: p.siccode,
+          Naicscode: p.naicscode,
+          Dispositioncode: p.dispositioncode ?? '',
+          Providercode: p.providercode ?? '',
+          Comments: p.comments ?? '',
+          Department: p.department ?? '',
+          Seniority: p.seniority ?? '',
+          Status: p.status,
+          CreatedOn: p.created_on,
+        }))
+
+        // First chunk includes the header row; subsequent chunks skip it
+        csvRows.push(Papa.unparse(mapped, { header: firstChunk }))
+        firstChunk = false
+        exported += chunk.length
+        toast.loading(`Exporting… ${exported.toLocaleString()} rows`, { id: toastId })
+      }
+
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
       a.href = url; a.download = `prospects-${Date.now()}.csv`; a.click()
       URL.revokeObjectURL(url)
-      toast.success(`Exported ${rows.length} records`)
+      toast.success(`Exported ${exported.toLocaleString()} records`, { id: toastId })
     } catch {
-      toast.error('Export failed')
+      toast.error('Export failed', { id: toastId })
     }
   }
 
   function downloadTemplate() {
     const sample = [[
-      'John Smith','John','Smith','VP of Sales','Acme Corp','acme.com',
-      'https://linkedin.com/in/johnsmith','https://linkedin.com/company/acme',
-      '601.555.1234','210.555.1234',
-      'john.smith@acme.com','',
-      '123 Market St, San Francisco, CA, United States','123 Market St',
-      'San Francisco','California','94105','United States',
-      '5000000','Technology','500','0','0',
-      '','','','Sales','VP','New',new Date().toISOString(),
+      'John Smith', 'John', 'Smith', 'VP of Sales', 'Acme Corp', 'acme.com',
+      'https://linkedin.com/in/johnsmith', 'https://linkedin.com/company/acme',
+      '601.555.1234', '210.555.1234',
+      'john.smith@acme.com', '',
+      '123 Market St, San Francisco, CA, United States', '123 Market St',
+      'San Francisco', 'California', '94105', 'United States',
+      '5000000', 'Technology', '500', '0', '0',
+      '', '', '', 'Sales', 'VP', 'New', new Date().toISOString(),
     ]]
     const csv = Papa.unparse({ fields: CSV_HEADERS, data: sample })
     const blob = new Blob([csv], { type: 'text/csv' })

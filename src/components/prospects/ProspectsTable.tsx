@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, memo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Trash2, Mail,
@@ -82,7 +82,7 @@ function safeDate(d: string | undefined | null): string {
 }
 
 // ── Cell renderer ──────────────────────────────────────────────
-function CellContent({ col, p, compact }: { col: ColDef; p: Prospect; compact: boolean }) {
+const CellContent = memo(function CellContent({ col, p, compact }: { col: ColDef; p: Prospect; compact: boolean }) {
   switch (col.key) {
     case 'fullname':
       return (
@@ -133,7 +133,7 @@ function CellContent({ col, p, compact }: { col: ColDef; p: Prospect; compact: b
       return <span className="text-sm text-muted-foreground truncate">{(val as string) || '—'}</span>
     }
   }
-}
+})
 
 // ── Props ──────────────────────────────────────────────────────
 interface ProspectsTableProps {

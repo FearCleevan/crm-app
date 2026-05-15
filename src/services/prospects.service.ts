@@ -11,6 +11,8 @@ export interface ProspectFilters {
   seniority?: string[]
   department?: string[]
   city?: string[]
+  jobtitle?: string[]
+  company?:  string[]
   isactive?: boolean
   employeesizeMin?: number
   employeesizeMax?: number
@@ -21,14 +23,16 @@ export interface ProspectFilters {
 }
 
 export interface FilterOptions {
-  dispositions:  Array<{ disposition_code: string; disposition_name: string }>
+  dispositions: Array<{ disposition_code: string; disposition_name: string }>
   emailStatuses: Array<{ email_code: string; email_name: string }>
-  providers:     Array<{ provider_code: string; provider_name: string }>
-  countries:   string[]
-  industries:  string[]
+  providers: Array<{ provider_code: string; provider_name: string }>
+  countries: string[]
+  industries: string[]
   seniorities: string[]
   departments: string[]
-  cities:      string[]
+  cities: string[]
+  jobtitles: string[]
+  companies: string[]
 }
 
 export interface ProspectSort {
@@ -44,37 +48,52 @@ export interface GetProspectsParams {
   sort?: ProspectSort
 }
 
+// Converts a free-text search string into a prefix tsquery.
+// "john sm" → "john:* & sm:*"
+// Uses the 'simple' dictionary to match the search_vector GIN index.
+function buildTsQuery(term: string): string {
+  return term
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(w => w.replace(/[^a-zA-Z0-9_@.\-]/g, ''))
+    .filter(w => w.length > 0)
+    .map(w => `${w}:*`)
+    .join(' & ')
+}
+
 function applyFilters(
   query: ReturnType<typeof supabase.from>,
   search?: string,
   filters?: ProspectFilters,
 ) {
   if (search?.trim()) {
-    const s = search.trim().replace(/'/g, "''") // escape single quotes
-    const SEARCH_FIELDS = [
-      'fullname','firstname','lastname','email','company',
-      'jobtitle','city','state','country',
-      'altphonenumber','companyphonenumber',
-    ]
-    query = (query as any).or(SEARCH_FIELDS.map(f => `${f}.ilike.%${s}%`).join(','))
+    const tsquery = buildTsQuery(search)
+    if (tsquery) {
+      // textSearch without a type option uses to_tsquery, which accepts
+      // raw tsquery syntax including the ':*' prefix operator.
+      query = (query as any).textSearch('search_vector', tsquery, { config: 'simple' })
+    }
   }
-  if (filters?.status?.length)          query = (query as any).in('status', filters.status)
+  if (filters?.status?.length) query = (query as any).in('status', filters.status)
   if (filters?.dispositioncode?.length) query = (query as any).in('dispositioncode', filters.dispositioncode)
-  if (filters?.providercode?.length)    query = (query as any).in('providercode', filters.providercode)
-  if (filters?.country?.length)         query = (query as any).in('country', filters.country)
-  if (filters?.industry?.length)        query = (query as any).in('industry', filters.industry)
-  if (filters?.emailcode?.length)       query = (query as any).in('emailcode', filters.emailcode)
-  if (filters?.seniority?.length)       query = (query as any).in('seniority', filters.seniority)
-  if (filters?.department?.length)      query = (query as any).in('department', filters.department)
-  if (filters?.city?.length)            query = (query as any).in('city', filters.city)
-  if (filters?.isactive !== undefined)  query = (query as any).eq('isactive', filters.isactive)
+  if (filters?.providercode?.length) query = (query as any).in('providercode', filters.providercode)
+  if (filters?.country?.length) query = (query as any).in('country', filters.country)
+  if (filters?.industry?.length) query = (query as any).in('industry', filters.industry)
+  if (filters?.emailcode?.length) query = (query as any).in('emailcode', filters.emailcode)
+  if (filters?.seniority?.length) query = (query as any).in('seniority', filters.seniority)
+  if (filters?.department?.length) query = (query as any).in('department', filters.department)
+  if (filters?.city?.length) query = (query as any).in('city', filters.city)
+  if (filters?.jobtitle?.length) query = (query as any).in('jobtitle', filters.jobtitle)
+  if (filters?.company?.length) query = (query as any).in('company', filters.company)
+  if (filters?.isactive !== undefined) query = (query as any).eq('isactive', filters.isactive)
   if (filters?.employeesizeMin != null) query = (query as any).gte('employeesize', filters.employeesizeMin)
   if (filters?.employeesizeMax != null) query = (query as any).lte('employeesize', filters.employeesizeMax)
   if (filters?.annualrevenueMin != null) query = (query as any).gte('annualrevenue', filters.annualrevenueMin)
   if (filters?.annualrevenueMax != null) query = (query as any).lte('annualrevenue', filters.annualrevenueMax)
   // dateTo: append end-of-day so the entire selected day is included
   if (filters?.dateFrom) query = (query as any).gte('created_on', `${filters.dateFrom}T00:00:00Z`)
-  if (filters?.dateTo)   query = (query as any).lte('created_on', `${filters.dateTo}T23:59:59Z`)
+  if (filters?.dateTo) query = (query as any).lte('created_on', `${filters.dateTo}T23:59:59Z`)
   return query
 }
 
@@ -182,13 +201,27 @@ export const prospectsService = {
     if (error) throw new Error(error.message)
   },
 
-  async exportProspects(filters?: ProspectFilters, search?: string) {
-    let query = supabase.from('prospects').select('*')
-    query = applyFilters(query as any, search, filters) as any
-    query = (query as any).order('created_on', { ascending: false })
-    const { data, error } = await (query as any)
-    if (error) throw new Error(error.message)
-    return (data ?? []) as ProspectRow[]
+  // Streams the export in chunks of `chunkSize` rows.
+  // Usage: for await (const chunk of prospectsService.exportProspectsChunked(...)) { ... }
+  async *exportProspectsChunked(
+    filters?: ProspectFilters,
+    search?: string,
+    chunkSize = 1000,
+  ): AsyncGenerator<ProspectRow[]> {
+    let page = 0
+    while (true) {
+      let query = supabase.from('prospects').select('*')
+      query = applyFilters(query as any, search, filters) as any
+      query = (query as any).order('created_on', { ascending: false })
+      query = (query as any).range(page * chunkSize, (page + 1) * chunkSize - 1)
+      const { data, error } = await (query as any)
+      if (error) throw new Error(error.message)
+      const rows = (data ?? []) as ProspectRow[]
+      if (rows.length === 0) break
+      yield rows
+      if (rows.length < chunkSize) break
+      page++
+    }
   },
 
   async getLookups() {
@@ -199,9 +232,9 @@ export const prospectsService = {
       supabase.from('prospects_country').select('*').order('country_name'),
       supabase.from('prospects_industry').select('*').order('industry_name'),
     ])
-    if (disp.error)    throw new Error(disp.error.message)
-    if (email.error)   throw new Error(email.error.message)
-    if (prov.error)    throw new Error(prov.error.message)
+    if (disp.error) throw new Error(disp.error.message)
+    if (email.error) throw new Error(email.error.message)
+    if (prov.error) throw new Error(prov.error.message)
     if (country.error) throw new Error(country.error.message)
     if (industry.error) throw new Error(industry.error.message)
     return {
@@ -222,18 +255,25 @@ export const prospectsService = {
     ])
     if (rpcResult.error) throw new Error(rpcResult.error.message)
     const dynamic = (rpcResult.data ?? {}) as {
-      countries?: string[]; industries?: string[]; seniorities?: string[]
-      departments?: string[]; cities?: string[]
+      countries?: string[]
+      industries?: string[]
+      seniorities?: string[]
+      departments?: string[]
+      cities?: string[]
+      jobtitles?: string[]
+      companies?: string[]
     }
     return {
-      dispositions:  (disp.data  ?? []) as FilterOptions['dispositions'],
+      dispositions: (disp.data ?? []) as FilterOptions['dispositions'],
       emailStatuses: (email.data ?? []) as FilterOptions['emailStatuses'],
-      providers:     (prov.data  ?? []) as FilterOptions['providers'],
-      countries:   dynamic.countries   ?? [],
-      industries:  dynamic.industries  ?? [],
+      providers: (prov.data ?? []) as FilterOptions['providers'],
+      countries: dynamic.countries ?? [],
+      industries: dynamic.industries ?? [],
       seniorities: dynamic.seniorities ?? [],
       departments: dynamic.departments ?? [],
-      cities:      dynamic.cities      ?? [],
+      cities: dynamic.cities ?? [],
+      jobtitles: dynamic.jobtitles ?? [],
+      companies: dynamic.companies ?? [],
     }
   },
 }

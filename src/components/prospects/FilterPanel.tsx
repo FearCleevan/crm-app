@@ -5,32 +5,34 @@ import type { FilterOptions } from '@/services/prospects.service'
 
 // ── Filter shape ───────────────────────────────────────────────
 export interface ProspectFilters {
-  status:        string[]
+  status: string[]
   dispositioncode: string[]
-  emailcode:     string[]
-  providercode:  string[]
-  country:       string[]
-  industry:      string[]
-  seniority:     string[]
-  department:    string[]
-  city:          string[]
-  employeesizeMin:  string
-  employeesizeMax:  string
+  emailcode: string[]
+  providercode: string[]
+  country: string[]
+  industry: string[]
+  seniority: string[]
+  department: string[]
+  city: string[]
+  jobtitle: string[]
+  company: string[]
+  employeesizeMin: string
+  employeesizeMax: string
   annualrevenueMin: string
   annualrevenueMax: string
   dateFrom: string
-  dateTo:   string
+  dateTo: string
 }
 
 export const EMPTY_FILTERS: ProspectFilters = {
   status: [], dispositioncode: [], emailcode: [], providercode: [],
-  country: [], industry: [], seniority: [], department: [], city: [],
+  country: [], industry: [], seniority: [], department: [], city: [], jobtitle: [], company: [],
   employeesizeMin: '', employeesizeMax: '',
   annualrevenueMin: '', annualrevenueMax: '',
   dateFrom: '', dateTo: '',
 }
 
-const STATUSES   = ['New', 'Contacted', 'Qualified', 'Closed']
+const STATUSES = ['New', 'Contacted', 'Qualified', 'Closed']
 
 // ── Pill multi-select (short fixed lists) ──────────────────────
 function PillSelect({ label, options, value, onChange }: {
@@ -151,7 +153,7 @@ function SearchableSelect({ label, options, value, onChange, loading }: {
               <div className={cn(
                 'h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors',
                 value.length === options.length ? 'bg-brand-500 border-brand-500' :
-                value.length > 0              ? 'bg-brand-200 border-brand-400' : 'border-input'
+                  value.length > 0 ? 'bg-brand-200 border-brand-400' : 'border-input'
               )}>
                 {value.length > 0 && (
                   <div className={cn(
@@ -276,11 +278,13 @@ export function FilterPanel({ open, onClose, filters, onApply, options, optionsL
   const providerOpts = options.providers.map(p => ({
     value: p.provider_code, label: p.provider_name,
   }))
-  const countryOpts   = options.countries.map(c  => ({ value: c, label: c }))
-  const industryOpts  = options.industries.map(i  => ({ value: i, label: i }))
+  const countryOpts = options.countries.map(c => ({ value: c, label: c }))
+  const industryOpts = options.industries.map(i => ({ value: i, label: i }))
   const seniorityOpts = options.seniorities.map(s => ({ value: s, label: s }))
   const departmentOpts = options.departments.map(d => ({ value: d, label: d }))
-  const cityOpts      = options.cities.map(c => ({ value: c, label: c }))
+  const cityOpts = options.cities.map(c => ({ value: c, label: c }))
+  const jobtitleOpts = (options.jobtitles ?? []).map(t => ({ value: t, label: t }))
+  const companyOpts = (options.companies ?? []).map(c => ({ value: c, label: c }))
 
   const activeCount = Object.entries(draft).reduce((n, [k, v]) => {
     if (k === 'employeesizeMin' || k === 'employeesizeMax' || k === 'annualrevenueMin' || k === 'annualrevenueMax' || k === 'dateFrom' || k === 'dateTo')
@@ -346,6 +350,22 @@ export function FilterPanel({ open, onClose, filters, onApply, options, optionsL
             options={providerOpts}
             value={draft.providercode}
             onChange={v => setMulti('providercode', v)}
+            loading={optionsLoading}
+          />
+
+          <SearchableSelect
+            label="Job Title"
+            options={jobtitleOpts}
+            value={draft.jobtitle}
+            onChange={v => setMulti('jobtitle', v)}
+            loading={optionsLoading}
+          />
+
+          <SearchableSelect
+            label="Company"
+            options={companyOpts}
+            value={draft.company}
+            onChange={v => setMulti('company', v)}
             loading={optionsLoading}
           />
 
@@ -452,19 +472,21 @@ export function FilterChips({ filters, options, onRemove, onClearAll }: {
     vals.forEach(v => chips.push({ key: k, label: labelFn(v), value: v }))
   }
 
-  const dispMap    = Object.fromEntries(options.dispositions.map(d  => [d.disposition_code, d.disposition_name]))
-  const emailMap   = Object.fromEntries(options.emailStatuses.map(e => [e.email_code,       e.email_name]))
-  const provMap    = Object.fromEntries(options.providers.map(p     => [p.provider_code,    p.provider_name]))
+  const dispMap = Object.fromEntries(options.dispositions.map(d => [d.disposition_code, d.disposition_name]))
+  const emailMap = Object.fromEntries(options.emailStatuses.map(e => [e.email_code, e.email_name]))
+  const provMap = Object.fromEntries(options.providers.map(p => [p.provider_code, p.provider_name]))
 
-  addChips('status',          filters.status,          v => `Status: ${v}`)
+  addChips('status', filters.status, v => `Status: ${v}`)
   addChips('dispositioncode', filters.dispositioncode, v => `Disp: ${dispMap[v] ?? v}`)
-  addChips('emailcode',       filters.emailcode,       v => `Email: ${emailMap[v] ?? v}`)
-  addChips('providercode',    filters.providercode,    v => `Provider: ${provMap[v] ?? v}`)
-  addChips('country',         filters.country,         v => `Country: ${v}`)
-  addChips('industry',        filters.industry,        v => `Industry: ${v}`)
-  addChips('seniority',       filters.seniority,       v => `Seniority: ${v}`)
-  addChips('department',      filters.department,      v => `Dept: ${v}`)
-  addChips('city',            filters.city,            v => `City: ${v}`)
+  addChips('emailcode', filters.emailcode, v => `Email: ${emailMap[v] ?? v}`)
+  addChips('providercode', filters.providercode, v => `Provider: ${provMap[v] ?? v}`)
+  addChips('country', filters.country, v => `Country: ${v}`)
+  addChips('industry', filters.industry, v => `Industry: ${v}`)
+  addChips('seniority', filters.seniority, v => `Seniority: ${v}`)
+  addChips('department', filters.department, v => `Dept: ${v}`)
+  addChips('city', filters.city, v => `City: ${v}`)
+  addChips('jobtitle', filters.jobtitle, v => `Job Title: ${v}`)
+  addChips('company', filters.company, v => `Company: ${v}`)
 
   if (filters.employeesizeMin || filters.employeesizeMax)
     chips.push({ key: 'employeesizeMin', label: `Employees: ${filters.employeesizeMin || '0'}–${filters.employeesizeMax || '∞'}` })
