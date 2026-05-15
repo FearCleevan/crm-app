@@ -23,9 +23,11 @@ export interface Prospect {
   createdby: string
   department: string
   seniority: string
+  address: string
+  street?: string
   city: string
   state: string
-  address: string
+  postalcode?: string
   comments: string
   isactive: boolean
 }

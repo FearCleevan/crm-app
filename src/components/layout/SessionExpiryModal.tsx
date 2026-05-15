@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Clock } from 'lucide-react'
 
-const SESSION_MINUTES = 10
+const SESSION_HOURS = 24
 const WARN_BEFORE_MINUTES = 5
-const SESSION_MS   = SESSION_MINUTES * 60_000
-const WARN_AFTER_MS = (SESSION_MINUTES - WARN_BEFORE_MINUTES) * 60_000
+const SESSION_MS   = SESSION_HOURS * 60 * 60_000
+const WARN_AFTER_MS = SESSION_MS - WARN_BEFORE_MINUTES * 60_000
 
 interface SessionExpiryModalProps {
   onStayLoggedIn: () => void

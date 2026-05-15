@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { prospectsService, type ProspectFilters, type ProspectSort } from '@/services/prospects.service'
 import type { ProspectRow } from '@/types/database'
 
@@ -74,5 +74,10 @@ export function useProspects({
     setTotal(t => t - ids.length)
   }, [])
 
-  return { data, total, loading, error, refetch: fetch, create, update, remove, bulkRemove }
+  const bulkUpdateStatus = useCallback(async (ids: number[], status: ProspectRow['status']) => {
+    await prospectsService.bulkUpdateStatus(ids, status)
+    setData(prev => prev.map(p => ids.includes(p.id) ? { ...p, status } : p))
+  }, [])
+
+  return { data, total, loading, error, refetch: fetch, create, update, remove, bulkRemove, bulkUpdateStatus }
 }

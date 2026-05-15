@@ -7,29 +7,32 @@ import { DISPOSITION_CODES, EMAIL_STATUSES, PROVIDERS, INDUSTRIES, COUNTRIES } f
 import type { Prospect } from '@/constants/mockData'
 
 export const prospectSchema = z.object({
-  firstname:       z.string().min(1, 'First name is required'),
-  lastname:        z.string().min(1, 'Last name is required'),
-  jobtitle:        z.string().optional(),
-  company:         z.string().min(1, 'Company is required'),
-  email:           z.string().min(1, 'Email is required').email('Enter a valid email'),
-  emailcode:       z.string().optional(),
-  dispositioncode: z.string().optional(),
-  providercode:    z.string().optional(),
-  status:          z.enum(['New', 'Contacted', 'Qualified', 'Closed']),
-  website:         z.string().optional(),
-  personallinkedin:z.string().optional(),
-  altphonenumber:  z.string().optional(),
+  firstname:          z.string().min(1, 'First name is required'),
+  lastname:           z.string().min(1, 'Last name is required'),
+  jobtitle:           z.string().optional(),
+  company:            z.string().min(1, 'Company is required'),
+  email:              z.string().min(1, 'Email is required').email('Enter a valid email'),
+  emailcode:          z.string().optional(),
+  dispositioncode:    z.string().optional(),
+  providercode:       z.string().optional(),
+  status:             z.enum(['New', 'Contacted', 'Qualified', 'Closed']),
+  website:            z.string().optional(),
+  personallinkedin:   z.string().optional(),
+  companylinkedin:    z.string().optional(),
+  altphonenumber:     z.string().optional(),
   companyphonenumber: z.string().optional(),
-  address:         z.string().optional(),
-  city:            z.string().optional(),
-  state:           z.string().optional(),
-  country:         z.string().optional(),
-  industry:        z.string().optional(),
-  employeesize:    z.coerce.number().min(0).optional(),
-  annualrevenue:   z.coerce.number().min(0).optional(),
-  seniority:       z.string().optional(),
-  department:      z.string().optional(),
-  comments:        z.string().optional(),
+  address:            z.string().optional(),
+  street:             z.string().optional(),
+  city:               z.string().optional(),
+  state:              z.string().optional(),
+  postalcode:         z.string().optional(),
+  country:            z.string().optional(),
+  industry:           z.string().optional(),
+  employeesize:       z.coerce.number().min(0).optional(),
+  annualrevenue:      z.coerce.number().min(0).optional(),
+  seniority:          z.string().optional(),
+  department:         z.string().optional(),
+  comments:           z.string().optional(),
 })
 
 export type ProspectFormValues = z.infer<typeof prospectSchema>
@@ -116,17 +119,33 @@ export function ProspectForm({ defaultValues, onSubmit, onCancel, submitLabel = 
       <Field label="Website">
         <input {...register('website')} placeholder="https://company.com" className={inputCls()} />
       </Field>
-      <Field label="LinkedIn">
-        <input {...register('personallinkedin')} placeholder="https://linkedin.com/in/..." className={inputCls()} />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Personal LinkedIn">
+          <input {...register('personallinkedin')} placeholder="https://linkedin.com/in/..." className={inputCls()} />
+        </Field>
+        <Field label="Company LinkedIn">
+          <input {...register('companylinkedin')} placeholder="https://linkedin.com/company/..." className={inputCls()} />
+        </Field>
+      </div>
 
       {/* Location */}
+      <Field label="Address (full)">
+        <input {...register('address')} placeholder="620 East Blvd Ste 550, Southlake, TX, United States" className={inputCls()} />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Street">
+          <input {...register('street')} placeholder="620 East Boulevard" className={inputCls()} />
+        </Field>
+        <Field label="Postal Code">
+          <input {...register('postalcode')} placeholder="94105" className={inputCls()} />
+        </Field>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="City">
-          <input {...register('city')} placeholder="Sydney" className={inputCls()} />
+          <input {...register('city')} placeholder="San Francisco" className={inputCls()} />
         </Field>
         <Field label="State">
-          <input {...register('state')} placeholder="NSW" className={inputCls()} />
+          <input {...register('state')} placeholder="California" className={inputCls()} />
         </Field>
       </div>
       <Field label="Country">
@@ -152,13 +171,16 @@ export function ProspectForm({ defaultValues, onSubmit, onCancel, submitLabel = 
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
+        <Field label="Department">
+          <input {...register('department')} placeholder="Sales" className={inputCls()} />
+        </Field>
         <Field label="Employee Size">
           <input {...register('employeesize')} type="number" min={0} placeholder="250" className={inputCls()} />
         </Field>
-        <Field label="Annual Revenue ($)">
-          <input {...register('annualrevenue')} type="number" min={0} placeholder="5000000" className={inputCls()} />
-        </Field>
       </div>
+      <Field label="Annual Revenue ($)">
+        <input {...register('annualrevenue')} type="number" min={0} placeholder="5000000" className={inputCls()} />
+      </Field>
       <div className="grid grid-cols-3 gap-3">
         <Field label="Email Status">
           <select {...register('emailcode')} className={selectCls()}>
@@ -204,36 +226,38 @@ export function ProspectForm({ defaultValues, onSubmit, onCancel, submitLabel = 
   )
 }
 
-// Helper: convert form values → Prospect shape
+// Helper kept for backwards compatibility — prefer formToInsert in ProspectsPage
 export function formValuesToProspect(data: ProspectFormValues, userId: string): Omit<Prospect, 'id'> {
   return {
-    fullname: `${data.firstname} ${data.lastname}`,
-    firstname: data.firstname,
-    lastname: data.lastname,
-    jobtitle: data.jobtitle ?? '',
-    company: data.company,
-    website: data.website ?? '',
+    fullname:         `${data.firstname} ${data.lastname}`,
+    firstname:        data.firstname,
+    lastname:         data.lastname,
+    jobtitle:         data.jobtitle ?? '',
+    company:          data.company,
+    website:          data.website ?? '',
     personallinkedin: data.personallinkedin ?? '',
-    companylinkedin: '',
-    altphonenumber: data.altphonenumber ?? '0',
+    companylinkedin:  data.companylinkedin ?? '',
+    altphonenumber:   data.altphonenumber ?? '0',
     companyphonenumber: data.companyphonenumber ?? '0',
-    email: data.email,
-    emailcode: (data.emailcode as Prospect['emailcode']) ?? 'EMA003',
-    dispositioncode: data.dispositioncode ?? 'DIS000',
-    providercode: data.providercode ?? 'PRV005',
-    status: data.status,
-    country: data.country ?? '',
-    industry: data.industry ?? '',
-    employeesize: data.employeesize ?? 0,
-    annualrevenue: data.annualrevenue ?? 0,
-    createdon: new Date().toISOString(),
-    createdby: userId,
-    department: data.department ?? '',
-    seniority: data.seniority ?? '',
-    city: data.city ?? '',
-    state: data.state ?? '',
-    address: data.address ?? '',
-    comments: data.comments ?? '',
-    isactive: true,
+    email:            data.email,
+    emailcode:        (data.emailcode as Prospect['emailcode']) ?? 'EMA003',
+    dispositioncode:  data.dispositioncode ?? 'DIS000',
+    providercode:     data.providercode ?? 'PRV005',
+    status:           data.status,
+    country:          data.country ?? '',
+    industry:         data.industry ?? '',
+    employeesize:     data.employeesize ?? 0,
+    annualrevenue:    data.annualrevenue ?? 0,
+    createdon:        new Date().toISOString(),
+    createdby:        userId,
+    department:       data.department ?? '',
+    seniority:        data.seniority ?? '',
+    address:          data.address ?? '',
+    street:           data.street ?? '',
+    city:             data.city ?? '',
+    state:            data.state ?? '',
+    postalcode:       data.postalcode ?? '',
+    comments:         data.comments ?? '',
+    isactive:         true,
   }
 }

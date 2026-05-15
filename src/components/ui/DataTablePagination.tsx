@@ -14,7 +14,7 @@ export function DataTablePagination({
   page,
   pageSize,
   total,
-  pageSizeOptions = [25, 50, 100],
+  pageSizeOptions = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 20000, 50000, 100000],
   onPageChange,
   onPageSizeChange,
 }: DataTablePaginationProps) {

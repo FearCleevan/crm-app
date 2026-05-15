@@ -110,8 +110,8 @@ type Tab = 'overview' | 'activity' | 'notes' | 'emails' | 'calls'
 interface ProspectDetailSheetProps {
   prospect: Prospect
   onClose: () => void
-  onUpdate: (updated: Prospect) => void
-  onDelete: (id: string) => void
+  onUpdate: (values: ProspectFormValues) => Promise<void>
+  onDelete: () => Promise<void>
 }
 
 export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: ProspectDetailSheetProps) {
@@ -132,43 +132,24 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
 
   async function handleSave(data: ProspectFormValues) {
     setIsSaving(true)
-    await new Promise(r => setTimeout(r, 400))
-    const updated: Prospect = {
-      ...prospect,
-      firstname: data.firstname,
-      lastname:  data.lastname,
-      fullname:  `${data.firstname} ${data.lastname}`,
-      jobtitle:  data.jobtitle ?? prospect.jobtitle,
-      company:   data.company,
-      email:     data.email,
-      emailcode: (data.emailcode as Prospect['emailcode']) ?? prospect.emailcode,
-      dispositioncode: data.dispositioncode ?? prospect.dispositioncode,
-      providercode:    data.providercode ?? prospect.providercode,
-      status:    data.status,
-      website:   data.website ?? prospect.website,
-      personallinkedin: data.personallinkedin ?? prospect.personallinkedin,
-      altphonenumber: data.altphonenumber ?? prospect.altphonenumber,
-      companyphonenumber: data.companyphonenumber ?? prospect.companyphonenumber,
-      city:      data.city ?? prospect.city,
-      state:     data.state ?? prospect.state,
-      country:   data.country ?? prospect.country,
-      industry:  data.industry ?? prospect.industry,
-      employeesize: data.employeesize ?? prospect.employeesize,
-      annualrevenue: data.annualrevenue ?? prospect.annualrevenue,
-      seniority: data.seniority ?? prospect.seniority,
-      department: data.department ?? prospect.department,
-      comments:  data.comments ?? prospect.comments,
+    try {
+      await onUpdate(data)
+      setEditing(false)
+    } catch {
+      toast.error('Failed to save changes')
+    } finally {
+      setIsSaving(false)
     }
-    onUpdate(updated)
-    toast.success('Prospect updated')
-    setEditing(false)
-    setIsSaving(false)
   }
 
-  function handleDelete() {
-    onDelete(prospect.id)
-    toast.success(`${prospect.fullname} deleted`)
-    onClose()
+  async function handleDelete() {
+    try {
+      await onDelete()
+      toast.success(`${prospect.fullname} deleted`)
+    } catch {
+      setConfirmDelete(false)
+      toast.error('Failed to delete prospect')
+    }
   }
 
   function addNote() {
@@ -285,28 +266,32 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
           {editing && (
             <ProspectForm
               defaultValues={{
-                firstname: prospect.firstname,
-                lastname:  prospect.lastname,
-                jobtitle:  prospect.jobtitle,
-                company:   prospect.company,
-                email:     prospect.email,
-                emailcode: prospect.emailcode,
-                dispositioncode: prospect.dispositioncode,
-                providercode:    prospect.providercode,
-                status:    prospect.status,
-                website:   prospect.website,
-                personallinkedin: prospect.personallinkedin,
-                altphonenumber: prospect.altphonenumber,
+                firstname:          prospect.firstname,
+                lastname:           prospect.lastname,
+                jobtitle:           prospect.jobtitle,
+                company:            prospect.company,
+                email:              prospect.email,
+                emailcode:          prospect.emailcode,
+                dispositioncode:    prospect.dispositioncode,
+                providercode:       prospect.providercode,
+                status:             prospect.status,
+                website:            prospect.website,
+                personallinkedin:   prospect.personallinkedin,
+                companylinkedin:    prospect.companylinkedin,
+                altphonenumber:     prospect.altphonenumber,
                 companyphonenumber: prospect.companyphonenumber,
-                city:      prospect.city,
-                state:     prospect.state,
-                country:   prospect.country,
-                industry:  prospect.industry,
-                employeesize: prospect.employeesize,
-                annualrevenue: prospect.annualrevenue,
-                seniority: prospect.seniority,
-                department: prospect.department,
-                comments:  prospect.comments,
+                address:            prospect.address,
+                street:             prospect.street ?? '',
+                city:               prospect.city,
+                state:              prospect.state,
+                postalcode:         prospect.postalcode ?? '',
+                country:            prospect.country,
+                industry:           prospect.industry,
+                employeesize:       prospect.employeesize,
+                annualrevenue:      prospect.annualrevenue,
+                seniority:          prospect.seniority,
+                department:         prospect.department,
+                comments:           prospect.comments,
               }}
               onSubmit={handleSave}
               onCancel={() => setEditing(false)}
@@ -323,7 +308,8 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
                 <InfoRow icon={Mail}     label="Email"     value={prospect.email}     href={`mailto:${prospect.email}`} />
                 <InfoRow icon={Phone}    label="Alt Phone" value={prospect.altphonenumber !== '0' ? prospect.altphonenumber : undefined} />
                 <InfoRow icon={Phone}    label="Company Phone" value={prospect.companyphonenumber !== '0' ? prospect.companyphonenumber : undefined} />
-                <InfoRow icon={ExternalLink} label="LinkedIn"  value={prospect.personallinkedin} href={prospect.personallinkedin} />
+                <InfoRow icon={ExternalLink} label="Personal LinkedIn" value={prospect.personallinkedin} href={prospect.personallinkedin} />
+                <InfoRow icon={ExternalLink} label="Company LinkedIn" value={prospect.companylinkedin} href={prospect.companylinkedin} />
                 <InfoRow icon={Globe}    label="Website"   value={prospect.website}   href={prospect.website} />
               </SectionCard>
 
@@ -333,7 +319,10 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
                 <InfoRow icon={Briefcase} label="Industry"      value={prospect.industry} />
                 <InfoRow icon={User}      label="Employee Size"  value={prospect.employeesize ? prospect.employeesize.toLocaleString() : undefined} />
                 <InfoRow icon={Tag}       label="Annual Revenue" value={prospect.annualrevenue ? `$${prospect.annualrevenue.toLocaleString()}` : undefined} />
-                <InfoRow icon={MapPin}    label="Address"        value={[prospect.address, prospect.city, prospect.state, prospect.country].filter(Boolean).join(', ')} />
+                <InfoRow icon={MapPin}    label="Street"         value={prospect.street} />
+                <InfoRow icon={MapPin}    label="City / State"   value={[prospect.city, prospect.state, prospect.postalcode].filter(Boolean).join(', ')} />
+                <InfoRow icon={MapPin}    label="Country"        value={prospect.country} />
+                <InfoRow icon={MapPin}    label="Full Address"   value={prospect.address} />
               </SectionCard>
 
               {/* CRM info */}

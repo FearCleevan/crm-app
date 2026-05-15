@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
@@ -10,6 +10,7 @@ import { SessionExpiryModal } from './SessionExpiryModal'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { ROUTES } from '@/constants/routes'
+import { supabase } from '@/lib/supabase'
 
 interface AppShellProps {
   user?: {
@@ -27,6 +28,12 @@ function ShellInner({ user, onLogout }: AppShellProps) {
 
   const [notifOpen, setNotifOpen]     = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [sessionKey, setSessionKey]   = useState(0)
+
+  const handleStayLoggedIn = useCallback(async () => {
+    await supabase.auth.refreshSession()
+    setSessionKey(k => k + 1)
+  }, [])
 
   const {
     notifications,
@@ -93,9 +100,10 @@ function ShellInner({ user, onLogout }: AppShellProps) {
       {/* Quick action FAB */}
       <QuickActionFab />
 
-      {/* Session expiry warning */}
+      {/* Session expiry warning — key forces remount (resets timers) when user stays logged in */}
       <SessionExpiryModal
-        onStayLoggedIn={() => {/* session refresh placeholder */}}
+        key={sessionKey}
+        onStayLoggedIn={handleStayLoggedIn}
         onLogout={onLogout ?? (() => {})}
       />
     </div>

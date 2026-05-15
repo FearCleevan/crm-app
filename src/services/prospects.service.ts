@@ -2,13 +2,33 @@ import { supabase } from '@/lib/supabase'
 import type { ProspectRow, ProspectInsert, ProspectUpdate } from '@/types/database'
 
 export interface ProspectFilters {
-  status?: string
-  dispositioncode?: string
-  providercode?: string
-  country?: string
-  industry?: string
+  status?: string[]
+  dispositioncode?: string[]
+  providercode?: string[]
+  country?: string[]
+  industry?: string[]
+  emailcode?: string[]
+  seniority?: string[]
+  department?: string[]
+  city?: string[]
   isactive?: boolean
-  emailcode?: string
+  employeesizeMin?: number
+  employeesizeMax?: number
+  annualrevenueMin?: number
+  annualrevenueMax?: number
+  dateFrom?: string
+  dateTo?: string
+}
+
+export interface FilterOptions {
+  dispositions:  Array<{ disposition_code: string; disposition_name: string }>
+  emailStatuses: Array<{ email_code: string; email_name: string }>
+  providers:     Array<{ provider_code: string; provider_name: string }>
+  countries:   string[]
+  industries:  string[]
+  seniorities: string[]
+  departments: string[]
+  cities:      string[]
 }
 
 export interface ProspectSort {
@@ -30,18 +50,31 @@ function applyFilters(
   filters?: ProspectFilters,
 ) {
   if (search?.trim()) {
-    const s = search.trim()
-    query = (query as any).or(
-      `fullname.ilike.%${s}%,email.ilike.%${s}%,company.ilike.%${s}%`
-    )
+    const s = search.trim().replace(/'/g, "''") // escape single quotes
+    const SEARCH_FIELDS = [
+      'fullname','firstname','lastname','email','company',
+      'jobtitle','city','state','country',
+      'altphonenumber','companyphonenumber',
+    ]
+    query = (query as any).or(SEARCH_FIELDS.map(f => `${f}.ilike.%${s}%`).join(','))
   }
-  if (filters?.status)          query = (query as any).eq('status', filters.status)
-  if (filters?.dispositioncode) query = (query as any).eq('dispositioncode', filters.dispositioncode)
-  if (filters?.providercode)    query = (query as any).eq('providercode', filters.providercode)
-  if (filters?.country)         query = (query as any).eq('country', filters.country)
-  if (filters?.industry)        query = (query as any).eq('industry', filters.industry)
-  if (filters?.emailcode)       query = (query as any).eq('emailcode', filters.emailcode)
-  if (filters?.isactive !== undefined) query = (query as any).eq('isactive', filters.isactive)
+  if (filters?.status?.length)          query = (query as any).in('status', filters.status)
+  if (filters?.dispositioncode?.length) query = (query as any).in('dispositioncode', filters.dispositioncode)
+  if (filters?.providercode?.length)    query = (query as any).in('providercode', filters.providercode)
+  if (filters?.country?.length)         query = (query as any).in('country', filters.country)
+  if (filters?.industry?.length)        query = (query as any).in('industry', filters.industry)
+  if (filters?.emailcode?.length)       query = (query as any).in('emailcode', filters.emailcode)
+  if (filters?.seniority?.length)       query = (query as any).in('seniority', filters.seniority)
+  if (filters?.department?.length)      query = (query as any).in('department', filters.department)
+  if (filters?.city?.length)            query = (query as any).in('city', filters.city)
+  if (filters?.isactive !== undefined)  query = (query as any).eq('isactive', filters.isactive)
+  if (filters?.employeesizeMin != null) query = (query as any).gte('employeesize', filters.employeesizeMin)
+  if (filters?.employeesizeMax != null) query = (query as any).lte('employeesize', filters.employeesizeMax)
+  if (filters?.annualrevenueMin != null) query = (query as any).gte('annualrevenue', filters.annualrevenueMin)
+  if (filters?.annualrevenueMax != null) query = (query as any).lte('annualrevenue', filters.annualrevenueMax)
+  // dateTo: append end-of-day so the entire selected day is included
+  if (filters?.dateFrom) query = (query as any).gte('created_on', `${filters.dateFrom}T00:00:00Z`)
+  if (filters?.dateTo)   query = (query as any).lte('created_on', `${filters.dateTo}T23:59:59Z`)
   return query
 }
 
@@ -106,6 +139,49 @@ export const prospectsService = {
     if (error) throw new Error(error.message)
   },
 
+  async bulkUpdateStatus(ids: number[], status: ProspectRow['status']) {
+    const { error } = await supabase
+      .from('prospects')
+      .update({ status, updated_on: new Date().toISOString() })
+      .in('id', ids)
+    if (error) throw new Error(error.message)
+  },
+
+  async bulkCreateProspects(rows: ProspectInsert[]) {
+    const { error } = await supabase.from('prospects').insert(rows)
+    if (error) throw new Error(error.message)
+  },
+
+  async findByEmails(emails: string[]): Promise<Map<string, ProspectRow>> {
+    if (!emails.length) return new Map()
+    const { data, error } = await supabase
+      .from('prospects')
+      .select('*')
+      .in('email', emails)
+    if (error) throw new Error(error.message)
+    const map = new Map<string, ProspectRow>()
+    for (const row of (data ?? []) as ProspectRow[]) {
+      if (row.email) map.set(row.email.toLowerCase(), row)
+    }
+    return map
+  },
+
+  async bulkOverwriteProspects(rows: Array<ProspectInsert & { id: number }>) {
+    // Upsert by PK — replaces all fields
+    const { error } = await supabase
+      .from('prospects')
+      .upsert(rows, { onConflict: 'id' })
+    if (error) throw new Error(error.message)
+  },
+
+  async bulkMergeProspects(merges: Array<{ id: number } & Partial<ProspectRow>>) {
+    // Upsert by PK with pre-computed merged values
+    const { error } = await supabase
+      .from('prospects')
+      .upsert(merges, { onConflict: 'id' })
+    if (error) throw new Error(error.message)
+  },
+
   async exportProspects(filters?: ProspectFilters, search?: string) {
     let query = supabase.from('prospects').select('*')
     query = applyFilters(query as any, search, filters) as any
@@ -134,6 +210,30 @@ export const prospectsService = {
       providers: prov.data ?? [],
       countries: country.data ?? [],
       industries: industry.data ?? [],
+    }
+  },
+
+  async getFilterOptions(): Promise<FilterOptions> {
+    const [rpcResult, disp, email, prov] = await Promise.all([
+      supabase.rpc('get_prospect_filter_options'),
+      supabase.from('prospects_disposition').select('*').order('disposition_name'),
+      supabase.from('prospects_email_status').select('*').order('email_name'),
+      supabase.from('prospects_provider').select('*').order('provider_name'),
+    ])
+    if (rpcResult.error) throw new Error(rpcResult.error.message)
+    const dynamic = (rpcResult.data ?? {}) as {
+      countries?: string[]; industries?: string[]; seniorities?: string[]
+      departments?: string[]; cities?: string[]
+    }
+    return {
+      dispositions:  (disp.data  ?? []) as FilterOptions['dispositions'],
+      emailStatuses: (email.data ?? []) as FilterOptions['emailStatuses'],
+      providers:     (prov.data  ?? []) as FilterOptions['providers'],
+      countries:   dynamic.countries   ?? [],
+      industries:  dynamic.industries  ?? [],
+      seniorities: dynamic.seniorities ?? [],
+      departments: dynamic.departments ?? [],
+      cities:      dynamic.cities      ?? [],
     }
   },
 }

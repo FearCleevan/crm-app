@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Search, SlidersHorizontal, UserPlus, Upload, Download, FileDown, X } from 'lucide-react'
 import { toast } from 'sonner'
 import Papa from 'papaparse'
@@ -10,78 +10,154 @@ import { FilterPanel, FilterChips, EMPTY_FILTERS, type ProspectFilters } from '@
 import { AddProspectModal } from '@/components/prospects/AddProspectModal'
 import { ImportModal } from '@/components/prospects/ImportModal'
 import { ProspectDetailSheet } from '@/components/prospects/ProspectDetailSheet'
-import { MOCK_PROSPECTS, type Prospect } from '@/constants/mockData'
 import { PermissionGate } from '@/components/auth/PermissionGate'
+import { useProspects } from '@/hooks/useProspects'
+import { useFilterOptions } from '@/hooks/useFilterOptions'
+import { prospectsService } from '@/services/prospects.service'
+import type { ProspectRow, ProspectInsert, ProspectUpdate } from '@/types/database'
+import type { Prospect } from '@/constants/mockData'
+import type { ProspectFormValues } from '@/components/prospects/ProspectForm'
 
-// We store prospects in component state (replaced by Supabase in Backend phase)
-function useProspectsState() {
-  const [prospects, setProspects] = useState<Prospect[]>(MOCK_PROSPECTS)
+// ── Adapters ──────────────────────────────────────────────────
+function rowToProspect(row: ProspectRow): Prospect {
+  return {
+    id:               String(row.id),
+    fullname:         row.fullname ?? '',
+    firstname:        row.firstname ?? '',
+    lastname:         row.lastname ?? '',
+    jobtitle:         row.jobtitle ?? '',
+    company:          row.company ?? '',
+    website:          row.website ?? '',
+    personallinkedin: row.personallinkedin ?? '',
+    companylinkedin:  row.companylinkedin ?? '',
+    altphonenumber:   row.altphonenumber,
+    companyphonenumber: row.companyphonenumber,
+    email:            row.email ?? '',
+    emailcode:        (row.emailcode as Prospect['emailcode']) ?? 'EMA000',
+    dispositioncode:  row.dispositioncode ?? '',
+    providercode:     row.providercode ?? '',
+    status:           row.status,
+    country:          row.country ?? '',
+    industry:         row.industry ?? '',
+    employeesize:     row.employeesize,
+    annualrevenue:    row.annualrevenue,
+    createdon:        row.created_on,
+    createdby:        row.created_by ?? '',
+    department:       row.department ?? '',
+    seniority:        row.seniority ?? '',
+    address:          row.address ?? '',
+    street:           row.street ?? '',
+    city:             row.city ?? '',
+    state:            row.state ?? '',
+    postalcode:       row.postalcode ?? '',
+    comments:         row.comments ?? '',
+    isactive:         row.isactive,
+  }
+}
 
-  const addProspect = useCallback((p: Prospect) => {
-    setProspects(prev => [p, ...prev])
-  }, [])
+function formToInsert(values: ProspectFormValues, userId: string): ProspectInsert {
+  return {
+    firstname:          values.firstname,
+    lastname:           values.lastname,
+    fullname:           `${values.firstname} ${values.lastname}`.trim(),
+    jobtitle:           values.jobtitle ?? '',
+    company:            values.company,
+    email:              values.email,
+    emailcode:          values.emailcode ?? null,
+    dispositioncode:    values.dispositioncode ?? null,
+    providercode:       values.providercode ?? null,
+    status:             values.status,
+    website:            values.website ?? null,
+    personallinkedin:   values.personallinkedin ?? null,
+    companylinkedin:    values.companylinkedin ?? null,
+    altphonenumber:     values.altphonenumber ?? '',
+    companyphonenumber: values.companyphonenumber ?? '',
+    address:            values.address ?? null,
+    street:             values.street ?? null,
+    city:               values.city ?? null,
+    state:              values.state ?? null,
+    postalcode:         values.postalcode ?? null,
+    country:            values.country ?? null,
+    annualrevenue:      values.annualrevenue ?? 0,
+    industry:           values.industry ?? null,
+    employeesize:       values.employeesize ?? 0,
+    siccode:            0,
+    naicscode:          0,
+    comments:           values.comments ?? null,
+    isactive:           true,
+    department:         values.department ?? null,
+    seniority:          values.seniority ?? null,
+    created_by:         userId,
+    updated_by:         null,
+  }
+}
 
-  const addMany = useCallback((ps: Prospect[]) => {
-    setProspects(prev => [...ps, ...prev])
-  }, [])
+function formToUpdate(values: ProspectFormValues, userId: string): ProspectUpdate {
+  return {
+    firstname:          values.firstname,
+    lastname:           values.lastname,
+    fullname:           `${values.firstname} ${values.lastname}`.trim(),
+    jobtitle:           values.jobtitle ?? '',
+    company:            values.company,
+    email:              values.email,
+    emailcode:          values.emailcode ?? null,
+    dispositioncode:    values.dispositioncode ?? null,
+    providercode:       values.providercode ?? null,
+    status:             values.status,
+    website:            values.website ?? null,
+    personallinkedin:   values.personallinkedin ?? null,
+    companylinkedin:    values.companylinkedin ?? null,
+    altphonenumber:     values.altphonenumber ?? '',
+    companyphonenumber: values.companyphonenumber ?? '',
+    address:            values.address ?? null,
+    street:             values.street ?? null,
+    city:               values.city ?? null,
+    state:              values.state ?? null,
+    postalcode:         values.postalcode ?? null,
+    country:            values.country ?? null,
+    annualrevenue:      values.annualrevenue ?? 0,
+    industry:           values.industry ?? null,
+    employeesize:       values.employeesize ?? 0,
+    comments:           values.comments ?? null,
+    department:         values.department ?? null,
+    seniority:          values.seniority ?? null,
+    updated_by:         userId,
+  }
+}
 
-  const updateOne = useCallback((updated: Prospect) => {
-    setProspects(prev => prev.map(p => p.id === updated.id ? updated : p))
-  }, [])
+// ── Filter conversion ─────────────────────────────────────────
+function uiFiltersToService(f: ProspectFilters) {
+  return {
+    status:           f.status.length          ? f.status          : undefined,
+    dispositioncode:  f.dispositioncode.length ? f.dispositioncode : undefined,
+    emailcode:        f.emailcode.length       ? f.emailcode       : undefined,
+    providercode:     f.providercode.length    ? f.providercode    : undefined,
+    country:          f.country.length         ? f.country         : undefined,
+    industry:         f.industry.length        ? f.industry        : undefined,
+    seniority:        f.seniority.length       ? f.seniority       : undefined,
+    department:       f.department.length      ? f.department      : undefined,
+    city:             f.city.length            ? f.city            : undefined,
+    employeesizeMin:  f.employeesizeMin  ? Number(f.employeesizeMin)  : undefined,
+    employeesizeMax:  f.employeesizeMax  ? Number(f.employeesizeMax)  : undefined,
+    annualrevenueMin: f.annualrevenueMin ? Number(f.annualrevenueMin) : undefined,
+    annualrevenueMax: f.annualrevenueMax ? Number(f.annualrevenueMax) : undefined,
+    dateFrom:         f.dateFrom || undefined,
+    dateTo:           f.dateTo   || undefined,
+  }
+}
 
-  const deleteOne = useCallback((id: string) => {
-    setProspects(prev => prev.filter(p => p.id !== id))
-    toast.success('Prospect deleted')
-  }, [])
-
-  const bulkDelete = useCallback((ids: string[]) => {
-    setProspects(prev => prev.filter(p => !ids.includes(p.id)))
-    toast.success(`${ids.length} prospects deleted`)
-  }, [])
-
-  const bulkStatusChange = useCallback((ids: string[], status: Prospect['status']) => {
-    setProspects(prev => prev.map(p => ids.includes(p.id) ? { ...p, status } : p))
-    toast.success(`${ids.length} prospects updated to "${status}"`)
-  }, [])
-
-  return { prospects, addProspect, addMany, updateOne, deleteOne, bulkDelete, bulkStatusChange }
+const SORT_KEY_MAP: Record<string, string> = {
+  createdon: 'created_on',
+  createdby: 'created_by',
 }
 
 function useDebounce<T>(value: T, delay = 300): T {
   const [debounced, setDebounced] = useState(value)
-  useState(() => {
+  useEffect(() => {
     const t = setTimeout(() => setDebounced(value), delay)
     return () => clearTimeout(t)
-  })
+  }, [value, delay])
   return debounced
-}
-
-function applyFilters(prospects: Prospect[], search: string, filters: ProspectFilters): Prospect[] {
-  let result = prospects
-
-  if (search.trim()) {
-    const q = search.toLowerCase()
-    result = result.filter(p =>
-      p.fullname.toLowerCase().includes(q) ||
-      p.email.toLowerCase().includes(q) ||
-      p.company.toLowerCase().includes(q)
-    )
-  }
-
-  if (filters.status.length)        result = result.filter(p => filters.status.includes(p.status))
-  if (filters.dispositioncode.length) result = result.filter(p => filters.dispositioncode.includes(p.dispositioncode))
-  if (filters.emailcode.length)      result = result.filter(p => filters.emailcode.includes(p.emailcode))
-  if (filters.providercode.length)   result = result.filter(p => filters.providercode.includes(p.providercode))
-  if (filters.country.length)        result = result.filter(p => filters.country.includes(p.country))
-  if (filters.industry.length)       result = result.filter(p => filters.industry.includes(p.industry))
-  if (filters.seniority.length)      result = result.filter(p => filters.seniority.includes(p.seniority))
-
-  if (filters.employeesizeMin) result = result.filter(p => p.employeesize >= Number(filters.employeesizeMin))
-  if (filters.employeesizeMax) result = result.filter(p => p.employeesize <= Number(filters.employeesizeMax))
-  if (filters.annualrevenueMin) result = result.filter(p => p.annualrevenue >= Number(filters.annualrevenueMin))
-  if (filters.annualrevenueMax) result = result.filter(p => p.annualrevenue <= Number(filters.annualrevenueMax))
-
-  return result
 }
 
 function hasActiveFilters(f: ProspectFilters) {
@@ -90,18 +166,56 @@ function hasActiveFilters(f: ProspectFilters) {
 
 export function ProspectsPage() {
   const { user } = useAuth()
-  const { prospects, addProspect, addMany, updateOne, deleteOne, bulkDelete, bulkStatusChange } = useProspectsState()
+  const { options: filterOptions, loading: filterOptionsLoading } = useFilterOptions()
 
+  // ── Pagination & sort (server-side) ───────────────────────
+  const [page, setPage]         = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [sortKey, setSortKey]   = useState<keyof Prospect>('createdon')
+  const [sortDir, setSortDir]   = useState<'asc' | 'desc'>('desc')
+
+  // ── Search & filters ──────────────────────────────────────
   const [searchInput, setSearchInput] = useState('')
   const search = useDebounce(searchInput, 250)
   const [filters, setFilters] = useState<ProspectFilters>(EMPTY_FILTERS)
-  const [filterOpen, setFilterOpen] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [detailProspect, setDetailProspect] = useState<Prospect | null>(null)
 
-  const filtered = useMemo(() => applyFilters(prospects, search, filters), [prospects, search, filters])
-  const activeFilterCount = Object.values(filters).reduce<number>((n, v) => n + (Array.isArray(v) ? v.length : v ? 1 : 0), 0)
+  const serviceFilters = useMemo(() => uiFiltersToService(filters), [filters])
+
+  const { data, total, loading, refetch, create, update, remove, bulkRemove, bulkUpdateStatus } =
+    useProspects({
+      page,
+      limit: pageSize,
+      search,
+      filters: serviceFilters,
+      sort: { column: SORT_KEY_MAP[sortKey as string] ?? sortKey, ascending: sortDir === 'asc' },
+    })
+
+  const prospects = useMemo(() => data.map(rowToProspect), [data])
+
+  // ── UI state ──────────────────────────────────────────────
+  const [filterOpen, setFilterOpen]     = useState(false)
+  const [addOpen, setAddOpen]           = useState(false)
+  const [importOpen, setImportOpen]     = useState(false)
+  const [detailRow, setDetailRow]       = useState<ProspectRow | null>(null)
+
+  const detailProspect = detailRow ? rowToProspect(detailRow) : null
+
+  const activeFilterCount = Object.values(filters).reduce<number>(
+    (n, v) => n + (Array.isArray(v) ? v.length : v ? 1 : 0), 0
+  )
+
+  // ── Handlers ──────────────────────────────────────────────
+  function handleSort(key: keyof Prospect, dir: 'asc' | 'desc') {
+    setSortKey(key); setSortDir(dir); setPage(1)
+  }
+
+  function handleSearchChange(value: string) {
+    setSearchInput(value); setPage(1)
+  }
+
+  function handleApplyFilters(f: ProspectFilters) {
+    setFilters(f); setPage(1)
+  }
 
   function removeFilterChip(key: keyof ProspectFilters, value?: string) {
     setFilters(prev => {
@@ -111,24 +225,148 @@ export function ProspectsPage() {
       }
       return { ...prev, [key]: Array.isArray(current) ? [] : '' }
     })
+    setPage(1)
+  }
+
+  const handleAdd = useCallback(async (values: ProspectFormValues) => {
+    const created = await create(formToInsert(values, user?.id ?? ''))
+    toast.success(`${created.fullname ?? 'Prospect'} added successfully`)
+  }, [create, user])
+
+  const handleMergeFromAdd = useCallback(async (existingId: number, values: ProspectFormValues) => {
+    const existing = await prospectsService.getProspect(existingId)
+    const b = <T,>(e: T, i: T): T => (e !== null && e !== undefined && e !== '' && e !== 0 ? e : i)
+    const mergedUpdate: ProspectUpdate = {
+      firstname:          b(existing.firstname,        values.firstname),
+      lastname:           b(existing.lastname,         values.lastname),
+      fullname:           b(existing.fullname,         `${values.firstname} ${values.lastname}`.trim()),
+      jobtitle:           b(existing.jobtitle,         values.jobtitle ?? ''),
+      company:            b(existing.company,          values.company),
+      email:              b(existing.email,            values.email),
+      emailcode:          b(existing.emailcode,        values.emailcode ?? null),
+      dispositioncode:    b(existing.dispositioncode,  values.dispositioncode ?? null),
+      providercode:       b(existing.providercode,     values.providercode ?? null),
+      status:             b(existing.status,           values.status),
+      website:            b(existing.website,          values.website ?? null),
+      personallinkedin:   b(existing.personallinkedin, values.personallinkedin ?? null),
+      companylinkedin:    b(existing.companylinkedin,  values.companylinkedin ?? null),
+      altphonenumber:     b(existing.altphonenumber,   values.altphonenumber ?? ''),
+      companyphonenumber: b(existing.companyphonenumber, values.companyphonenumber ?? ''),
+      address:            b(existing.address,          values.address ?? null),
+      street:             b(existing.street,           values.street ?? null),
+      city:               b(existing.city,             values.city ?? null),
+      state:              b(existing.state,            values.state ?? null),
+      postalcode:         b(existing.postalcode,       values.postalcode ?? null),
+      country:            b(existing.country,          values.country ?? null),
+      annualrevenue:      b(existing.annualrevenue,    values.annualrevenue ?? 0),
+      industry:           b(existing.industry,         values.industry ?? null),
+      employeesize:       b(existing.employeesize,     values.employeesize ?? 0),
+      comments:           b(existing.comments,         values.comments ?? null),
+      department:         b(existing.department,       values.department ?? null),
+      seniority:          b(existing.seniority,        values.seniority ?? null),
+      updated_by:         user?.id ?? null,
+    }
+    await update(existingId, mergedUpdate)
+    toast.success(`Merged into ${existing.fullname ?? 'existing prospect'} successfully`)
+  }, [update, user])
+
+  const handleDelete = useCallback(async (id: string) => {
+    await remove(Number(id))
+    toast.success('Prospect deleted')
+  }, [remove])
+
+  const handleBulkDelete = useCallback(async (ids: string[]) => {
+    await bulkRemove(ids.map(Number))
+    toast.success(`${ids.length} prospects deleted`)
+  }, [bulkRemove])
+
+  const handleBulkStatusChange = useCallback(async (ids: string[], status: Prospect['status']) => {
+    await bulkUpdateStatus(ids.map(Number), status)
+    toast.success(`${ids.length} prospects updated to "${status}"`)
+  }, [bulkUpdateStatus])
+
+  const handleDetailUpdate = useCallback(async (values: ProspectFormValues) => {
+    if (!detailRow) return
+    const updated = await update(detailRow.id, formToUpdate(values, user?.id ?? ''))
+    setDetailRow(updated)
+    toast.success('Prospect updated')
+  }, [detailRow, update, user])
+
+  const handleDetailDelete = useCallback(async () => {
+    if (!detailRow) return
+    await remove(detailRow.id)
+    toast.success(`${detailRow.fullname ?? 'Prospect'} deleted`)
+    setDetailRow(null)
+  }, [detailRow, remove])
+
+  // ── Export ────────────────────────────────────────────────
+  // Exact company column order
+  const CSV_HEADERS = [
+    'Fullname','Firstname','Lastname','Jobtitle','Company','Website',
+    'Personallinkedin','Companylinkedin','Altphonenumber','Companyphonenumber',
+    'Email','Emailcode','Address','Street','City','State','Postalcode','Country',
+    'Annualrevenue','Industry','Employeesize','Siccode','Naicscode',
+    'Dispositioncode','Providercode','Comments','Department','Seniority','Status','CreatedOn',
+  ]
+
+  async function exportCSV() {
+    try {
+      const rows = await prospectsService.exportProspects(serviceFilters, search)
+      const csv = Papa.unparse(rows.map(p => ({
+        Fullname:         p.fullname ?? '',
+        Firstname:        p.firstname ?? '',
+        Lastname:         p.lastname ?? '',
+        Jobtitle:         p.jobtitle ?? '',
+        Company:          p.company ?? '',
+        Website:          p.website ?? '',
+        Personallinkedin: p.personallinkedin ?? '',
+        Companylinkedin:  p.companylinkedin ?? '',
+        Altphonenumber:   p.altphonenumber,
+        Companyphonenumber: p.companyphonenumber,
+        Email:            p.email ?? '',
+        Emailcode:        p.emailcode ?? '',
+        Address:          p.address ?? '',
+        Street:           p.street ?? '',
+        City:             p.city ?? '',
+        State:            p.state ?? '',
+        Postalcode:       p.postalcode ?? '',
+        Country:          p.country ?? '',
+        Annualrevenue:    p.annualrevenue,
+        Industry:         p.industry ?? '',
+        Employeesize:     p.employeesize,
+        Siccode:          p.siccode,
+        Naicscode:        p.naicscode,
+        Dispositioncode:  p.dispositioncode ?? '',
+        Providercode:     p.providercode ?? '',
+        Comments:         p.comments ?? '',
+        Department:       p.department ?? '',
+        Seniority:        p.seniority ?? '',
+        Status:           p.status,
+        CreatedOn:        p.created_on,
+      })))
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `prospects-${Date.now()}.csv`; a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`Exported ${rows.length} records`)
+    } catch {
+      toast.error('Export failed')
+    }
   }
 
   function downloadTemplate() {
-    const headers = [
-      'Full Name', 'First Name', 'Last Name', 'Email', 'Job Title', 'Company', 'Website',
-      'Personal LinkedIn', 'Company LinkedIn', 'Alt Phone', 'Company Phone',
-      'Status', 'Email Status', 'Disposition', 'Provider Code', 'Country', 'Industry',
-      'Employee Size', 'Annual Revenue', 'Department', 'Seniority', 'City', 'State',
-      'Address', 'Comments',
-    ]
-    const sample = [
-      'John Smith', 'John', 'Smith', 'john.smith@example.com', 'VP of Sales', 'Acme Corp', 'https://acme.com',
-      'https://linkedin.com/in/johnsmith', 'https://linkedin.com/company/acme', '+1 555 0101', '+1 555 0100',
-      'New', 'EMA000', 'DIS000', 'PRV000', 'United States', 'Technology',
-      '500', '5000000', 'Sales', 'VP', 'San Francisco', 'CA',
-      '123 Market St', 'Sample prospect — replace with real data',
-    ]
-    const csv = Papa.unparse({ fields: headers, data: [sample] })
+    const sample = [[
+      'John Smith','John','Smith','VP of Sales','Acme Corp','acme.com',
+      'https://linkedin.com/in/johnsmith','https://linkedin.com/company/acme',
+      '601.555.1234','210.555.1234',
+      'john.smith@acme.com','',
+      '123 Market St, San Francisco, CA, United States','123 Market St',
+      'San Francisco','California','94105','United States',
+      '5000000','Technology','500','0','0',
+      '','','','Sales','VP','New',new Date().toISOString(),
+    ]]
+    const csv = Papa.unparse({ fields: CSV_HEADERS, data: sample })
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -137,26 +375,11 @@ export function ProspectsPage() {
     toast.success('Template CSV downloaded')
   }
 
-  function exportCSV() {
-    const csv = Papa.unparse(filtered.map(p => ({
-      'Full Name': p.fullname, 'Email': p.email, 'Job Title': p.jobtitle,
-      'Company': p.company, 'Status': p.status, 'Email Status': p.emailcode,
-      'Disposition': p.dispositioncode, 'Country': p.country, 'Industry': p.industry,
-      'Created': p.createdon,
-    })))
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = `prospects-${Date.now()}.csv`; a.click()
-    URL.revokeObjectURL(url)
-    toast.success(`Exported ${filtered.length} records`)
-  }
-
   return (
     <>
       <TopbarSlot>
         <div className="hidden md:flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{prospects.length.toLocaleString()} total</span>
+          <span className="text-xs text-muted-foreground">{total.toLocaleString()} total</span>
         </div>
       </TopbarSlot>
 
@@ -170,12 +393,12 @@ export function ProspectsPage() {
               <input
                 type="search"
                 value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
+                onChange={e => handleSearchChange(e.target.value)}
                 placeholder="Search name, email, company…"
                 className="w-full h-9 pl-9 pr-9 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
               />
               {searchInput && (
-                <button type="button" aria-label="Clear search" onClick={() => setSearchInput('')}
+                <button type="button" aria-label="Clear search" onClick={() => handleSearchChange('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -195,21 +418,18 @@ export function ProspectsPage() {
             </button>
 
             <div className="ml-auto flex items-center gap-2">
-              {/* Download Template */}
               <button type="button" onClick={downloadTemplate}
                 className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
                 <FileDown className="h-4 w-4" />
                 Template CSV
               </button>
 
-              {/* Export */}
               <button type="button" onClick={exportCSV}
                 className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
                 <Download className="h-4 w-4" />
                 Export
               </button>
 
-              {/* Import */}
               <PermissionGate permission="leads_import">
                 <button type="button" onClick={() => setImportOpen(true)}
                   className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
@@ -218,7 +438,6 @@ export function ProspectsPage() {
                 </button>
               </PermissionGate>
 
-              {/* Add Prospect */}
               <PermissionGate permission="leads_create">
                 <button type="button" onClick={() => setAddOpen(true)}
                   className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors">
@@ -233,8 +452,9 @@ export function ProspectsPage() {
           {hasActiveFilters(filters) && (
             <FilterChips
               filters={filters}
+              options={filterOptions}
               onRemove={removeFilterChip}
-              onClearAll={() => setFilters(EMPTY_FILTERS)}
+              onClearAll={() => { setFilters(EMPTY_FILTERS); setPage(1) }}
             />
           )}
         </div>
@@ -242,11 +462,23 @@ export function ProspectsPage() {
         {/* Table */}
         <div className="flex-1 min-h-0 flex flex-col">
           <ProspectsTable
-            prospects={filtered}
-            onRowClick={setDetailProspect}
-            onDelete={deleteOne}
-            onBulkDelete={bulkDelete}
-            onBulkStatusChange={bulkStatusChange}
+            prospects={prospects}
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onPageChange={setPage}
+            onPageSizeChange={s => { setPageSize(s); setPage(1) }}
+            onSort={handleSort}
+            onRowClick={p => {
+              const row = data.find(r => r.id === Number(p.id))
+              if (row) setDetailRow(row)
+            }}
+            onDelete={handleDelete}
+            onBulkDelete={handleBulkDelete}
+            onBulkStatusChange={handleBulkStatusChange}
+            isLoading={loading}
           />
         </div>
       </PageWrapper>
@@ -256,32 +488,33 @@ export function ProspectsPage() {
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         filters={filters}
-        onApply={setFilters}
+        onApply={handleApplyFilters}
+        options={filterOptions}
+        optionsLoading={filterOptionsLoading}
       />
 
       <AddProspectModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onAdd={addProspect}
-        userId={user?.id ?? 'usr-001'}
+        onAdd={handleAdd}
+        onMerge={handleMergeFromAdd}
       />
 
       <ImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        onImported={addMany}
-        userId={user?.id ?? 'usr-001'}
+        onImported={refetch}
+        userId={user?.id ?? ''}
       />
 
-      {detailProspect && (
+      {detailProspect && detailRow && (
         <ProspectDetailSheet
           prospect={detailProspect}
-          onClose={() => setDetailProspect(null)}
-          onUpdate={p => { updateOne(p); setDetailProspect(p) }}
-          onDelete={id => { deleteOne(id); setDetailProspect(null) }}
+          onClose={() => setDetailRow(null)}
+          onUpdate={handleDetailUpdate}
+          onDelete={handleDetailDelete}
         />
       )}
-
     </>
   )
 }
