@@ -309,7 +309,7 @@ export function FilterPanel({ open, onClose, filters, onApply, options, optionsL
               </span>
             )}
           </div>
-          <button type="button" onClick={onClose}
+          <button type="button" onClick={onClose} aria-label="Close filters" title="Close filters"
             className="h-7 w-7 rounded-lg hover:bg-accent flex items-center justify-center transition-colors">
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -482,6 +482,7 @@ export function FilterChips({ filters, options, onRemove, onClearAll }: {
           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-xs font-medium">
           {c.label}
           <button type="button" onClick={() => onRemove(c.key, c.value)}
+            aria-label={`Remove ${c.label}`} title={`Remove ${c.label}`}
             className="hover:text-brand-900 dark:hover:text-brand-100 transition-colors">
             <X className="h-3 w-3" />
           </button>
