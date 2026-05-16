@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import {
-  DndContext, DragOverlay, closestCorners,
+  DndContext, DragOverlay, closestCorners, useDroppable,
   type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -44,6 +44,60 @@ const STAGE_DOT: Record<Deal['stage'], string> = {
   'Closed Lost':   'bg-rose-500',
 }
 
+// Each column is its own droppable so cards can be dropped onto empty columns
+function StageColumn({ stage, deals, users, onCardClick }: {
+  stage: Deal['stage']
+  deals: Deal[]
+  users: CRMUserRow[]
+  onCardClick: (deal: Deal) => void
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage })
+  const totalValue = deals.reduce((s, d) => s + d.value, 0)
+
+  return (
+    <div className={cn('flex flex-col w-64 shrink-0 rounded-xl border transition-colors', STAGE_COLORS[stage])}>
+      {/* Column header */}
+      <div className="px-3 pt-3 pb-2 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className={cn('h-2 w-2 rounded-full shrink-0', STAGE_DOT[stage])} />
+          <span className={cn('text-xs font-bold uppercase tracking-wide truncate', STAGE_HEADER_COLORS[stage])}>
+            {stage}
+          </span>
+          <span className="ml-auto h-5 min-w-5 rounded-full bg-background/70 dark:bg-background/40 text-[10px] font-semibold text-foreground px-1.5 flex items-center justify-center border border-border/50">
+            {deals.length}
+          </span>
+        </div>
+        {totalValue > 0 && (
+          <p className="text-xs text-muted-foreground mt-1 pl-4">${totalValue.toLocaleString()}</p>
+        )}
+      </div>
+
+      {/* Cards — droppable area */}
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'flex-1 overflow-y-auto px-2 pb-2 space-y-2 min-h-[80px] rounded-b-xl transition-colors',
+          isOver && 'bg-black/5 dark:bg-white/5',
+        )}
+      >
+        <SortableContext items={deals.map(d => d.id)} strategy={verticalListSortingStrategy}>
+          {deals.map(deal => (
+            <DealCard key={deal.id} deal={deal} users={users} onClick={onCardClick} />
+          ))}
+        </SortableContext>
+        {deals.length === 0 && (
+          <div className={cn(
+            'h-16 flex items-center justify-center rounded-lg border-2 border-dashed transition-colors',
+            isOver ? 'border-brand-400 dark:border-brand-500' : 'border-border/50',
+          )}>
+            <p className="text-xs text-muted-foreground/60">Drop here</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface PipelineBoardProps {
   deals: Deal[]
   users: CRMUserRow[]
@@ -66,44 +120,15 @@ export function PipelineBoard({ deals, users, activeId, onDragStart, onDragEnd, 
   return (
     <DndContext collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="flex gap-3 h-full min-w-max px-6 pb-6 pt-4">
-        {PIPELINE_STAGES.map(stage => {
-          const stageDeals = byStage[stage] ?? []
-          const totalValue = stageDeals.reduce((s, d) => s + d.value, 0)
-
-          return (
-            <div key={stage} className={cn('flex flex-col w-64 shrink-0 rounded-xl border', STAGE_COLORS[stage])}>
-              {/* Column header */}
-              <div className="px-3 pt-3 pb-2 shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className={cn('h-2 w-2 rounded-full shrink-0', STAGE_DOT[stage])} />
-                  <span className={cn('text-xs font-bold uppercase tracking-wide truncate', STAGE_HEADER_COLORS[stage])}>
-                    {stage}
-                  </span>
-                  <span className="ml-auto h-5 min-w-5 rounded-full bg-background/70 dark:bg-background/40 text-[10px] font-semibold text-foreground px-1.5 flex items-center justify-center border border-border/50">
-                    {stageDeals.length}
-                  </span>
-                </div>
-                {totalValue > 0 && (
-                  <p className="text-xs text-muted-foreground mt-1 pl-4">${totalValue.toLocaleString()}</p>
-                )}
-              </div>
-
-              {/* Cards */}
-              <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-2 min-h-[60px]">
-                <SortableContext items={stageDeals.map(d => d.id)} strategy={verticalListSortingStrategy}>
-                  {stageDeals.map(deal => (
-                    <DealCard key={deal.id} deal={deal} users={users} onClick={onCardClick} />
-                  ))}
-                </SortableContext>
-                {stageDeals.length === 0 && (
-                  <div className="h-16 flex items-center justify-center rounded-lg border-2 border-dashed border-border/50">
-                    <p className="text-xs text-muted-foreground/60">Drop here</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
+        {PIPELINE_STAGES.map(stage => (
+          <StageColumn
+            key={stage}
+            stage={stage}
+            deals={byStage[stage] ?? []}
+            users={users}
+            onCardClick={onCardClick}
+          />
+        ))}
       </div>
 
       {createPortal(

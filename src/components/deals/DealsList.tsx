@@ -109,7 +109,7 @@ export function DealsList({ deals, users, onRowClick, onDelete }: DealsListProps
                     {assignee && (
                       <div className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[9px] font-bold text-brand-700 dark:text-brand-300 shrink-0">
-                          {assignee.first_name[0]}{assignee.last_name[0]}
+                          {assignee.first_name?.[0]}{assignee.last_name?.[0]}
                         </div>
                         <span className="text-xs text-muted-foreground truncate max-w-[80px]">{assignee.first_name}</span>
                       </div>

@@ -80,7 +80,7 @@ export function DealCard({ deal, users, onClick, overlay = false }: DealCardProp
           {assignee && (
             <div className="flex items-center gap-1.5">
               <div className="h-5 w-5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[9px] font-bold text-brand-700 dark:text-brand-300 shrink-0">
-                {assignee.first_name[0]}{assignee.last_name[0]}
+                {assignee.first_name?.[0]}{assignee.last_name?.[0]}
               </div>
               <span className="text-xs text-muted-foreground truncate">{assignee.first_name} {assignee.last_name}</span>
             </div>
