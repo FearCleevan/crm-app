@@ -48,7 +48,7 @@ function NoteFormModal({ open, initial, onClose, onSaved, currentUserId }: NoteF
     setTitle(initial?.title ?? '')
     setDescription(initial?.description ?? '')
     setDealId(initial?.deal_id ?? '')
-    setProspectId(initial?.prospect_id ?? '')
+    setProspectId(initial?.prospect_id != null ? String(initial.prospect_id) : '')
     setErrors({})
 
     async function loadOptions() {
@@ -86,7 +86,7 @@ function NoteFormModal({ open, initial, onClose, onSaved, currentUserId }: NoteF
           title:       title.trim(),
           description: description.trim(),
           deal_id:     dealId || null,
-          prospect_id: prospectId || null,
+          prospect_id: prospectId ? Number(prospectId) : null,
           created_by:  currentUserId,
         })
         toast.success('Note created')
