@@ -8,6 +8,7 @@ import { NotificationPanel, useNotifications } from '@/components/notifications/
 import { CommandPalette } from '@/components/search/CommandPalette'
 import { QuickActionFab } from './QuickActionFab'
 import { SessionExpiryModal } from './SessionExpiryModal'
+import { ForcePasswordModal } from '@/components/auth/ForcePasswordModal'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { ROUTES } from '@/constants/routes'
@@ -115,6 +116,9 @@ function ShellInner({ user, onLogout }: AppShellProps) {
         onStayLoggedIn={handleStayLoggedIn}
         onLogout={onLogout ?? (() => {})}
       />
+
+      {/* Force invited users to create a password before using the app */}
+      <ForcePasswordModal />
     </div>
   )
 }

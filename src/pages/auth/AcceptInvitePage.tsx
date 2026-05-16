@@ -1,114 +1,69 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Eye, EyeOff, Loader2, CheckCircle2, AlertCircle, KeyRound } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { Link, Navigate, useLocation } from 'react-router-dom'
+import { Loader2, AlertCircle, KeyRound } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/constants/routes'
 
-const schema = z.object({
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string().min(1, 'Please confirm your password'),
-}).refine(d => d.password === d.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-})
-
-type FormValues = z.infer<typeof schema>
-
-type PageStatus = 'loading' | 'form' | 'success' | 'error'
-
 export function AcceptInvitePage() {
   const { theme, toggleTheme } = useTheme()
+  const { isAuthenticated, isLoading } = useAuth()
 
-  // React Router stores the initial hash in its own internal state when the route is matched.
-  // Supabase's history.replaceState() (which clears the URL hash) does NOT fire a popstate
-  // event, so React Router's location is never updated — location.hash always has the
-  // original invite/error hash even after Supabase has wiped window.location.hash.
-  const { hash: capturedHash } = useLocation()
+  // React Router's location.hash is immune to Supabase's history.replaceState() cleanup
+  // (replaceState doesn't fire popstate, so React Router never re-reads the URL).
+  const { hash } = useLocation()
 
-  const [status, setStatus]       = useState<PageStatus>('loading')
-  const [email, setEmail]         = useState('')
-  const [errorMsg, setErrorMsg]   = useState('')
-  const [showPass, setShowPass]   = useState(false)
-  const [showConf, setShowConf]   = useState(false)
+  const params   = new URLSearchParams(hash.replace(/^#/, ''))
+  const hasToken = params.has('access_token')
+  const hasError = params.has('error')
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-  })
+  // Stay in loading state while AuthContext is loading OR while waiting for
+  // the SIGNED_IN event after an invite token is processed.
+  const [waiting, setWaiting] = useState(hasToken && !hasError)
 
   useEffect(() => {
-    const params   = new URLSearchParams(capturedHash.replace(/^#/, ''))
-    const hasToken = params.has('access_token')
+    if (!hasToken || hasError) { setWaiting(false); return }
+    // Give AuthContext time to process SIGNED_IN and load the profile
+    const timer = setTimeout(() => setWaiting(false), 8000)
+    return () => clearTimeout(timer)
+  }, [hasToken, hasError])
 
-    // Error hash forwarded from RootRedirect (e.g. expired invite)
-    if (params.has('error')) {
-      const desc = params.get('error_description') ?? 'This invitation link is invalid or has expired.'
-      setErrorMsg(decodeURIComponent(desc.replace(/\+/g, ' ')))
-      setStatus('error')
-      return
-    }
-
-    // Listen for Supabase to process the hash tokens and create a session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user?.email) {
-        setEmail(session.user.email)
-        setStatus('form')
-      }
-    })
-
-    // Fallback: Supabase may have processed the hash before this effect ran
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) {
-        setEmail(session.user.email)
-        setStatus('form')
-      } else if (!hasToken) {
-        // No session and no token was in the URL — direct navigation without an invite link
-        setErrorMsg('This link is invalid or has already been used. Please request a new invitation.')
-        setStatus('error')
-      }
-      // If hasToken but no session yet, SIGNED_IN event will arrive shortly
-    })
-
-    // Safety net: if the token was invalid/expired, no session will ever arrive
-    const timer = setTimeout(() => {
-      setStatus(prev => {
-        if (prev !== 'loading') return prev
-        setErrorMsg('This invitation link has expired or is invalid. Please request a new invitation.')
-        return 'error'
-      })
-    }, 8000)
-
-    return () => {
-      subscription.unsubscribe()
-      clearTimeout(timer)
-    }
-  }, [capturedHash])
-
-  async function onSubmit(data: FormValues) {
-    try {
-      const { error } = await supabase.auth.updateUser({ password: data.password })
-      if (error) throw error
-      // Sign out so the user authenticates fresh with their new password
-      await supabase.auth.signOut()
-      setStatus('success')
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to set password. Please try again.')
-    }
+  // Authenticated → go to dashboard (ForcePasswordModal handles password creation there)
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />
   }
 
-  const inputCls = (err?: boolean) => cn(
-    'w-full h-10 rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground',
-    'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors',
-    err ? 'border-rose-500 focus:ring-rose-500/30' : 'border-input hover:border-muted-foreground',
-  )
+  // Show spinner while AuthContext is initialising or invite token is being processed
+  if (isLoading || waiting) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="h-10 w-10 rounded-xl bg-brand-500 flex items-center justify-center">
+          <span className="text-white font-bold text-lg">B</span>
+        </div>
+        <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
+        <p className="text-sm text-muted-foreground">Setting up your account…</p>
+      </div>
+    )
+  }
+
+  // Not authenticated & done waiting → error state
+  const errorCode = params.get('error_code')
+  const rawDesc   = params.get('error_description') ?? ''
+  const errorDesc = rawDesc ? decodeURIComponent(rawDesc.replace(/\+/g, ' ')) : ''
+
+  let errorMessage: string
+  if (errorCode === 'otp_expired') {
+    errorMessage = "This invitation link has expired. If you've already set your password, please log in normally. Otherwise, contact your administrator for a new invitation."
+  } else if (errorDesc) {
+    errorMessage = errorDesc
+  } else {
+    errorMessage = 'This invitation link is invalid or has already been used. Please request a new invitation from your administrator.'
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* ── Left branding panel ── */}
+      {/* Left branding panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 via-brand-500 to-violet-500 relative overflow-hidden flex-col justify-between p-12">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-white/5" />
@@ -122,7 +77,7 @@ export function AcceptInvitePage() {
           </div>
           <div>
             <p className="text-white font-bold text-xl leading-tight">Brisk CRM</p>
-            <p className="text-white/70 text-xs">CR Management Platform</p>
+            <p className="text-white/70 text-xs">Customer Relationship Management</p>
           </div>
         </div>
 
@@ -134,7 +89,7 @@ export function AcceptInvitePage() {
             You've been<br />invited to join.
           </h2>
           <p className="text-white/60 text-sm max-w-xs">
-            Set a secure password to activate your account and start using Brisk CRM.
+            Accept your invitation to start collaborating with your team on Brisk CRM.
           </p>
         </div>
 
@@ -143,10 +98,8 @@ export function AcceptInvitePage() {
         </p>
       </div>
 
-      {/* ── Right panel ── */}
+      {/* Right panel */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12">
-
-        {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2 mb-8">
           <div className="h-8 w-8 rounded-lg bg-brand-500 flex items-center justify-center">
             <span className="text-white font-bold text-sm">B</span>
@@ -154,159 +107,26 @@ export function AcceptInvitePage() {
           <span className="font-bold text-lg text-foreground">Brisk CRM</span>
         </div>
 
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold text-foreground">Invalid Link</h2>
+            <p className="text-sm text-muted-foreground">This invitation link cannot be used.</p>
+          </div>
 
-          {/* ── Loading ── */}
-          {status === 'loading' && (
-            <div className="flex flex-col items-center gap-4 py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
-              <p className="text-sm text-muted-foreground">Verifying invitation…</p>
-            </div>
-          )}
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800">
+            <AlertCircle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-rose-700 dark:text-rose-400">{errorMessage}</p>
+          </div>
 
-          {/* ── Error ── */}
-          {status === 'error' && (
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <h2 className="text-2xl font-bold text-foreground">Invalid Link</h2>
-                <p className="text-sm text-muted-foreground">This invitation link cannot be used.</p>
-              </div>
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800">
-                <AlertCircle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-rose-700 dark:text-rose-400">{errorMsg}</p>
-              </div>
-              <Link to={ROUTES.LOGIN}
-                className="block w-full h-10 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors text-center leading-10">
-                Back to Login
-              </Link>
-            </div>
-          )}
-
-          {/* ── Password form ── */}
-          {status === 'form' && (
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <h2 className="text-2xl font-bold text-foreground">Set your password</h2>
-                <p className="text-sm text-muted-foreground">Create a password to activate your account</p>
-              </div>
-
-              {/* Invited email badge */}
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800">
-                <div className="h-8 w-8 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center text-xs font-bold text-brand-700 dark:text-brand-300 shrink-0">
-                  {email[0]?.toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] text-brand-600 dark:text-brand-400 font-medium">Invited as</p>
-                  <p className="text-sm font-semibold text-foreground truncate">{email}</p>
-                </div>
-              </div>
-
-              {/* Submit error */}
-              {errorMsg && (
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800">
-                  <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-                  <p className="text-sm text-rose-700 dark:text-rose-400">{errorMsg}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-                {/* Password */}
-                <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-sm font-medium text-foreground">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="password"
-                      type={showPass ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      placeholder="Min. 6 characters"
-                      {...register('password')}
-                      className={inputCls(!!errors.password)}
-                    />
-                    <button type="button" onClick={() => setShowPass(p => !p)}
-                      aria-label={showPass ? 'Hide password' : 'Show password'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                      {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <p className="text-xs text-rose-500 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />{errors.password.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Confirm Password */}
-                <div className="space-y-1.5">
-                  <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
-                    Confirm Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="confirmPassword"
-                      type={showConf ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      placeholder="Repeat your password"
-                      {...register('confirmPassword')}
-                      className={inputCls(!!errors.confirmPassword)}
-                    />
-                    <button type="button" onClick={() => setShowConf(p => !p)}
-                      aria-label={showConf ? 'Hide password' : 'Show password'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                      {showConf ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {errors.confirmPassword && (
-                    <p className="text-xs text-rose-500 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />{errors.confirmPassword.message}
-                    </p>
-                  )}
-                </div>
-
-                <button type="submit" disabled={isSubmitting}
-                  className={cn(
-                    'w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold',
-                    'flex items-center justify-center gap-2 transition-all',
-                    'hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                    'disabled:opacity-60 disabled:cursor-not-allowed',
-                  )}>
-                  {isSubmitting ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" />Setting password…</>
-                  ) : (
-                    'Activate Account'
-                  )}
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* ── Success ── */}
-          {status === 'success' && (
-            <div className="space-y-6">
-              <div className="flex flex-col items-center gap-4 py-4">
-                <div className="h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                </div>
-                <div className="text-center space-y-1">
-                  <h2 className="text-2xl font-bold text-foreground">Account Activated!</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Your password has been set. You can now sign in to Brisk CRM.
-                  </p>
-                </div>
-              </div>
-              <Link to={ROUTES.LOGIN}
-                className={cn(
-                  'w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold',
-                  'flex items-center justify-center transition-all hover:bg-primary/90',
-                )}>
-                Go to Login
-              </Link>
-            </div>
-          )}
+          <Link to={ROUTES.LOGIN}
+            className={cn(
+              'block w-full h-10 rounded-lg border border-border text-sm font-medium',
+              'text-muted-foreground hover:bg-accent transition-colors text-center leading-10',
+            )}>
+            Back to Login
+          </Link>
         </div>
 
-        {/* Dark mode toggle */}
         <button onClick={toggleTheme}
           className="absolute top-4 right-4 h-9 w-9 rounded-lg border border-border bg-card hover:bg-accent flex items-center justify-center text-muted-foreground transition-colors"
           aria-label="Toggle dark mode">

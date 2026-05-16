@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { signIn as sbSignIn, signOut as sbSignOut, shouldClearSessionOnLoad, markSessionActive } from '@/lib/auth'
 import { ROLE_PERMISSIONS, type PermissionKey } from '@/constants/roles'
@@ -11,6 +11,7 @@ interface AuthContextValue {
   permissions: PermissionKey[]
   isAuthenticated: boolean
   isLoading: boolean
+  needsPasswordSetup: boolean
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => void
   hasPermission: (key: PermissionKey) => boolean
@@ -22,6 +23,7 @@ const AuthContext = createContext<AuthContextValue>({
   permissions: [],
   isAuthenticated: false,
   isLoading: true,
+  needsPasswordSetup: false,
   login: async () => {},
   logout: () => {},
   hasPermission: () => false,
@@ -45,10 +47,12 @@ async function fetchProfile(authId: string): Promise<CRMUser | null> {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser]           = useState<CRMUser | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser]                         = useState<CRMUser | null>(null)
+  const [isLoading, setIsLoading]               = useState(true)
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false)
+  const loginActiveRef                          = useRef(false)
 
-  // ── Session restoration on page refresh ──────────────────────
+  // ── Session restoration & invite handling ─────────────────────
   useEffect(() => {
     let mounted = true
 
@@ -56,38 +60,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return
 
-        // SIGNED_IN is handled synchronously inside login() below.
-        // Here we only care about restoring an existing session on first load
-        // and clearing state on sign-out.
         if (event === 'INITIAL_SESSION') {
           if (!session?.user) {
             setUser(null)
+            setNeedsPasswordSetup(false)
           } else {
-            const isInvitePage = window.location.pathname === '/accept-invite'
-
-            if (!isInvitePage) {
-              // Enforce "remember me = false" — sign out if this is a new browser session
-              if (shouldClearSessionOnLoad()) {
-                await supabase.auth.signOut()
-                if (mounted) { setUser(null); setIsLoading(false) }
-                return
-              }
-              markSessionActive()
-              const profile = await fetchProfile(session.user.id)
-              if (mounted) setUser(profile)
+            // Enforce "remember me = false" — sign out if this is a new browser session
+            if (shouldClearSessionOnLoad()) {
+              await supabase.auth.signOut()
+              if (mounted) { setUser(null); setNeedsPasswordSetup(false); setIsLoading(false) }
+              return
+            }
+            markSessionActive()
+            const profile = await fetchProfile(session.user.id)
+            if (mounted) {
+              setUser(profile)
+              setNeedsPasswordSetup(session.user.user_metadata?.needs_password_setup === true)
             }
           }
           if (mounted) setIsLoading(false)
         }
 
+        // Handle sign-in from invite link (not from our login() function)
+        if (event === 'SIGNED_IN' && session?.user && !loginActiveRef.current) {
+          if (mounted) setIsLoading(true)
+          const profile = await fetchProfile(session.user.id)
+          if (mounted) {
+            setUser(profile)
+            setNeedsPasswordSetup(session.user.user_metadata?.needs_password_setup === true)
+            setIsLoading(false)
+          }
+        }
+
         if (event === 'SIGNED_OUT') {
-          if (mounted) { setUser(null); setIsLoading(false) }
+          if (mounted) { setUser(null); setNeedsPasswordSetup(false); setIsLoading(false) }
         }
 
         if (event === 'TOKEN_REFRESHED' && session?.user) {
-          // Refresh profile silently on token refresh
           const profile = await fetchProfile(session.user.id)
           if (mounted && profile) setUser(profile)
+        }
+
+        // When user updates their password and clears needs_password_setup flag
+        if (event === 'USER_UPDATED' && session?.user) {
+          if (mounted) {
+            setNeedsPasswordSetup(session.user.user_metadata?.needs_password_setup === true)
+          }
         }
       }
     )
@@ -100,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Login — owns its own outcome, no race with onAuthStateChange ──
   const login = useCallback(async (email: string, password: string, rememberMe = true) => {
+    loginActiveRef.current = true
     setIsLoading(true)
     try {
       const { session } = await sbSignIn(email, password, rememberMe)
@@ -111,19 +130,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const profile = await fetchProfile(session.user.id)
 
       if (!profile) {
-        // Auth succeeded but no crm_users row exists — clean up and surface error
         await supabase.auth.signOut()
-        throw new Error(
-          'Your account is not set up yet. Contact your administrator.'
-        )
+        throw new Error('Your account is not set up yet. Contact your administrator.')
       }
 
       setUser(profile)
+      setNeedsPasswordSetup(false) // normal login never needs password setup
       usersService.updateLastLogin(profile.id).catch(() => {})
       setIsLoading(false)
     } catch (err) {
       setIsLoading(false)
       throw err
+    } finally {
+      loginActiveRef.current = false
     }
   }, [])
 
@@ -149,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       permissions,
       isAuthenticated: user !== null,
       isLoading,
+      needsPasswordSetup,
       login,
       logout,
       hasPermission,
