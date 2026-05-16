@@ -62,12 +62,12 @@ function AuthenticatedShell() {
   )
 }
 
-// Supabase sends auth errors (expired invite, etc.) back to Site URL ("/").
-// Forward those error hashes to /accept-invite so the error state is shown.
+// Supabase sends invite tokens and auth errors back to Site URL ("/").
+// Forward both to /accept-invite so the correct UI is shown.
 function RootRedirect() {
   const hash = window.location.hash
   const params = new URLSearchParams(hash.replace(/^#/, ''))
-  if (params.has('error')) {
+  if (params.has('error') || params.get('type') === 'invite') {
     return <Navigate to={`${ROUTES.ACCEPT_INVITE}${hash}`} replace />
   }
   return <Navigate to={ROUTES.DASHBOARD} replace />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,6 +23,13 @@ type PageStatus = 'loading' | 'form' | 'success' | 'error'
 
 export function AcceptInvitePage() {
   const { theme, toggleTheme } = useTheme()
+
+  // React Router stores the initial hash in its own internal state when the route is matched.
+  // Supabase's history.replaceState() (which clears the URL hash) does NOT fire a popstate
+  // event, so React Router's location is never updated — location.hash always has the
+  // original invite/error hash even after Supabase has wiped window.location.hash.
+  const { hash: capturedHash } = useLocation()
+
   const [status, setStatus]       = useState<PageStatus>('loading')
   const [email, setEmail]         = useState('')
   const [errorMsg, setErrorMsg]   = useState('')
@@ -34,18 +41,18 @@ export function AcceptInvitePage() {
   })
 
   useEffect(() => {
-    // Read the type from the URL hash BEFORE Supabase clears it
-    const hash   = window.location.hash
-    const params = new URLSearchParams(hash.replace(/^#/, ''))
-    const type   = params.get('type')
+    const params   = new URLSearchParams(capturedHash.replace(/^#/, ''))
+    const hasToken = params.has('access_token')
 
-    if (type !== 'invite') {
-      setErrorMsg('This link is invalid or has already been used. Please request a new invitation.')
+    // Error hash forwarded from RootRedirect (e.g. expired invite)
+    if (params.has('error')) {
+      const desc = params.get('error_description') ?? 'This invitation link is invalid or has expired.'
+      setErrorMsg(decodeURIComponent(desc.replace(/\+/g, ' ')))
       setStatus('error')
       return
     }
 
-    // Listen for Supabase to process the hash tokens and create the session
+    // Listen for Supabase to process the hash tokens and create a session
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user?.email) {
         setEmail(session.user.email)
@@ -53,16 +60,33 @@ export function AcceptInvitePage() {
       }
     })
 
-    // Fallback: session may already be set if hash was processed synchronously
+    // Fallback: Supabase may have processed the hash before this effect ran
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         setEmail(session.user.email)
         setStatus('form')
+      } else if (!hasToken) {
+        // No session and no token was in the URL — direct navigation without an invite link
+        setErrorMsg('This link is invalid or has already been used. Please request a new invitation.')
+        setStatus('error')
       }
+      // If hasToken but no session yet, SIGNED_IN event will arrive shortly
     })
 
-    return () => subscription.unsubscribe()
-  }, [])
+    // Safety net: if the token was invalid/expired, no session will ever arrive
+    const timer = setTimeout(() => {
+      setStatus(prev => {
+        if (prev !== 'loading') return prev
+        setErrorMsg('This invitation link has expired or is invalid. Please request a new invitation.')
+        return 'error'
+      })
+    }, 8000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timer)
+    }
+  }, [capturedHash])
 
   async function onSubmit(data: FormValues) {
     try {
