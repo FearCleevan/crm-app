@@ -128,17 +128,20 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     onClose()
   }, [navigate, onClose, query])
 
+  // In no-query mode the navigable list is the first 5 pages; in query mode it's flatList
+  const navList = query.trim() ? flatList : PAGES.slice(0, 5)
+
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') { onClose(); return }
-      if (e.key === 'ArrowDown') { e.preventDefault(); setCursor(c => Math.min(c + 1, flatList.length - 1)); return }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setCursor(c => Math.min(c + 1, navList.length - 1)); return }
       if (e.key === 'ArrowUp')   { e.preventDefault(); setCursor(c => Math.max(c - 1, 0)); return }
-      if (e.key === 'Enter' && flatList[cursor]) { handleSelect(flatList[cursor]); return }
+      if (e.key === 'Enter' && navList[cursor]) { handleSelect(navList[cursor]); return }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, cursor, flatList, handleSelect, onClose])
+  }, [open, cursor, navList, handleSelect, onClose])
 
   useEffect(() => {
     const el = listRef.current?.querySelector(`[data-index="${cursor}"]`) as HTMLElement | null

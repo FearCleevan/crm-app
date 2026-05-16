@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 interface SendEmailParams {
   to:       string | string[]
   cc?:      string | string[]
+  bcc?:     string | string[]
   subject:  string
   html:     string
 }

@@ -60,7 +60,6 @@ type Tab = 'all' | NotificationCategory
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'all',        label: 'All' },
-  { id: 'mention',    label: 'Mentions' },
   { id: 'assignment', label: 'Assignments' },
   { id: 'system',     label: 'System' },
 ]

@@ -33,8 +33,8 @@ export function ProfileTab() {
   const [lastName,     setLastName]     = useState(user?.last_name ?? '')
   const [phone,        setPhone]        = useState(user?.phone_no ?? '')
   const [department,   setDepartment]   = useState(user?.department ?? '')
-  const [address,      setAddress]      = useState('')
-  const [birthday,     setBirthday]     = useState('')
+  const [address,      setAddress]      = useState(user?.address ?? '')
+  const [birthday,     setBirthday]     = useState(user?.birthday ?? '')
   const [avatarSrc,    setAvatarSrc]    = useState(user?.profile_url ?? '')
   const [avatarFile,   setAvatarFile]   = useState<File | null>(null)
   const [profileDirty, setProfileDirty] = useState(false)
@@ -75,9 +75,11 @@ export function ProfileTab() {
       await usersService.updateUser(user.id, {
         first_name:  firstName,
         last_name:   lastName,
-        phone_no:    phone   || null,
+        phone_no:    phone      || null,
         department:  department || null,
         profile_url: profileUrl || null,
+        address:     address    || null,
+        birthday:    birthday   || null,
       })
 
       toast.success('Profile updated successfully')

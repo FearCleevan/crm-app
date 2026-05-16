@@ -44,6 +44,8 @@ export interface CRMUser {
   profile_url: string
   department: string
   phone_no: string
+  address?: string | null
+  birthday?: string | null
 }
 
 export interface Deal {

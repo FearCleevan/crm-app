@@ -4,7 +4,7 @@ import type { CRMUserRow } from '@/types/database'
 
 export function useUsers() {
   const [data, setData]       = useState<CRMUserRow[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<Error | null>(null)
 
   const fetch = useCallback(async () => {

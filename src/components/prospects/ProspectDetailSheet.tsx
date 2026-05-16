@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   X, Pencil, Trash2, Phone, Mail, ExternalLink, Globe,
   Building2, MapPin, User, Calendar, Tag, Briefcase,
-  MessageSquare, Clock, CheckCircle2, PhoneCall, Send,
+  Clock, PhoneCall, Send,
   ChevronRight, Save, XCircle,
 } from 'lucide-react'
 import { format } from 'date-fns'
@@ -13,22 +13,6 @@ import { ProspectForm, type ProspectFormValues } from './ProspectForm'
 import type { Prospect } from '@/constants/mockData'
 import { MOCK_USERS, DISPOSITION_CODES, EMAIL_STATUSES, PROVIDERS } from '@/constants/mockData'
 
-// ── Mock activity data ────────────────────────────────────────
-const ACTIVITY_ICONS = {
-  call:  { Icon: PhoneCall,     color: 'text-blue-500',    bg: 'bg-blue-100 dark:bg-blue-900/30' },
-  email: { Icon: Mail,          color: 'text-violet-500',  bg: 'bg-violet-100 dark:bg-violet-900/30' },
-  note:  { Icon: MessageSquare, color: 'text-amber-500',   bg: 'bg-amber-100 dark:bg-amber-900/30' },
-  status:{ Icon: Tag,           color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
-  task:  { Icon: CheckCircle2,  color: 'text-rose-500',    bg: 'bg-rose-100 dark:bg-rose-900/30' },
-}
-
-const MOCK_ACTIVITIES = [
-  { id: 'a1', type: 'call'  as const, desc: 'Outbound call — discussed product fit. Prospect showed interest in Enterprise plan.', user: 'usr-003', date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 'a2', type: 'email' as const, desc: 'Sent follow-up email with pricing deck attached.', user: 'usr-002', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 'a3', type: 'note'  as const, desc: 'Prospect requested a custom demo for their team of 50.', user: 'usr-001', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 'a4', type: 'status'as const, desc: 'Status changed from New → Contacted.', user: 'usr-002', date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 'a5', type: 'task'  as const, desc: 'Task completed: Send LinkedIn connection request.', user: 'usr-003', date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() },
-]
 
 interface MockNote {
   id: string
@@ -361,37 +345,12 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
 
           {/* ── Activity Tab ── */}
           {!editing && activeTab === 'activity' && (
-            <div className="space-y-0">
-              {MOCK_ACTIVITIES.map((act, i) => {
-                const meta = ACTIVITY_ICONS[act.type]
-                const user = MOCK_USERS.find(u => u.id === act.user)
-                return (
-                  <div key={act.id} className="flex gap-4 pb-5">
-                    {/* Timeline line */}
-                    <div className="flex flex-col items-center">
-                      <div className={cn('h-8 w-8 rounded-full flex items-center justify-center shrink-0', meta.bg)}>
-                        <meta.Icon className={cn('h-4 w-4', meta.color)} />
-                      </div>
-                      {i < MOCK_ACTIVITIES.length - 1 && (
-                        <div className="w-px flex-1 bg-border mt-2 mb-0 min-h-[20px]" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 pb-0">
-                      <p className="text-sm text-foreground leading-snug">{act.desc}</p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-xs text-muted-foreground">
-                          {user ? `${user.first_name} ${user.last_name}` : act.user}
-                        </span>
-                        <span className="text-muted-foreground/40">·</span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {format(new Date(act.date), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+              <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
+                <Clock className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="font-semibold text-foreground">Activity Timeline</p>
+              <p className="text-sm text-muted-foreground">Calls, emails, and status changes for this prospect will appear here after backend integration.</p>
             </div>
           )}
 

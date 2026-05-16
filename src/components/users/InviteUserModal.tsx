@@ -137,7 +137,7 @@ export function InviteUserModal({ open, onClose, onInvite }: InviteUserModalProp
             className="h-9 px-4 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors">
             Cancel
           </button>
-          <button type="submit" disabled={isSubmitting} onClick={handleSubmit(onSubmit)}
+          <button type="button" disabled={isSubmitting} onClick={handleSubmit(onSubmit)}
             className="h-9 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition-colors flex items-center gap-1.5">
             <UserPlus className="h-3.5 w-3.5" />
             {isSubmitting ? 'Sending…' : 'Send Invitation'}

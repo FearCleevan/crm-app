@@ -19,7 +19,7 @@ const SIDEBAR_STORAGE_KEY = 'crm-sidebar-collapsed'
 const mainNav = [
   { to: ROUTES.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: ROUTES.DEALS,     icon: Handshake,       label: 'Deals'     },
-  { to: ROUTES.NOTES ?? '/notes', icon: StickyNote, label: 'Notes'  },
+  { to: ROUTES.NOTES,             icon: StickyNote, label: 'Notes'  },
   { to: ROUTES.EMAILS,    icon: Mail,            label: 'Emails'    },
   { to: ROUTES.REPORTS,   icon: BarChart3,       label: 'Reports'   },
   { to: ROUTES.WORKFLOWS, icon: Zap,             label: 'Workflows' },
@@ -479,7 +479,7 @@ export function Sidebar({ user, mobileOpen = false, onMobileClose }: SidebarProp
         {/* ── Bottom section ── */}
         <div className="border-t border-sidebar-border px-2 py-3 space-y-0.5">
           <NavItem to={ROUTES.SETTINGS} icon={Settings}   label="Settings"    collapsed={collapsed} />
-          <NavItem to="/help"           icon={HelpCircle} label="Help Center" collapsed={collapsed} />
+          <NavItem to={ROUTES.HELP}      icon={HelpCircle} label="Help Center" collapsed={collapsed} />
 
           {!collapsed && (
             <div className="mt-3 px-1">

@@ -4,7 +4,7 @@ import type { SystemSettingRow } from '@/types/database'
 
 export function useSystemSettings() {
   const [data, setData]       = useState<SystemSettingRow[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<Error | null>(null)
 
   const fetch = useCallback(async () => {

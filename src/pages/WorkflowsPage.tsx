@@ -218,6 +218,7 @@ export function WorkflowsPage() {
       </PageWrapper>
 
       <WorkflowBuilder
+        key={editing?.id ?? 'new'}
         open={builderOpen}
         onClose={() => { setBuilderOpen(false); setEditing(null) }}
         onSave={handleSave}

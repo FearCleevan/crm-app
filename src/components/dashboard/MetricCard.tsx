@@ -7,6 +7,7 @@ interface MetricCardProps {
   value: string
   change: number
   changeLabel?: string
+  unit?: string
   trend: 'up' | 'down'
   icon?: LucideIcon
   className?: string
@@ -17,6 +18,7 @@ export function MetricCard({
   value,
   change,
   changeLabel,
+  unit = '%',
   trend,
   icon: Icon,
   className,
@@ -45,7 +47,7 @@ export function MetricCard({
           )}
         >
           {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-          {isPositive ? '+' : ''}{change}%
+          {isPositive ? '+' : ''}{change}{unit}
         </span>
       </div>
 

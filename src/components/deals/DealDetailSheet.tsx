@@ -79,14 +79,15 @@ interface DealDetailSheetProps {
   dealId: string
   users: CRMUserRow[]
   currentUserId: string
+  initialEditing?: boolean
   onClose: () => void
   onUpdate: (updates: Partial<Deal>) => void
   onDelete: (id: string) => void
 }
 
-export function DealDetailSheet({ deal, dealId, users, currentUserId, onClose, onUpdate, onDelete }: DealDetailSheetProps) {
+export function DealDetailSheet({ deal, dealId, users, currentUserId, initialEditing = false, onClose, onUpdate, onDelete }: DealDetailSheetProps) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(initialEditing)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editStage, setEditStage] = useState<Deal['stage']>(deal.stage)
   const [editValue, setEditValue] = useState(String(deal.value))
@@ -230,40 +231,40 @@ export function DealDetailSheet({ deal, dealId, users, currentUserId, onClose, o
           {editing && (
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Stage</label>
-                <select value={editStage} onChange={e => setEditStage(e.target.value as Deal['stage'])}
+                <label htmlFor="edit-stage" className="text-xs font-semibold text-foreground">Stage</label>
+                <select id="edit-stage" value={editStage} onChange={e => setEditStage(e.target.value as Deal['stage'])}
                   className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                   {PIPELINE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Value ($)</label>
-                  <input type="number" value={editValue} onChange={e => setEditValue(e.target.value)}
+                  <label htmlFor="edit-value" className="text-xs font-semibold text-foreground">Value ($)</label>
+                  <input id="edit-value" type="number" value={editValue} onChange={e => setEditValue(e.target.value)}
                     className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Probability (%)</label>
-                  <input type="number" min={0} max={100} value={editProb} onChange={e => setEditProb(e.target.value)}
+                  <label htmlFor="edit-prob" className="text-xs font-semibold text-foreground">Probability (%)</label>
+                  <input id="edit-prob" type="number" min={0} max={100} value={editProb} onChange={e => setEditProb(e.target.value)}
                     className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Expected Close Date</label>
-                <input type="date" value={editClose} onChange={e => setEditClose(e.target.value)}
+                <label htmlFor="edit-close" className="text-xs font-semibold text-foreground">Expected Close Date</label>
+                <input id="edit-close" type="date" value={editClose} onChange={e => setEditClose(e.target.value)}
                   className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Assigned To</label>
-                <select value={editAssigned} onChange={e => setEditAssigned(e.target.value)}
+                <label htmlFor="edit-assigned" className="text-xs font-semibold text-foreground">Assigned To</label>
+                <select id="edit-assigned" value={editAssigned} onChange={e => setEditAssigned(e.target.value)}
                   className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="">Unassigned</option>
                   {users.map(u => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Description</label>
-                <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={3}
+                <label htmlFor="edit-desc" className="text-xs font-semibold text-foreground">Description</label>
+                <textarea id="edit-desc" value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={3}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
               </div>
               <div className="flex justify-end gap-2 pt-2 border-t border-border">

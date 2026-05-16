@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { signIn as sbSignIn, signOut as sbSignOut } from '@/lib/auth'
+import { signIn as sbSignIn, signOut as sbSignOut, shouldClearSessionOnLoad, markSessionActive } from '@/lib/auth'
 import { ROLE_PERMISSIONS, type PermissionKey } from '@/constants/roles'
 import { usersService } from '@/services/users.service'
 import type { CRMUser } from '@/constants/mockData'
@@ -63,12 +63,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!session?.user) {
             setUser(null)
           } else {
-            // Supabase clears the hash before firing INITIAL_SESSION, so we
-            // can't read type=invite from the hash here. Use the pathname instead —
-            // it's never modified by Supabase and is stable across the whole load.
             const isInvitePage = window.location.pathname === '/accept-invite'
 
             if (!isInvitePage) {
+              // Enforce "remember me = false" — sign out if this is a new browser session
+              if (shouldClearSessionOnLoad()) {
+                await supabase.auth.signOut()
+                if (mounted) { setUser(null); setIsLoading(false) }
+                return
+              }
+              markSessionActive()
               const profile = await fetchProfile(session.user.id)
               if (mounted) setUser(profile)
             }
@@ -95,10 +99,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // ── Login — owns its own outcome, no race with onAuthStateChange ──
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, rememberMe = true) => {
     setIsLoading(true)
     try {
-      const { session } = await sbSignIn(email, password)
+      const { session } = await sbSignIn(email, password, rememberMe)
 
       if (!session?.user) {
         throw new Error('Login failed — no session returned. Please try again.')

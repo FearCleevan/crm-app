@@ -7,15 +7,15 @@ import { TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RevenuePoint } from '@/services/analytics.service'
 
-const FILTERS = ['1D', '1W', '1M', '6M', '1Y', 'ALL'] as const
+const FILTERS = ['1M', '3M', '6M', '1Y', '2Y', 'ALL'] as const
 type Filter = typeof FILTERS[number]
 
 const SLICE_COUNTS: Record<Filter, number> = {
-  '1D':  1,
-  '1W':  4,
-  '1M':  3,
+  '1M':  1,
+  '3M':  3,
   '6M':  6,
   '1Y':  12,
+  '2Y':  24,
   'ALL': 0, // handled separately
 }
 

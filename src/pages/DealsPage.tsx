@@ -114,8 +114,9 @@ export function DealsPage() {
   const [view, setView]           = useState<View>('board')
   const [addOpen, setAddOpen]     = useState(false)
   const [detailRow, setDetailRow] = useState<DealRow | null>(null)
-  const [activeId, setActiveId]   = useState<string | null>(null)
-  const [filters, setFilters]     = useState<Filters>(EMPTY_FILTERS)
+  const [activeId, setActiveId]       = useState<string | null>(null)
+  const [openInEdit, setOpenInEdit]   = useState(false)
+  const [filters, setFilters]         = useState<Filters>(EMPTY_FILTERS)
 
   // Load users once for assignee display
   useEffect(() => {
@@ -169,6 +170,12 @@ export function DealsPage() {
       toast.error('Failed to delete deal')
     }
   }, [remove])
+
+  // ── Open detail sheet ─────────────────────────────────────
+  function openDetail(d: Deal, inEdit = false) {
+    const row = rows.find(r => r.id === d.id)
+    if (row) { setDetailRow(row); setOpenInEdit(inEdit) }
+  }
 
   // ── Drag and drop ─────────────────────────────────────────
   function handleDragStart(e: DragStartEvent) {
@@ -292,10 +299,8 @@ export function DealsPage() {
                 <DealsList
                   deals={filtered}
                   users={users}
-                  onRowClick={d => {
-                    const row = rows.find(r => r.id === d.id)
-                    if (row) setDetailRow(row)
-                  }}
+                  onRowClick={d => openDetail(d)}
+                  onEdit={d => openDetail(d, true)}
                   onDelete={handleDelete}
                 />
               </div>
@@ -310,20 +315,15 @@ export function DealsPage() {
                       activeId={activeId}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
-                      onCardClick={d => {
-                        const row = rows.find(r => r.id === d.id)
-                        if (row) setDetailRow(row)
-                      }}
+                      onCardClick={d => openDetail(d)}
                     />
                   </div>
                 ) : (
                   <DealsList
                     deals={filtered}
                     users={users}
-                    onRowClick={d => {
-                      const row = rows.find(r => r.id === d.id)
-                      if (row) setDetailRow(row)
-                    }}
+                    onRowClick={d => openDetail(d)}
+                    onEdit={d => openDetail(d, true)}
                     onDelete={handleDelete}
                   />
                 )}
@@ -343,11 +343,13 @@ export function DealsPage() {
 
       {detail && detailRow && (
         <DealDetailSheet
+          key={detailRow.id}
           deal={detail}
           dealId={detailRow.id}
           users={users}
           currentUserId={user?.id ?? ''}
-          onClose={() => setDetailRow(null)}
+          initialEditing={openInEdit}
+          onClose={() => { setDetailRow(null); setOpenInEdit(false) }}
           onUpdate={updates => handleUpdate(detailRow.id, updates)}
           onDelete={handleDelete}
         />

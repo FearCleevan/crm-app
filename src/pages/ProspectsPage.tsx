@@ -1,11 +1,19 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { Search, SlidersHorizontal, UserPlus, Upload, Download, FileDown, X, MoreHorizontal } from 'lucide-react'
+import { Search, SlidersHorizontal, UserPlus, Upload, Download, FileDown, X, MoreHorizontal, Columns3, AlignJustify, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import Papa from 'papaparse'
 import { useAuth } from '@/context/AuthContext'
 import { TopbarSlot } from '@/context/TopbarContext'
 import { PageWrapper } from '@/components/layout/PageWrapper'
-import { ProspectsTable } from '@/components/prospects/ProspectsTable'
+import {
+  ProspectsTable,
+  ALL_COLUMNS,
+  DEFAULT_VISIBLE,
+  LS_COMPACT,
+  loadVisibleCols,
+  saveVisibleCols,
+  loadCompact,
+} from '@/components/prospects/ProspectsTable'
 import { FilterPanel, FilterChips, EMPTY_FILTERS, type ProspectFilters } from '@/components/prospects/FilterPanel'
 import { AddProspectModal } from '@/components/prospects/AddProspectModal'
 import { ImportModal } from '@/components/prospects/ImportModal'
@@ -194,6 +202,47 @@ export function ProspectsPage() {
     })
 
   const prospects = useMemo(() => data.map(rowToProspect), [data])
+
+  // ── Column / compact state (persisted) ───────────────────
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(loadVisibleCols)
+  const [compact, setCompact]         = useState<boolean>(loadCompact)
+  const [colPickerOpen, setColPickerOpen] = useState(false)
+  const colPickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!colPickerOpen) return
+    function onDown(e: MouseEvent) {
+      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node))
+        setColPickerOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [colPickerOpen])
+
+  function toggleCol(key: string) {
+    setVisibleCols(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      saveVisibleCols(next)
+      return next
+    })
+  }
+
+  function toggleCompact() {
+    setCompact(prev => {
+      const next = !prev
+      localStorage.setItem(LS_COMPACT, String(next))
+      return next
+    })
+  }
+
+  function resetCols() {
+    const next = new Set(DEFAULT_VISIBLE)
+    setVisibleCols(next)
+    saveVisibleCols(next)
+  }
+
+  const activeCols = ALL_COLUMNS.filter(c => visibleCols.has(c.key))
 
   // ── UI state ──────────────────────────────────────────────
   const [filterOpen, setFilterOpen] = useState(false)
@@ -426,8 +475,8 @@ export function ProspectsPage() {
         {/* Toolbar */}
         <div className="px-4 pt-4 pb-3 space-y-2 border-b border-border bg-card">
 
-          {/* Row 1 (always): Search bar */}
-          <div className="relative">
+          {/* Mobile-only: Search bar full-width on its own row */}
+          <div className="relative md:hidden">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
               type="search"
@@ -444,11 +493,30 @@ export function ProspectsPage() {
             )}
           </div>
 
-          {/* Row 2: Filter + actions */}
+          {/* Single toolbar row: Search | Filters | Columns | Compact | ── | actions */}
           <div className="flex items-center gap-2">
+
+            {/* Search — desktop only, grows to fill available space */}
+            <div className="relative hidden md:block flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={e => handleSearchChange(e.target.value)}
+                placeholder="Search name, email, company…"
+                className="w-full h-9 pl-9 pr-9 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+              />
+              {searchInput && (
+                <button type="button" aria-label="Clear search" onClick={() => handleSearchChange('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
             {/* Filter button */}
             <button type="button" onClick={() => setFilterOpen(true)}
-              className="relative flex items-center gap-2 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
+              className="relative flex items-center gap-2 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors shrink-0">
               <SlidersHorizontal className="h-4 w-4" />
               <span className="hidden sm:inline">Filters</span>
               {activeFilterCount > 0 && (
@@ -456,6 +524,58 @@ export function ProspectsPage() {
                   {activeFilterCount}
                 </span>
               )}
+            </button>
+
+            {/* Column picker — desktop only */}
+            <div className="relative hidden md:block" ref={colPickerRef}>
+              <button type="button" onClick={() => setColPickerOpen(v => !v)}
+                className={`flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm font-medium transition-colors shrink-0 ${
+                  colPickerOpen
+                    ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
+                    : 'border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground'
+                }`}>
+                <Columns3 className="h-4 w-4" />
+                Columns
+                <span className="h-4 min-w-4 rounded-full bg-muted px-1 text-[10px] font-bold text-muted-foreground flex items-center justify-center">
+                  {activeCols.length}
+                </span>
+              </button>
+              {colPickerOpen && (
+                <div className="absolute left-0 top-11 z-30 w-56 rounded-xl border border-border bg-card shadow-xl py-2 animate-in fade-in-0 zoom-in-95 duration-100">
+                  <div className="flex items-center justify-between px-3 pb-1.5 border-b border-border mb-1">
+                    <span className="text-xs font-semibold text-foreground">Toggle Columns</span>
+                    <button type="button" onClick={resetCols}
+                      className="text-[10px] text-brand-500 hover:text-brand-600 font-medium transition-colors">
+                      Reset
+                    </button>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto">
+                    {ALL_COLUMNS.map(col => (
+                      <button key={col.key} type="button" onClick={() => toggleCol(col.key)}
+                        className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent transition-colors text-left">
+                        <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                          visibleCols.has(col.key) ? 'bg-brand-500 border-brand-500' : 'border-input bg-background'
+                        }`}>
+                          {visibleCols.has(col.key) && <Check className="h-2.5 w-2.5 text-white" />}
+                        </div>
+                        <span className="text-xs text-foreground">{col.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Compact toggle — desktop only */}
+            <button type="button" onClick={toggleCompact}
+              title={compact ? 'Switch to comfortable view' : 'Switch to compact view'}
+              className={`hidden md:flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm font-medium transition-colors shrink-0 ${
+                compact
+                  ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
+                  : 'border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground'
+              }`}>
+              <AlignJustify className="h-4 w-4" />
+              {compact ? 'Compact' : 'Comfortable'}
             </button>
 
             {/* Desktop actions */}
@@ -540,6 +660,8 @@ export function ProspectsPage() {
             pageSize={pageSize}
             sortKey={sortKey}
             sortDir={sortDir}
+            visibleCols={visibleCols}
+            compact={compact}
             onPageChange={setPage}
             onPageSizeChange={s => { setPageSize(s); setPage(1) }}
             onSort={handleSort}

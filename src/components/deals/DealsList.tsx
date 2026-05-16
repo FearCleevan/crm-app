@@ -19,12 +19,13 @@ interface DealsListProps {
   deals: Deal[]
   users: CRMUserRow[]
   onRowClick: (deal: Deal) => void
+  onEdit: (deal: Deal) => void
   onDelete: (id: string) => void
 }
 
 const PAGE_SIZE = 15
 
-export function DealsList({ deals, users, onRowClick, onDelete }: DealsListProps) {
+export function DealsList({ deals, users, onRowClick, onEdit, onDelete }: DealsListProps) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'value', dir: 'desc' })
   const [page, setPage] = useState(1)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
@@ -130,7 +131,7 @@ export function DealsList({ deals, users, onRowClick, onDelete }: DealsListProps
                               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors">
                               <Eye className="h-3.5 w-3.5" /> View
                             </button>
-                            <button type="button" onClick={() => { onRowClick(deal); setOpenMenu(null) }}
+                            <button type="button" onClick={() => { onEdit(deal); setOpenMenu(null) }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors">
                               <Pencil className="h-3.5 w-3.5" /> Edit
                             </button>

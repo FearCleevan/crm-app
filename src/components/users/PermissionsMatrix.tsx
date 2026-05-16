@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { Save, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -136,9 +136,9 @@ export function PermissionsMatrix({ canEdit }: PermissionsMatrixProps) {
           </thead>
           <tbody>
             {MODULES.map(mod => (
-              <>
+              <Fragment key={mod.label}>
                 {/* Module header row */}
-                <tr key={`mod-${mod.label}`} className="bg-muted/20 border-t border-border">
+                <tr className="bg-muted/20 border-t border-border">
                   <td colSpan={4} className="px-5 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                     {mod.label}
                   </td>
@@ -167,7 +167,7 @@ export function PermissionsMatrix({ canEdit }: PermissionsMatrixProps) {
                     })}
                   </tr>
                 ))}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>

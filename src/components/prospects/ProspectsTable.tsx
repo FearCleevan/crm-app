@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef, memo } from 'react'
 import {
   ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Trash2, Mail,
-  Columns3, AlignJustify, Check,
 } from 'lucide-react'
 import { format, isValid, parseISO } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -19,7 +18,7 @@ interface ColDef {
   width: number
 }
 
-const ALL_COLUMNS: ColDef[] = [
+export const ALL_COLUMNS: ColDef[] = [
   { key: 'fullname',           label: 'Full Name',     defaultOn: true,  sortable: true,  width: 180 },
   { key: 'firstname',          label: 'First Name',    defaultOn: false, sortable: true,  width: 110 },
   { key: 'lastname',           label: 'Last Name',     defaultOn: false, sortable: true,  width: 110 },
@@ -46,11 +45,11 @@ const ALL_COLUMNS: ColDef[] = [
   { key: 'createdon',          label: 'Created',       defaultOn: true,  sortable: true,  width: 100 },
 ]
 
-const DEFAULT_VISIBLE = new Set(ALL_COLUMNS.filter(c => c.defaultOn).map(c => c.key))
-const LS_COLS    = 'prospects_visible_cols'
-const LS_COMPACT = 'prospects_compact'
+export const DEFAULT_VISIBLE = new Set(ALL_COLUMNS.filter(c => c.defaultOn).map(c => c.key))
+export const LS_COLS    = 'prospects_visible_cols'
+export const LS_COMPACT = 'prospects_compact'
 
-function loadVisibleCols(): Set<string> {
+export function loadVisibleCols(): Set<string> {
   try {
     const raw = localStorage.getItem(LS_COLS)
     if (raw) return new Set(JSON.parse(raw) as string[])
@@ -58,11 +57,11 @@ function loadVisibleCols(): Set<string> {
   return new Set(DEFAULT_VISIBLE)
 }
 
-function saveVisibleCols(s: Set<string>) {
+export function saveVisibleCols(s: Set<string>) {
   try { localStorage.setItem(LS_COLS, JSON.stringify(Array.from(s))) } catch { /* ignore */ }
 }
 
-function loadCompact(): boolean {
+export function loadCompact(): boolean {
   return localStorage.getItem(LS_COMPACT) === 'true'
 }
 
@@ -142,6 +141,8 @@ interface ProspectsTableProps {
   pageSize: number
   sortKey: SortKey
   sortDir: SortDir
+  visibleCols: Set<string>
+  compact: boolean
   onPageChange: (p: number) => void
   onPageSizeChange: (s: number) => void
   onSort: (key: SortKey, dir: SortDir) => void
@@ -160,6 +161,8 @@ export function ProspectsTable({
   pageSize,
   sortKey,
   sortDir,
+  visibleCols,
+  compact,
   onPageChange,
   onPageSizeChange,
   onSort,
@@ -169,57 +172,24 @@ export function ProspectsTable({
   onBulkStatusChange,
   isLoading,
 }: ProspectsTableProps) {
-  // ── View state (persisted) ────────────────────────────────
-  const [visibleCols, setVisibleCols] = useState<Set<string>>(loadVisibleCols)
-  const [compact, setCompact]         = useState<boolean>(loadCompact)
-  const [colPickerOpen, setColPickerOpen] = useState(false)
-  const colPickerRef = useRef<HTMLDivElement>(null)
-
   // ── Selection ─────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [openMenu, setOpenMenu] = useState<string | null>(null)
 
-  // ── Virtual scroll ────────────────────────────────────────
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Close row action menu on outside click
+  useEffect(() => {
+    if (!openMenu) return
+    function handleOutside(e: MouseEvent) {
+      if (!(e.target as Element).closest('[data-row-menu]')) setOpenMenu(null)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [openMenu])
 
   // Reset selection on page change
   useEffect(() => { setSelected(new Set()) }, [page])
-
-  // Close col picker on outside click
-  useEffect(() => {
-    if (!colPickerOpen) return
-    function onDown(e: MouseEvent) {
-      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node)) {
-        setColPickerOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [colPickerOpen])
-
-  // ── Persistence ───────────────────────────────────────────
-  function toggleCol(key: string) {
-    setVisibleCols(prev => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      saveVisibleCols(next)
-      return next
-    })
-  }
-
-  function toggleCompact() {
-    setCompact(prev => {
-      const next = !prev
-      localStorage.setItem(LS_COMPACT, String(next))
-      return next
-    })
-  }
-
-  function resetCols() {
-    const next = new Set(DEFAULT_VISIBLE)
-    setVisibleCols(next)
-    saveVisibleCols(next)
-  }
 
   // ── Sort ──────────────────────────────────────────────────
   function toggleSort(key: SortKey) {
@@ -315,7 +285,7 @@ export function ProspectsTable({
             </div>
 
             {/* 3-dot menu */}
-            <div className="relative shrink-0" onClick={e => e.stopPropagation()}>
+            <div className="relative shrink-0" data-row-menu onClick={e => e.stopPropagation()}>
               <button type="button" aria-label="Row actions"
                 onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
                 className="h-8 w-8 rounded-lg hover:bg-accent flex items-center justify-center transition-colors">
@@ -402,68 +372,7 @@ export function ProspectsTable({
         </div>
       )}
 
-      {/* ── View options bar ─────────────────────────────── */}
-      <div className="flex items-center justify-end gap-2 px-3 py-1.5 border-b border-border bg-card shrink-0">
-
-        {/* Column picker */}
-        <div className="relative" ref={colPickerRef}>
-          <button type="button" onClick={() => setColPickerOpen(v => !v)}
-            className={cn(
-              'flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs font-medium transition-colors',
-              colPickerOpen
-                ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
-                : 'border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground'
-            )}>
-            <Columns3 className="h-3.5 w-3.5" />
-            Columns
-            <span className="h-4 min-w-4 rounded-full bg-muted px-1 text-[10px] font-bold text-muted-foreground flex items-center justify-center">
-              {activeCols.length}
-            </span>
-          </button>
-
-          {colPickerOpen && (
-            <div className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-border bg-card shadow-xl py-2 animate-in fade-in-0 zoom-in-95 duration-100">
-              <div className="flex items-center justify-between px-3 pb-1.5 border-b border-border mb-1">
-                <span className="text-xs font-semibold text-foreground">Toggle Columns</span>
-                <button type="button" onClick={resetCols}
-                  className="text-[10px] text-brand-500 hover:text-brand-600 font-medium transition-colors">
-                  Reset
-                </button>
-              </div>
-              <div className="max-h-72 overflow-y-auto">
-                {ALL_COLUMNS.map(col => (
-                  <button key={col.key} type="button" onClick={() => toggleCol(col.key)}
-                    className="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent transition-colors text-left">
-                    <div className={cn(
-                      'h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors',
-                      visibleCols.has(col.key)
-                        ? 'bg-brand-500 border-brand-500'
-                        : 'border-input bg-background'
-                    )}>
-                      {visibleCols.has(col.key) && <Check className="h-2.5 w-2.5 text-white" />}
-                    </div>
-                    <span className="text-xs text-foreground">{col.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Compact toggle */}
-        <button type="button" onClick={toggleCompact} title={compact ? 'Switch to comfortable view' : 'Switch to compact view'}
-          className={cn(
-            'flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs font-medium transition-colors',
-            compact
-              ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
-              : 'border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground'
-          )}>
-          <AlignJustify className="h-3.5 w-3.5" />
-          {compact ? 'Compact' : 'Comfortable'}
-        </button>
-      </div>
-
-      {/* ── Virtualized table ────────────────────────────── */}
+      {/* ── Table ────────────────────────────────────────── */}
       <div ref={scrollRef} className="flex-1 overflow-auto">
         <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed' }}>
           <colgroup>
@@ -550,7 +459,7 @@ export function ProspectsTable({
 
                 {/* Row actions */}
                 <td className={cn(cellPad)} onClick={e => e.stopPropagation()}>
-                  <div className="relative">
+                  <div className="relative" data-row-menu>
                     <button type="button" aria-label="Row actions"
                       onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
                       className="h-7 w-7 rounded-lg hover:bg-accent flex items-center justify-center transition-colors">

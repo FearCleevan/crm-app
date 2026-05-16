@@ -1,4 +1,5 @@
 import { CheckCircle2, XCircle, SkipForward, Clock, ExternalLink } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { MOCK_WORKFLOW_RUNS, type WorkflowRun } from '@/constants/mockWorkflows'
 
@@ -50,10 +51,10 @@ export function WorkflowLog() {
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />{timeLabel(run.timestamp)}
                 </span>
-                <a href={run.recordLink}
+                <Link to={run.recordLink}
                   className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" title="View record">
                   <ExternalLink className="h-3.5 w-3.5" />
-                </a>
+                </Link>
               </div>
             </div>
           )

@@ -139,6 +139,7 @@ export function DashboardPage() {
                 title="Total Prospects"
                 value={loading ? '…' : totalProspects.toLocaleString()}
                 change={newThisWeek}
+                unit=""
                 trend="up"
                 changeLabel={`+${newThisWeek} this week`}
                 icon={Users}
@@ -147,6 +148,7 @@ export function DashboardPage() {
                 title="Total Revenue"
                 value={loading ? '…' : fmt(totalRevenue)}
                 change={closedWon}
+                unit=""
                 trend="up"
                 changeLabel={`${closedWon} deals closed`}
                 icon={DollarSign}
