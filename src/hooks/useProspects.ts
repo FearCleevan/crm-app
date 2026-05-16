@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { prospectsService, type ProspectFilters, type ProspectSort } from '@/services/prospects.service'
 import type { ProspectRow } from '@/types/database'
 
@@ -10,6 +10,10 @@ interface UseProspectsParams {
   sort?: ProspectSort
 }
 
+// Module-level cache — survives navigation, cleared on browser refresh.
+// Keyed by serialized params so each unique query has its own entry.
+const cache = new Map<string, { data: ProspectRow[]; count: number }>()
+
 export function useProspects({
   page,
   limit = 20,
@@ -17,67 +21,91 @@ export function useProspects({
   filters,
   sort,
 }: UseProspectsParams) {
-  const [data, setData]   = useState<ProspectRow[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState<Error | null>(null)
-
-  // Stable serialized deps to avoid re-fetching on object identity changes
   const filterKey = JSON.stringify(filters)
   const sortKey   = JSON.stringify(sort)
+  const cacheKey  = JSON.stringify({ page, limit, search, filterKey, sortKey })
 
-  const fetch = useCallback(async () => {
-    setLoading(true)
+  // Pre-populate from cache so navigating back shows data instantly (no loading flash)
+  const [data, setData]       = useState<ProspectRow[]>(() => cache.get(cacheKey)?.data ?? [])
+  const [total, setTotal]     = useState<number>(() => cache.get(cacheKey)?.count ?? 0)
+  const [loading, setLoading] = useState<boolean>(() => !cache.has(cacheKey))
+  const [error, setError]     = useState<Error | null>(null)
+
+  // Track whether this component instance is still mounted to avoid stale updates
+  const aliveRef = useRef(true)
+
+  const fetchPage = useCallback(async () => {
+    const hit = cache.get(cacheKey)
+    if (hit) {
+      // Show cached data immediately while re-fetching in background
+      setData(hit.data)
+      setTotal(hit.count)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     setError(null)
+
     try {
-      const result = await prospectsService.getProspects({
-        page,
-        limit,
-        search,
-        filters: filters,
-        sort,
-      })
+      const result = await prospectsService.getProspects({ page, limit, search, filters, sort })
+      if (!aliveRef.current) return
+      cache.set(cacheKey, { data: result.data, count: result.count })
       setData(result.data)
       setTotal(result.count)
     } catch (err) {
+      if (!aliveRef.current) return
       setError(err instanceof Error ? err : new Error('Failed to load prospects'))
     } finally {
-      setLoading(false)
+      if (aliveRef.current) setLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search, filterKey, sortKey])
+  }, [page, limit, search, filterKey, sortKey, cacheKey])
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => {
+    aliveRef.current = true
+    fetchPage()
+    return () => { aliveRef.current = false }
+  }, [fetchPage])
+
+  const refetch = useCallback(() => {
+    cache.delete(cacheKey)
+    return fetchPage()
+  }, [cacheKey, fetchPage])
 
   const create = useCallback(async (payload: Parameters<typeof prospectsService.createProspect>[0]) => {
     const created = await prospectsService.createProspect(payload)
+    cache.delete(cacheKey)
     setData(prev => [created, ...prev])
     setTotal(t => t + 1)
     return created
-  }, [])
+  }, [cacheKey])
 
   const update = useCallback(async (id: number, updates: Parameters<typeof prospectsService.updateProspect>[1]) => {
     const updated = await prospectsService.updateProspect(id, updates)
+    cache.delete(cacheKey)
     setData(prev => prev.map(p => p.id === id ? updated : p))
     return updated
-  }, [])
+  }, [cacheKey])
 
   const remove = useCallback(async (id: number) => {
     await prospectsService.deleteProspect(id)
+    cache.delete(cacheKey)
     setData(prev => prev.filter(p => p.id !== id))
     setTotal(t => t - 1)
-  }, [])
+  }, [cacheKey])
 
   const bulkRemove = useCallback(async (ids: number[]) => {
     await prospectsService.bulkDeleteProspects(ids)
+    cache.delete(cacheKey)
     setData(prev => prev.filter(p => !ids.includes(p.id)))
     setTotal(t => t - ids.length)
-  }, [])
+  }, [cacheKey])
 
   const bulkUpdateStatus = useCallback(async (ids: number[], status: ProspectRow['status']) => {
     await prospectsService.bulkUpdateStatus(ids, status)
+    cache.delete(cacheKey)
     setData(prev => prev.map(p => ids.includes(p.id) ? { ...p, status } : p))
-  }, [])
+  }, [cacheKey])
 
-  return { data, total, loading, error, refetch: fetch, create, update, remove, bulkRemove, bulkUpdateStatus }
+  return { data, total, loading, error, refetch, create, update, remove, bulkRemove, bulkUpdateStatus }
 }

@@ -185,7 +185,14 @@ export function ComposeModal({ open, onClose, onSend, onSaveDraft, initialTo = '
               className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Attach file">
               <Paperclip className="h-4 w-4" />
             </button>
-            <input ref={fileRef} type="file" className="hidden" onChange={() => toast.info('File attachment available after backend integration')} />
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              aria-label="Attach file"
+              title="Attach file"
+              onChange={() => toast.info('File attachment available after backend integration')}
+            />
 
             <div className="flex-1" />
 

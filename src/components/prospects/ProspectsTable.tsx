@@ -280,24 +280,22 @@ export function ProspectsTable({
   // ── Mobile card view (<768px) ────────────────────────────────
   const mobileCards = (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
-      )}
-
-      {/* Empty */}
-      {!isLoading && prospects.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
-            <Mail className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <p className="font-semibold text-foreground">No prospects found</p>
-          <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
-        </div>
-      )}
-
-      {/* Cards */}
+      {/* Single scrollable container — avoids competing flex-1 siblings that block touch events */}
       <div className="flex-1 overflow-y-auto divide-y divide-border">
+        {isLoading && (
+          <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Loading…</div>
+        )}
+
+        {!isLoading && prospects.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
+              <Mail className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <p className="font-semibold text-foreground">No prospects found</p>
+            <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
+          </div>
+        )}
+
         {!isLoading && prospects.map(p => (
           <div
             key={p.id}

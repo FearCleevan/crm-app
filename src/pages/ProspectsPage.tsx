@@ -203,6 +203,17 @@ export function ProspectsPage() {
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const mobileActionsRef = useRef<HTMLDivElement>(null)
 
+  useEffect(() => {
+    if (!mobileActionsOpen) return
+    function handleOutside(e: MouseEvent) {
+      if (mobileActionsRef.current && !mobileActionsRef.current.contains(e.target as Node)) {
+        setMobileActionsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [mobileActionsOpen])
+
   const detailProspect = detailRow ? rowToProspect(detailRow) : null
 
   const activeFilterCount = Object.values(filters).reduce<number>(
