@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef, memo } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Trash2, Mail,
   Columns3, AlignJustify, Check,
@@ -182,17 +181,6 @@ export function ProspectsTable({
 
   // ── Virtual scroll ────────────────────────────────────────
   const scrollRef = useRef<HTMLDivElement>(null)
-  const ROW_H = compact ? 36 : 53
-
-  const rowVirtualizer = useVirtualizer({
-    count: isLoading ? 0 : prospects.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_H,
-    overscan: 15,
-  })
-
-  // Re-measure rows when compact toggles so heights recalculate
-  useEffect(() => { rowVirtualizer.measure() }, [compact, rowVirtualizer])
 
   // Reset selection on page change
   useEffect(() => { setSelected(new Set()) }, [page])
@@ -266,12 +254,6 @@ export function ProspectsTable({
   // ── Derived columns ───────────────────────────────────────
   const activeCols = ALL_COLUMNS.filter(c => visibleCols.has(c.key))
   const colSpanTotal = activeCols.length + 2 // +checkbox +actions
-
-  // ── Virtual rows ──────────────────────────────────────────
-  const virtualRows = rowVirtualizer.getVirtualItems()
-  const totalVirtualSize = rowVirtualizer.getTotalSize()
-  const paddingTop    = virtualRows.length > 0 ? virtualRows[0].start : 0
-  const paddingBottom = virtualRows.length > 0 ? totalVirtualSize - virtualRows[virtualRows.length - 1].end : 0
 
   // ── Padding & styles ──────────────────────────────────────
   const cellPad = compact ? 'px-2 py-1' : 'px-3 py-3'
@@ -543,69 +525,53 @@ export function ProspectsTable({
               </tr>
             )}
 
-            {/* Virtual top spacer */}
-            {!isLoading && paddingTop > 0 && (
-              <tr aria-hidden><td colSpan={colSpanTotal} style={{ height: paddingTop }} /></tr>
-            )}
+            {/* Rows */}
+            {!isLoading && prospects.map(p => (
+              <tr
+                key={p.id}
+                onClick={() => onRowClick(p)}
+                className={cn(
+                  'border-b border-border cursor-pointer transition-colors hover:bg-accent/50',
+                  selected.has(p.id) && 'bg-brand-50/50 dark:bg-brand-900/10'
+                )}
+              >
+                {/* Checkbox */}
+                <td className={cn(cellPad)} onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" aria-label={`Select ${p.fullname || 'row'}`} checked={selected.has(p.id)} onChange={() => toggleRow(p.id)}
+                    className="h-4 w-4 rounded border-input accent-brand-500 cursor-pointer" />
+                </td>
 
-            {/* Virtual rows */}
-            {!isLoading && virtualRows.map(vRow => {
-              const p = prospects[vRow.index]
-              if (!p) return null
-              return (
-                <tr
-                  key={p.id}
-                  data-index={vRow.index}
-                  onClick={() => onRowClick(p)}
-                  className={cn(
-                    'border-b border-border cursor-pointer transition-colors hover:bg-accent/50',
-                    selected.has(p.id) && 'bg-brand-50/50 dark:bg-brand-900/10'
-                  )}
-                  style={{ height: ROW_H }}
-                >
-                  {/* Checkbox */}
-                  <td className={cn(cellPad)} onClick={e => e.stopPropagation()}>
-                    <input type="checkbox" aria-label={`Select ${p.fullname || 'row'}`} checked={selected.has(p.id)} onChange={() => toggleRow(p.id)}
-                      className="h-4 w-4 rounded border-input accent-brand-500 cursor-pointer" />
+                {/* Dynamic cells */}
+                {activeCols.map(col => (
+                  <td key={col.key} className={cn(cellPad, textSz, 'overflow-hidden')}>
+                    <CellContent col={col} p={p} compact={compact} />
                   </td>
+                ))}
 
-                  {/* Dynamic cells */}
-                  {activeCols.map(col => (
-                    <td key={col.key} className={cn(cellPad, textSz, 'overflow-hidden')}>
-                      <CellContent col={col} p={p} compact={compact} />
-                    </td>
-                  ))}
-
-                  {/* Row actions */}
-                  <td className={cn(cellPad)} onClick={e => e.stopPropagation()}>
-                    <div className="relative">
-                      <button type="button" aria-label="Row actions"
-                        onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
-                        className="h-7 w-7 rounded-lg hover:bg-accent flex items-center justify-center transition-colors">
-                        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                      {openMenu === p.id && (
-                        <div className="absolute right-0 top-8 z-20 w-36 rounded-xl border border-border bg-card shadow-lg py-1">
-                          <button type="button" onClick={() => { onRowClick(p); setOpenMenu(null) }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors">
-                            <Mail className="h-3.5 w-3.5 text-muted-foreground" /> View Details
-                          </button>
-                          <button type="button" onClick={() => { onDelete(p.id); setOpenMenu(null) }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors">
-                            <Trash2 className="h-3.5 w-3.5" /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-
-            {/* Virtual bottom spacer */}
-            {!isLoading && paddingBottom > 0 && (
-              <tr aria-hidden><td colSpan={colSpanTotal} style={{ height: paddingBottom }} /></tr>
-            )}
+                {/* Row actions */}
+                <td className={cn(cellPad)} onClick={e => e.stopPropagation()}>
+                  <div className="relative">
+                    <button type="button" aria-label="Row actions"
+                      onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
+                      className="h-7 w-7 rounded-lg hover:bg-accent flex items-center justify-center transition-colors">
+                      <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                    {openMenu === p.id && (
+                      <div className="absolute right-0 top-8 z-20 w-36 rounded-xl border border-border bg-card shadow-lg py-1">
+                        <button type="button" onClick={() => { onRowClick(p); setOpenMenu(null) }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors">
+                          <Mail className="h-3.5 w-3.5 text-muted-foreground" /> View Details
+                        </button>
+                        <button type="button" onClick={() => { onDelete(p.id); setOpenMenu(null) }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors">
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
