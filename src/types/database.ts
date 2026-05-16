@@ -109,6 +109,50 @@ export interface NotificationRow {
   created_at: string
 }
 
+export type DealStage =
+  | 'New Lead' | 'Contacted' | 'Qualified'
+  | 'Proposal Sent' | 'Negotiation'
+  | 'Closed Won' | 'Closed Lost'
+
+export interface DealRow {
+  id: string                      // uuid
+  name: string
+  prospect_id: number | null      // FK → prospects.id (integer)
+  prospect_name: string
+  company: string
+  stage: DealStage
+  value: number
+  probability: number
+  expected_close_date: string     // date as ISO string YYYY-MM-DD
+  assigned_to: string | null      // uuid → crm_users.id
+  stage_changed_at: string        // timestamptz
+  sort_order: number
+  description: string | null
+  created_by: string | null       // uuid → crm_users.id
+  created_at: string              // timestamptz
+  updated_at: string              // timestamptz
+}
+
+export type DealInsert = Omit<DealRow, 'id' | 'created_at' | 'updated_at'>
+export type DealUpdate = Partial<Omit<DealRow, 'id' | 'created_at'>>
+
+// Maps to the existing `activities` table (deal_id scoped)
+export type DealActivityType = 'call' | 'email' | 'meeting' | 'task' | 'note' | 'status'
+
+export interface DealActivityRow {
+  id: string                      // uuid
+  deal_id: string | null          // uuid → deals.id
+  type: DealActivityType
+  title: string                   // main display text
+  description: string | null
+  status: 'pending' | 'completed' | 'cancelled'
+  created_by: string | null       // uuid → crm_users.id
+  created_at: string              // timestamptz
+  updated_at: string              // timestamptz
+}
+
+export type DealActivityInsert = Pick<DealActivityRow, 'deal_id' | 'type' | 'title' | 'description' | 'created_by'>
+
 // Lookup table rows
 export interface DispositionRow  { disposition_code: string; disposition_name: string }
 export interface EmailStatusRow  { email_code: string;        email_name: string        }

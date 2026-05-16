@@ -41,8 +41,8 @@ export interface ProspectSort {
 }
 
 export interface GetProspectsParams {
-  page: number
-  limit: number
+  page?: number
+  limit?: number
   search?: string
   filters?: ProspectFilters
   sort?: ProspectSort
@@ -98,7 +98,7 @@ function applyFilters(
 }
 
 export const prospectsService = {
-  async getProspects({ page, limit, search, filters, sort }: GetProspectsParams) {
+  async getProspects({ page = 1, limit = 25, search, filters, sort }: GetProspectsParams) {
     let query = supabase.from('prospects').select('*', { count: 'exact' })
 
     query = applyFilters(query as any, search, filters) as any

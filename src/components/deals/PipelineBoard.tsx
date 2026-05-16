@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { DealCard } from './DealCard'
 import type { Deal } from '@/constants/mockData'
+import type { CRMUserRow } from '@/types/database'
 
 export const PIPELINE_STAGES: Deal['stage'][] = [
   'New Lead', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost',
@@ -45,13 +46,14 @@ const STAGE_DOT: Record<Deal['stage'], string> = {
 
 interface PipelineBoardProps {
   deals: Deal[]
+  users: CRMUserRow[]
   activeId: string | null
   onDragStart: (e: DragStartEvent) => void
   onDragEnd: (e: DragEndEvent) => void
   onCardClick: (deal: Deal) => void
 }
 
-export function PipelineBoard({ deals, activeId, onDragStart, onDragEnd, onCardClick }: PipelineBoardProps) {
+export function PipelineBoard({ deals, users, activeId, onDragStart, onDragEnd, onCardClick }: PipelineBoardProps) {
   const byStage = useMemo(() => {
     const map: Record<string, Deal[]> = {}
     PIPELINE_STAGES.forEach(s => { map[s] = [] })
@@ -90,7 +92,7 @@ export function PipelineBoard({ deals, activeId, onDragStart, onDragEnd, onCardC
               <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-2 min-h-[60px]">
                 <SortableContext items={stageDeals.map(d => d.id)} strategy={verticalListSortingStrategy}>
                   {stageDeals.map(deal => (
-                    <DealCard key={deal.id} deal={deal} onClick={onCardClick} />
+                    <DealCard key={deal.id} deal={deal} users={users} onClick={onCardClick} />
                   ))}
                 </SortableContext>
                 {stageDeals.length === 0 && (
@@ -106,7 +108,7 @@ export function PipelineBoard({ deals, activeId, onDragStart, onDragEnd, onCardC
 
       {createPortal(
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
-          {activeCard && <DealCard deal={activeCard} onClick={() => {}} overlay />}
+          {activeCard && <DealCard deal={activeCard} users={users} onClick={() => {}} overlay />}
         </DragOverlay>,
         document.body,
       )}

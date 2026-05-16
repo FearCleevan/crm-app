@@ -1,30 +1,24 @@
-import { useState } from 'react'
-import { X, Pencil, Trash2, Mail, Phone, Calendar, TrendingUp, Clock, Tag, User, Briefcase, ChevronRight, XCircle, PhoneCall, MessageSquare, CheckCircle2, Send, Save } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Pencil, Trash2, Mail, Phone, Calendar, TrendingUp, Clock, Tag, User, Briefcase, ChevronRight, XCircle, PhoneCall, MessageSquare, CheckCircle2, Send, Save, Video } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { MOCK_USERS, type Deal } from '@/constants/mockData'
+import { dealsService } from '@/services/deals.service'
+import type { DealActivityRow, CRMUserRow } from '@/types/database'
+import type { Deal } from '@/constants/mockData'
 import { STAGE_BADGE } from './StageBadge'
 import { PIPELINE_STAGES } from './PipelineBoard'
 
 type Tab = 'overview' | 'activity' | 'notes'
 
-const ACTIVITY_ICONS = {
-  call:   { Icon: PhoneCall,     color: 'text-blue-500',    bg: 'bg-blue-100 dark:bg-blue-900/30' },
-  email:  { Icon: Mail,          color: 'text-violet-500',  bg: 'bg-violet-100 dark:bg-violet-900/30' },
-  note:   { Icon: MessageSquare, color: 'text-amber-500',   bg: 'bg-amber-100 dark:bg-amber-900/30' },
-  status: { Icon: Tag,           color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
-  task:   { Icon: CheckCircle2,  color: 'text-rose-500',    bg: 'bg-rose-100 dark:bg-rose-900/30' },
+const ACTIVITY_ICONS: Record<string, { Icon: React.ElementType; color: string; bg: string }> = {
+  call:    { Icon: PhoneCall,     color: 'text-blue-500',    bg: 'bg-blue-100 dark:bg-blue-900/30' },
+  email:   { Icon: Mail,          color: 'text-violet-500',  bg: 'bg-violet-100 dark:bg-violet-900/30' },
+  note:    { Icon: MessageSquare, color: 'text-amber-500',   bg: 'bg-amber-100 dark:bg-amber-900/30' },
+  status:  { Icon: Tag,           color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  task:    { Icon: CheckCircle2,  color: 'text-rose-500',    bg: 'bg-rose-100 dark:bg-rose-900/30' },
+  meeting: { Icon: Video,         color: 'text-indigo-500',  bg: 'bg-indigo-100 dark:bg-indigo-900/30' },
 }
-
-const MOCK_ACTIVITIES = [
-  { id: 'da1', type: 'call'   as const, desc: 'Discovery call — prospect confirmed budget and timeline.', user: 'usr-001', date: new Date(Date.now() - 2 * 86400000).toISOString() },
-  { id: 'da2', type: 'email'  as const, desc: 'Sent proposal PDF with custom pricing breakdown.', user: 'usr-002', date: new Date(Date.now() - 5 * 86400000).toISOString() },
-  { id: 'da3', type: 'note'   as const, desc: 'Competitor mentioned: SalesForce. Need to highlight differentiators.', user: 'usr-001', date: new Date(Date.now() - 8 * 86400000).toISOString() },
-  { id: 'da4', type: 'status' as const, desc: 'Stage updated: New Lead → Qualified.', user: 'usr-003', date: new Date(Date.now() - 12 * 86400000).toISOString() },
-]
-
-interface MockNote { id: string; text: string; authorId: string; createdAt: string }
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value?: string | number }) {
   if (!value && value !== 0) return null
@@ -82,12 +76,15 @@ function DeleteConfirm({ name, onConfirm, onCancel }: { name: string; onConfirm:
 
 interface DealDetailSheetProps {
   deal: Deal
+  dealId: string
+  users: CRMUserRow[]
+  currentUserId: string
   onClose: () => void
-  onUpdate: (deal: Deal) => void
+  onUpdate: (updates: Partial<Deal>) => void
   onDelete: (id: string) => void
 }
 
-export function DealDetailSheet({ deal, onClose, onUpdate, onDelete }: DealDetailSheetProps) {
+export function DealDetailSheet({ deal, dealId, users, currentUserId, onClose, onUpdate, onDelete }: DealDetailSheetProps) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -97,12 +94,25 @@ export function DealDetailSheet({ deal, onClose, onUpdate, onDelete }: DealDetai
   const [editClose, setEditClose] = useState(deal.expectedCloseDate)
   const [editAssigned, setEditAssigned] = useState(deal.assignedTo)
   const [editDesc, setEditDesc] = useState(deal.description)
-  const [notes, setNotes] = useState<MockNote[]>([
-    { id: 'dn1', text: 'Great conversation — clear buying intent expressed.', authorId: 'usr-001', createdAt: new Date(Date.now() - 3 * 86400000).toISOString() },
-  ])
-  const [noteInput, setNoteInput] = useState('')
 
-  const assignee = MOCK_USERS.find(u => u.id === deal.assignedTo)
+  const [activities, setActivities] = useState<DealActivityRow[]>([])
+  const [activitiesLoading, setActivitiesLoading] = useState(true)
+  const [noteInput, setNoteInput] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    setActivitiesLoading(true)
+    dealsService.getActivities(dealId)
+      .then(data => { if (alive) setActivities(data) })
+      .catch(() => {})
+      .finally(() => { if (alive) setActivitiesLoading(false) })
+    return () => { alive = false }
+  }, [dealId])
+
+  const notes = activities.filter(a => a.type === 'note')
+
+  const assignee = users.find(u => u.id === deal.assignedTo)
   const { label: stageLabel, cls: stageCls } = STAGE_BADGE[deal.stage]
 
   const TABS: { id: Tab; label: string }[] = [
@@ -111,31 +121,48 @@ export function DealDetailSheet({ deal, onClose, onUpdate, onDelete }: DealDetai
     { id: 'notes',    label: `Notes (${notes.length})` },
   ]
 
+  function getUserName(userId: string | null) {
+    if (!userId) return 'Unknown'
+    const u = users.find(u => u.id === userId)
+    return u ? `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() : userId
+  }
+
   function handleSave() {
     onUpdate({
-      ...deal,
-      stage:              editStage,
-      value:              Number(editValue),
-      probability:        Number(editProb),
-      expectedCloseDate:  editClose,
-      assignedTo:         editAssigned,
-      description:        editDesc,
+      stage:             editStage,
+      value:             Number(editValue),
+      probability:       Number(editProb),
+      expectedCloseDate: editClose,
+      assignedTo:        editAssigned,
+      description:       editDesc,
     })
-    toast.success('Deal updated')
     setEditing(false)
   }
 
   function handleDelete() {
     onDelete(deal.id)
-    toast.success(`${deal.name} deleted`)
     onClose()
   }
 
-  function addNote() {
+  async function addNote() {
     if (!noteInput.trim()) return
-    setNotes(prev => [{ id: `dn-${Date.now()}`, text: noteInput.trim(), authorId: 'usr-001', createdAt: new Date().toISOString() }, ...prev])
-    setNoteInput('')
-    toast.success('Note added')
+    setSavingNote(true)
+    try {
+      const created = await dealsService.addActivity({
+        deal_id:     dealId,
+        type:        'note',
+        title:       noteInput.trim(),
+        description: null,
+        created_by:  currentUserId || null,
+      })
+      setActivities(prev => [created, ...prev])
+      setNoteInput('')
+      toast.success('Note added')
+    } catch {
+      toast.error('Failed to save note')
+    } finally {
+      setSavingNote(false)
+    }
   }
 
   return (
@@ -230,7 +257,8 @@ export function DealDetailSheet({ deal, onClose, onUpdate, onDelete }: DealDetai
                 <label className="text-xs font-semibold text-foreground">Assigned To</label>
                 <select value={editAssigned} onChange={e => setEditAssigned(e.target.value)}
                   className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
-                  {MOCK_USERS.map(u => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+                  <option value="">Unassigned</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -251,23 +279,22 @@ export function DealDetailSheet({ deal, onClose, onUpdate, onDelete }: DealDetai
           {!editing && activeTab === 'overview' && (
             <>
               <SectionCard title="Deal Information">
-                <InfoRow icon={Tag}       label="Stage"            value={deal.stage} />
-                <InfoRow icon={TrendingUp}label="Probability"      value={`${deal.probability}%`} />
-                <InfoRow icon={Calendar}  label="Expected Close"   value={format(new Date(deal.expectedCloseDate), 'PPP')} />
-                <InfoRow icon={Clock}     label="Days in Stage"    value={`${deal.daysInStage} days`} />
-                <InfoRow icon={Calendar}  label="Created On"       value={format(new Date(deal.createdOn), 'PPP')} />
+                <InfoRow icon={Tag}        label="Stage"          value={deal.stage} />
+                <InfoRow icon={TrendingUp} label="Probability"    value={`${deal.probability}%`} />
+                <InfoRow icon={Calendar}   label="Expected Close" value={format(new Date(deal.expectedCloseDate), 'PPP')} />
+                <InfoRow icon={Clock}      label="Days in Stage"  value={`${deal.daysInStage} days`} />
+                <InfoRow icon={Calendar}   label="Created On"     value={format(new Date(deal.createdOn), 'PPP')} />
               </SectionCard>
               <SectionCard title="Contact">
-                <InfoRow icon={User}      label="Prospect"         value={deal.prospectName} />
-                <InfoRow icon={Briefcase} label="Company"          value={deal.company} />
-                {assignee && <InfoRow icon={User} label="Assigned To" value={`${assignee.first_name} ${assignee.last_name}`} />}
+                <InfoRow icon={User}      label="Prospect"    value={deal.prospectName} />
+                <InfoRow icon={Briefcase} label="Company"     value={deal.company} />
+                {assignee && <InfoRow icon={User} label="Assigned To" value={`${assignee.first_name ?? ''} ${assignee.last_name ?? ''}`.trim()} />}
               </SectionCard>
               {deal.description && (
                 <SectionCard title="Description">
                   <p className="text-sm text-foreground py-3">{deal.description}</p>
                 </SectionCard>
               )}
-              {/* Quick actions */}
               <div className="flex gap-2">
                 <button type="button"
                   className="flex-1 flex items-center justify-center gap-2 h-9 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
@@ -284,25 +311,36 @@ export function DealDetailSheet({ deal, onClose, onUpdate, onDelete }: DealDetai
           {/* Activity tab */}
           {!editing && activeTab === 'activity' && (
             <div className="space-y-0">
-              {MOCK_ACTIVITIES.map((act, i) => {
-                const meta = ACTIVITY_ICONS[act.type]
-                const user = MOCK_USERS.find(u => u.id === act.user)
+              {activitiesLoading && (
+                <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                  Loading activity…
+                </div>
+              )}
+              {!activitiesLoading && activities.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
+                  <Tag className="h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+                </div>
+              )}
+              {!activitiesLoading && activities.map((act, i) => {
+                const meta = ACTIVITY_ICONS[act.type] ?? ACTIVITY_ICONS.note
                 return (
                   <div key={act.id} className="flex gap-4 pb-5">
                     <div className="flex flex-col items-center">
                       <div className={cn('h-8 w-8 rounded-full flex items-center justify-center shrink-0', meta.bg)}>
                         <meta.Icon className={cn('h-4 w-4', meta.color)} />
                       </div>
-                      {i < MOCK_ACTIVITIES.length - 1 && <div className="w-px flex-1 bg-border mt-2 min-h-[20px]" />}
+                      {i < activities.length - 1 && <div className="w-px flex-1 bg-border mt-2 min-h-[20px]" />}
                     </div>
                     <div className="flex-1 min-w-0 pb-0">
-                      <p className="text-sm text-foreground leading-snug">{act.desc}</p>
+                      <p className="text-sm text-foreground leading-snug">{act.title}</p>
+                      {act.description && <p className="text-xs text-muted-foreground mt-0.5">{act.description}</p>}
                       <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-xs text-muted-foreground">{user ? `${user.first_name} ${user.last_name}` : act.user}</span>
+                        <span className="text-xs text-muted-foreground">{getUserName(act.created_by)}</span>
                         <span className="text-muted-foreground/40">·</span>
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {format(new Date(act.date), 'MMM d, yyyy')}
+                          {format(new Date(act.created_at), 'MMM d, yyyy')}
                         </span>
                       </div>
                     </div>
@@ -320,25 +358,31 @@ export function DealDetailSheet({ deal, onClose, onUpdate, onDelete }: DealDetai
                   placeholder="Add a note about this deal…" rows={3}
                   className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-colors" />
                 <div className="flex justify-end">
-                  <button type="button" onClick={addNote} disabled={!noteInput.trim()}
+                  <button type="button" onClick={addNote} disabled={!noteInput.trim() || savingNote}
                     className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                    <Save className="h-3.5 w-3.5" /> Save Note
+                    <Save className="h-3.5 w-3.5" /> {savingNote ? 'Saving…' : 'Save Note'}
                   </button>
                 </div>
               </div>
               <div className="space-y-3">
+                {notes.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
+                    <MessageSquare className="h-7 w-7 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">No notes yet. Add one above.</p>
+                  </div>
+                )}
                 {notes.map(n => {
-                  const author = MOCK_USERS.find(u => u.id === n.authorId)
+                  const initials = getUserName(n.created_by).split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                   return (
                     <div key={n.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
-                      <p className="text-sm text-foreground">{n.text}</p>
+                      <p className="text-sm text-foreground">{n.title}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <div className="h-5 w-5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[9px] font-bold text-brand-700 dark:text-brand-300">
-                          {author?.first_name[0]}{author?.last_name[0]}
+                          {initials}
                         </div>
-                        {author ? `${author.first_name} ${author.last_name}` : n.authorId}
+                        {getUserName(n.created_by)}
                         <span className="text-muted-foreground/40">·</span>
-                        {format(new Date(n.createdAt), 'MMM d, yyyy · h:mm a')}
+                        {format(new Date(n.created_at), 'MMM d, yyyy · h:mm a')}
                       </div>
                     </div>
                   )
@@ -351,7 +395,7 @@ export function DealDetailSheet({ deal, onClose, onUpdate, onDelete }: DealDetai
           {!editing && activeTab === ('emails' as Tab) && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
               <Send className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Email history will be available after Phase 9.</p>
+              <p className="text-sm text-muted-foreground">Email history will be available in a future update.</p>
             </div>
           )}
         </div>

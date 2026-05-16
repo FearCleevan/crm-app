@@ -2,15 +2,17 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Calendar, TrendingUp, Clock, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { MOCK_USERS, type Deal } from '@/constants/mockData'
+import type { CRMUserRow } from '@/types/database'
+import type { Deal } from '@/constants/mockData'
 
 interface DealCardProps {
   deal: Deal
+  users: CRMUserRow[]
   onClick: (deal: Deal) => void
   overlay?: boolean
 }
 
-export function DealCard({ deal, onClick, overlay = false }: DealCardProps) {
+export function DealCard({ deal, users, onClick, overlay = false }: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
 
   const style = {
@@ -18,7 +20,7 @@ export function DealCard({ deal, onClick, overlay = false }: DealCardProps) {
     transition,
   }
 
-  const assignee = MOCK_USERS.find(u => u.id === deal.assignedTo)
+  const assignee = users.find(u => u.id === deal.assignedTo)
 
   const probabilityColor =
     deal.probability >= 75 ? 'text-emerald-600 dark:text-emerald-400' :

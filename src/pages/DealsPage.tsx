@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { LayoutGrid, List, PlusCircle, TrendingUp, DollarSign, Target, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -11,58 +11,53 @@ import { DealsList } from '@/components/deals/DealsList'
 import { AddDealModal } from '@/components/deals/AddDealModal'
 import { DealDetailSheet } from '@/components/deals/DealDetailSheet'
 import { PermissionGate } from '@/components/auth/PermissionGate'
-import { MOCK_DEALS, type Deal } from '@/constants/mockData'
+import { useDeals } from '@/hooks/useDeals'
+import { usersService } from '@/services/users.service'
+import type { Deal } from '@/constants/mockData'
+import type { DealRow, DealInsert, CRMUserRow, DealStage } from '@/types/database'
 import { cn } from '@/lib/utils'
 
 type View = 'board' | 'list'
 
-function useDealsState() {
-  const [deals, setDeals] = useState<Deal[]>(MOCK_DEALS)
-
-  const addDeal = useCallback((d: Deal) => {
-    setDeals(prev => [d, ...prev])
-    toast.success('Deal created')
-  }, [])
-
-  const updateDeal = useCallback((updated: Deal) => {
-    setDeals(prev => prev.map(d => d.id === updated.id ? updated : d))
-  }, [])
-
-  const deleteDeal = useCallback((id: string) => {
-    setDeals(prev => prev.filter(d => d.id !== id))
-    toast.success('Deal deleted')
-  }, [])
-
-  const moveStage = useCallback((id: string, stage: Deal['stage']) => {
-    setDeals(prev => prev.map(d => d.id === id ? { ...d, stage, daysInStage: 0 } : d))
-  }, [])
-
-  const reorder = useCallback((ids: string[]) => {
-    setDeals(prev => {
-      const byId = Object.fromEntries(prev.map(d => [d.id, d]))
-      const reordered = ids.map(id => byId[id]).filter(Boolean)
-      const rest = prev.filter(d => !ids.includes(d.id))
-      return [...reordered, ...rest]
-    })
-  }, [])
-
-  return { deals, addDeal, updateDeal, deleteDeal, moveStage, reorder }
+// ── Adapter: DealRow → Deal (UI shape) ───────────────────────
+function rowToDeal(row: DealRow): Deal {
+  return {
+    id: row.id,
+    name: row.name,
+    prospectId: String(row.prospect_id ?? ''),
+    prospectName: row.prospect_name,
+    company: row.company,
+    stage: row.stage,
+    value: Number(row.value),
+    probability: row.probability,
+    expectedCloseDate: row.expected_close_date,
+    assignedTo: row.assigned_to ?? '',
+    daysInStage: Math.max(0, Math.floor(
+      (Date.now() - new Date(row.stage_changed_at).getTime()) / 86_400_000
+    )),
+    description: row.description ?? '',
+    createdOn: row.created_at,
+  }
 }
 
 // ── Summary metrics ───────────────────────────────────────────
 function SummaryBar({ deals }: { deals: Deal[] }) {
   const pipeline = deals.filter(d => d.stage !== 'Closed Won' && d.stage !== 'Closed Lost')
-  const won = deals.filter(d => d.stage === 'Closed Won')
-  const closed = deals.filter(d => d.stage === 'Closed Won' || d.stage === 'Closed Lost')
-  const winRate = closed.length ? Math.round((won.length / closed.length) * 100) : 0
-  const avgValue = pipeline.length ? Math.round(pipeline.reduce((s, d) => s + d.value, 0) / pipeline.length) : 0
-  const avgDays = deals.length ? Math.round(deals.reduce((s, d) => s + d.daysInStage, 0) / deals.length) : 0
+  const won      = deals.filter(d => d.stage === 'Closed Won')
+  const closed   = deals.filter(d => d.stage === 'Closed Won' || d.stage === 'Closed Lost')
+  const winRate  = closed.length ? Math.round((won.length / closed.length) * 100) : 0
+  const avgValue = pipeline.length
+    ? Math.round(pipeline.reduce((s, d) => s + d.value, 0) / pipeline.length)
+    : 0
+  const avgDays  = deals.length
+    ? Math.round(deals.reduce((s, d) => s + d.daysInStage, 0) / deals.length)
+    : 0
 
   const stats = [
-    { icon: DollarSign, label: 'Total Pipeline', value: `$${pipeline.reduce((s, d) => s + d.value, 0).toLocaleString()}`, color: 'text-brand-600 dark:text-brand-400' },
-    { icon: TrendingUp, label: 'Avg Deal Size',  value: `$${avgValue.toLocaleString()}`,                                    color: 'text-emerald-600 dark:text-emerald-400' },
-    { icon: Target,     label: 'Win Rate',       value: `${winRate}%`,                                                      color: 'text-violet-600 dark:text-violet-400' },
-    { icon: Clock,      label: 'Avg Days to Close', value: `${avgDays}d`,                                                   color: 'text-amber-600 dark:text-amber-400' },
+    { icon: DollarSign, label: 'Total Pipeline',    value: `$${pipeline.reduce((s, d) => s + d.value, 0).toLocaleString()}`, color: 'text-brand-600 dark:text-brand-400'   },
+    { icon: TrendingUp, label: 'Avg Deal Size',      value: `$${avgValue.toLocaleString()}`,                                   color: 'text-emerald-600 dark:text-emerald-400' },
+    { icon: Target,     label: 'Win Rate',           value: `${winRate}%`,                                                     color: 'text-violet-600 dark:text-violet-400'   },
+    { icon: Clock,      label: 'Avg Days to Close',  value: `${avgDays}d`,                                                     color: 'text-amber-600 dark:text-amber-400'     },
   ]
 
   return (
@@ -89,14 +84,21 @@ const EMPTY_FILTERS: Filters = { stage: '', assignedTo: '' }
 function FilterBar({ filters, onChange }: { filters: Filters; onChange: (f: Filters) => void }) {
   return (
     <div className="flex items-center gap-2 px-6 pb-4 flex-wrap">
-      <select value={filters.stage} onChange={e => onChange({ ...filters, stage: e.target.value })}
-        className="h-8 rounded-lg border border-border bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+      <select
+        aria-label="Filter by stage"
+        value={filters.stage}
+        onChange={e => onChange({ ...filters, stage: e.target.value })}
+        className="h-8 rounded-lg border border-border bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      >
         <option value="">All Stages</option>
         {PIPELINE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
       </select>
       {(filters.stage || filters.assignedTo) && (
-        <button type="button" onClick={() => onChange(EMPTY_FILTERS)}
-          className="h-8 px-3 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:bg-accent transition-colors">
+        <button
+          type="button"
+          onClick={() => onChange(EMPTY_FILTERS)}
+          className="h-8 px-3 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:bg-accent transition-colors"
+        >
           Clear
         </button>
       )}
@@ -104,25 +106,76 @@ function FilterBar({ filters, onChange }: { filters: Filters; onChange: (f: Filt
   )
 }
 
+// ── Page ──────────────────────────────────────────────────────
 export function DealsPage() {
   const { user } = useAuth()
-  const { deals, addDeal, updateDeal, deleteDeal, moveStage, reorder } = useDealsState()
-  const [view, setView] = useState<View>('board')
-  const [addOpen, setAddOpen] = useState(false)
-  const [detailDeal, setDetailDeal] = useState<Deal | null>(null)
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const { data: rows, total, loading, create, update, remove, moveStage, reorder } = useDeals()
+  const [users, setUsers] = useState<CRMUserRow[]>([])
+  const [view, setView]           = useState<View>('board')
+  const [addOpen, setAddOpen]     = useState(false)
+  const [detailRow, setDetailRow] = useState<DealRow | null>(null)
+  const [activeId, setActiveId]   = useState<string | null>(null)
+  const [filters, setFilters]     = useState<Filters>(EMPTY_FILTERS)
+
+  // Load users once for assignee display
+  useEffect(() => {
+    usersService.getUsers().then(r => setUsers(r)).catch(() => {})
+  }, [])
+
+  const deals  = useMemo(() => rows.map(rowToDeal), [rows])
+  const detail = detailRow ? rowToDeal(detailRow) : null
 
   const filtered = useMemo(() => deals.filter(d => {
     if (filters.stage && d.stage !== filters.stage) return false
     return true
   }), [deals, filters])
 
+  // ── Add ───────────────────────────────────────────────────
+  const handleAdd = useCallback(async (payload: DealInsert) => {
+    try {
+      await create(payload)
+      toast.success('Deal created')
+    } catch {
+      toast.error('Failed to create deal')
+      throw new Error('Failed to create deal')
+    }
+  }, [create])
+
+  // ── Update ────────────────────────────────────────────────
+  const handleUpdate = useCallback(async (id: string, updates: Partial<Deal>) => {
+    try {
+      const updated = await update(id, {
+        stage:               updates.stage as DealStage | undefined,
+        value:               updates.value,
+        probability:         updates.probability,
+        expected_close_date: updates.expectedCloseDate,
+        assigned_to:         updates.assignedTo || null,
+        description:         updates.description ?? null,
+      })
+      setDetailRow(updated)
+      toast.success('Deal updated')
+    } catch {
+      toast.error('Failed to update deal')
+    }
+  }, [update])
+
+  // ── Delete ────────────────────────────────────────────────
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      await remove(id)
+      setDetailRow(null)
+      toast.success('Deal deleted')
+    } catch {
+      toast.error('Failed to delete deal')
+    }
+  }, [remove])
+
+  // ── Drag and drop ─────────────────────────────────────────
   function handleDragStart(e: DragStartEvent) {
     setActiveId(String(e.active.id))
   }
 
-  function handleDragEnd(e: DragEndEvent) {
+  async function handleDragEnd(e: DragEndEvent) {
     const { active, over } = e
     setActiveId(null)
     if (!over) return
@@ -131,45 +184,64 @@ export function DealsPage() {
     const overId   = String(over.id)
     if (activeId === overId) return
 
-    // Check if dropped over a stage column (over.id is a stage name)
     const targetStage = PIPELINE_STAGES.find(s => s === overId)
     if (targetStage) {
-      moveStage(activeId, targetStage)
+      try {
+        await moveStage(activeId, targetStage as DealStage, user?.id)
+      } catch {
+        toast.error('Failed to move deal')
+      }
       return
     }
 
-    // Dropped over another card — reorder within stage
-    const activeDeal = deals.find(d => d.id === activeId)
-    const overDeal   = deals.find(d => d.id === overId)
+    const activeDeal = rows.find(d => d.id === activeId)
+    const overDeal   = rows.find(d => d.id === overId)
     if (!activeDeal || !overDeal) return
 
     if (activeDeal.stage !== overDeal.stage) {
-      moveStage(activeId, overDeal.stage)
+      try {
+        await moveStage(activeId, overDeal.stage as DealStage, user?.id)
+      } catch {
+        toast.error('Failed to move deal')
+      }
       return
     }
 
-    const stageDeals = deals.filter(d => d.stage === activeDeal.stage)
+    const stageDeals = rows.filter(d => d.stage === activeDeal.stage)
     const oldIdx = stageDeals.findIndex(d => d.id === activeId)
     const newIdx = stageDeals.findIndex(d => d.id === overId)
     const reordered = arrayMove(stageDeals, oldIdx, newIdx)
-    reorder(reordered.map(d => d.id))
+    try {
+      await reorder(reordered.map(d => d.id))
+    } catch {
+      toast.error('Failed to reorder deals')
+    }
   }
 
   return (
     <>
       <TopbarSlot>
         <div className="hidden md:flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{deals.length} deals</span>
-          {/* View toggle */}
+          <span className="text-xs text-muted-foreground">
+            {loading ? '…' : `${total} deals`}
+          </span>
           <div className="flex items-center rounded-lg border border-border bg-card overflow-hidden">
-            <button type="button" aria-label="Board view" onClick={() => setView('board')}
+            <button
+              type="button"
+              aria-label="Board view"
+              onClick={() => setView('board')}
               className={cn('flex items-center gap-1.5 h-8 px-3 text-xs font-medium transition-colors',
-                view === 'board' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent')}>
+                view === 'board' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent')}
+            >
               <LayoutGrid className="h-3.5 w-3.5" /> Board
             </button>
-            <button type="button" aria-label="List view" onClick={() => setView('list')}
+            <button
+              type="button"
+              aria-label="List view"
+              onClick={() => setView('list')}
               className={cn('flex items-center gap-1.5 h-8 px-3 text-xs font-medium transition-colors',
-                view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent')}>
+                view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent')}
+            >
               <List className="h-3.5 w-3.5" /> List
             </button>
           </div>
@@ -177,70 +249,107 @@ export function DealsPage() {
       </TopbarSlot>
 
       <PageWrapper noPad className="flex flex-col h-full">
-        {/* Summary metrics */}
         <SummaryBar deals={deals} />
-
-        {/* Filter bar */}
         <FilterBar filters={filters} onChange={setFilters} />
 
-        {/* Add Deal button — mobile or outside topbar */}
+        {/* Add Deal button — mobile */}
         <div className="px-6 pb-3 flex items-center justify-between md:hidden">
           <PermissionGate permission="deals_create">
-            <button type="button" onClick={() => setAddOpen(true)}
-              className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+            >
               <PlusCircle className="h-4 w-4" /> Add Deal
             </button>
           </PermissionGate>
         </div>
 
-        {/* Add Deal — desktop (injected via TopbarSlot, but also available here as a fallback) */}
+        {/* Add Deal button — desktop */}
         <div className="hidden md:flex px-6 pb-3 justify-end">
           <PermissionGate permission="deals_create">
-            <button type="button" onClick={() => setAddOpen(true)}
-              className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+            >
               <PlusCircle className="h-4 w-4" /> Add Deal
             </button>
           </PermissionGate>
         </div>
 
         <div className="flex-1 min-h-0 overflow-hidden">
-          {/* Mobile (<768px): always list */}
-          <div className="md:hidden h-full">
-            <DealsList deals={filtered} onRowClick={setDetailDeal} onDelete={deleteDeal} />
-          </div>
+          {loading && (
+            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+              Loading deals…
+            </div>
+          )}
 
-          {/* Tablet+ (≥768px): board or list based on view toggle */}
-          <div className="hidden md:block h-full overflow-hidden">
-            {view === 'board' ? (
-              <div className="h-full overflow-x-auto">
-                <PipelineBoard
+          {!loading && (
+            <>
+              {/* Mobile (<768px): always list */}
+              <div className="md:hidden h-full">
+                <DealsList
                   deals={filtered}
-                  activeId={activeId}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  onCardClick={setDetailDeal}
+                  users={users}
+                  onRowClick={d => {
+                    const row = rows.find(r => r.id === d.id)
+                    if (row) setDetailRow(row)
+                  }}
+                  onDelete={handleDelete}
                 />
               </div>
-            ) : (
-              <DealsList deals={filtered} onRowClick={setDetailDeal} onDelete={deleteDeal} />
-            )}
-          </div>
+
+              {/* Tablet+ (≥768px): board or list */}
+              <div className="hidden md:block h-full overflow-hidden">
+                {view === 'board' ? (
+                  <div className="h-full overflow-x-auto">
+                    <PipelineBoard
+                      deals={filtered}
+                      users={users}
+                      activeId={activeId}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      onCardClick={d => {
+                        const row = rows.find(r => r.id === d.id)
+                        if (row) setDetailRow(row)
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <DealsList
+                    deals={filtered}
+                    users={users}
+                    onRowClick={d => {
+                      const row = rows.find(r => r.id === d.id)
+                      if (row) setDetailRow(row)
+                    }}
+                    onDelete={handleDelete}
+                  />
+                )}
+              </div>
+            </>
+          )}
         </div>
       </PageWrapper>
 
       <AddDealModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onAdd={addDeal}
-        userId={user?.id ?? 'usr-001'}
+        onAdd={handleAdd}
+        userId={user?.id ?? ''}
+        users={users}
       />
 
-      {detailDeal && (
+      {detail && detailRow && (
         <DealDetailSheet
-          deal={detailDeal}
-          onClose={() => setDetailDeal(null)}
-          onUpdate={d => { updateDeal(d); setDetailDeal(d) }}
-          onDelete={id => { deleteDeal(id); setDetailDeal(null) }}
+          deal={detail}
+          dealId={detailRow.id}
+          users={users}
+          currentUserId={user?.id ?? ''}
+          onClose={() => setDetailRow(null)}
+          onUpdate={updates => handleUpdate(detailRow.id, updates)}
+          onDelete={handleDelete}
         />
       )}
     </>

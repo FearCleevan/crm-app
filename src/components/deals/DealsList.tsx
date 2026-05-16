@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { MOCK_USERS, type Deal } from '@/constants/mockData'
+import type { CRMUserRow } from '@/types/database'
+import type { Deal } from '@/constants/mockData'
 import { STAGE_BADGE } from './StageBadge'
 
 type SortKey = 'name' | 'company' | 'value' | 'probability' | 'expectedCloseDate' | 'stage' | 'daysInStage'
@@ -16,13 +17,14 @@ function SortIcon({ col, sort }: { col: SortKey; sort: { key: SortKey; dir: Sort
 
 interface DealsListProps {
   deals: Deal[]
+  users: CRMUserRow[]
   onRowClick: (deal: Deal) => void
   onDelete: (id: string) => void
 }
 
 const PAGE_SIZE = 15
 
-export function DealsList({ deals, onRowClick, onDelete }: DealsListProps) {
+export function DealsList({ deals, users, onRowClick, onDelete }: DealsListProps) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'value', dir: 'desc' })
   const [page, setPage] = useState(1)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
@@ -75,7 +77,7 @@ export function DealsList({ deals, onRowClick, onDelete }: DealsListProps) {
           </thead>
           <tbody>
             {pageDeals.map(deal => {
-              const assignee = MOCK_USERS.find(u => u.id === deal.assignedTo)
+              const assignee = users.find(u => u.id === deal.assignedTo)
               const { label, cls } = STAGE_BADGE[deal.stage]
               return (
                 <tr key={deal.id}
