@@ -123,7 +123,7 @@ export function DashboardPage() {
           {/* Calendar — right column, spans both rows */}
           {visible('calendar') && (
             <div className={`col-span-12 lg:col-span-4 lg:row-span-2 ${visible('metrics') ? 'lg:row-start-1' : ''}`}>
-              <div className="h-full min-h-[420px]">
+              <div className="h-full min-h-[320px] md:min-h-[420px]">
                 <CalendarWidget />
               </div>
             </div>

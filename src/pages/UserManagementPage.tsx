@@ -195,7 +195,85 @@ export function UserManagementPage() {
 
               {!loading && !error && (
                 <div>
-                  <table className="w-full">
+                  {/* ── Mobile card list (<768px) ── */}
+                  <div className="md:hidden divide-y divide-border">
+                    {filtered.map(u => {
+                      const isSelf = u.id === me?.id
+                      return (
+                        <div key={u.id} className="flex items-start gap-3 px-4 py-3 hover:bg-muted/40 transition-colors">
+                          {/* Avatar */}
+                          {u.profile_url ? (
+                            <img src={u.profile_url} alt={u.first_name ?? ''} className="h-10 w-10 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-xs font-bold text-brand-700 dark:text-brand-300 shrink-0">
+                              {(u.first_name?.[0] ?? '?')}{(u.last_name?.[0] ?? '')}
+                            </div>
+                          )}
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-semibold text-foreground">{u.first_name} {u.last_name}</p>
+                              {isSelf && <span className="text-[10px] font-semibold bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 px-1.5 py-0.5 rounded">You</span>}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold', ROLE_BADGE[u.role])}>
+                                {u.role}
+                              </span>
+                              {u.department && <span className="text-xs text-muted-foreground">{u.department}</span>}
+                            </div>
+                            <div className="flex items-center gap-2 pt-0.5">
+                              {canEdit && (
+                                <Switch
+                                  checked={u.is_active}
+                                  onCheckedChange={() => handleToggleActive(u)}
+                                  aria-label={u.is_active ? 'Deactivate user' : 'Activate user'}
+                                  size="sm"
+                                />
+                              )}
+                              <span className={cn('text-xs font-medium', u.is_active ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
+                                {u.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* 3-dot menu */}
+                          <div className="relative shrink-0" onClick={e => e.stopPropagation()}>
+                            <button type="button" aria-label="User actions"
+                              onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)}
+                              className="h-8 w-8 rounded-lg hover:bg-accent flex items-center justify-center transition-colors">
+                              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                            </button>
+                            {openMenu === u.id && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />
+                                <div className="absolute right-0 top-9 z-20 w-36 rounded-xl border border-border bg-card shadow-lg py-1">
+                                  <PermissionGate permission="users_edit">
+                                    <button type="button" onClick={() => { setEditing(u); setOpenMenu(null) }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors">
+                                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Edit
+                                    </button>
+                                  </PermissionGate>
+                                  <PermissionGate permission="users_delete">
+                                    <button type="button"
+                                      onClick={() => { if (!isSelf) setDeleting(u); setOpenMenu(null) }}
+                                      disabled={isSelf}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-40 transition-colors">
+                                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                                    </button>
+                                  </PermissionGate>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* ── Tablet+ table (≥768px) ── */}
+                  <table className="hidden md:table w-full">
                     <thead className="sticky top-0 bg-card border-b border-border z-10">
                       <tr>
                         {['User', 'Role', 'Department', 'Status', 'Last Login', ''].map(h => (
@@ -208,7 +286,6 @@ export function UserManagementPage() {
                         const isSelf = u.id === me?.id
                         return (
                           <tr key={u.id} className="border-b border-border hover:bg-muted/40 transition-colors group">
-                            {/* User */}
                             <td className="px-5 py-3.5">
                               <div className="flex items-center gap-3">
                                 {u.profile_url ? (
@@ -227,42 +304,26 @@ export function UserManagementPage() {
                                 </div>
                               </div>
                             </td>
-
-                            {/* Role */}
                             <td className="px-5 py-3.5">
                               <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold', ROLE_BADGE[u.role])}>
                                 {u.role}
                               </span>
                             </td>
-
-                            {/* Department */}
                             <td className="px-5 py-3.5 text-sm text-muted-foreground">{u.department || '—'}</td>
-
-                            {/* Status toggle */}
                             <td className="px-5 py-3.5">
                               <div className="flex items-center gap-2">
                                 {canEdit ? (
-                                  <Switch
-                                    checked={u.is_active}
-                                    onCheckedChange={() => handleToggleActive(u)}
-                                    aria-label={u.is_active ? 'Deactivate user' : 'Activate user'}
-                                    size="sm"
-                                  />
+                                  <Switch checked={u.is_active} onCheckedChange={() => handleToggleActive(u)}
+                                    aria-label={u.is_active ? 'Deactivate user' : 'Activate user'} size="sm" />
                                 ) : null}
                                 <span className={cn('text-xs font-medium', u.is_active ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
                                   {u.is_active ? 'Active' : 'Inactive'}
                                 </span>
                               </div>
                             </td>
-
-                            {/* Last login */}
                             <td className="px-5 py-3.5 text-sm text-muted-foreground whitespace-nowrap">
-                              {u.last_login
-                                ? (() => { try { return format(new Date(u.last_login), 'MMM d, yyyy') } catch { return u.last_login } })()
-                                : '—'}
+                              {u.last_login ? (() => { try { return format(new Date(u.last_login), 'MMM d, yyyy') } catch { return u.last_login } })() : '—'}
                             </td>
-
-                            {/* Actions */}
                             <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                               <div className="relative">
                                 <button type="button" aria-label="User actions"

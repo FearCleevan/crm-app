@@ -84,8 +84,8 @@ export function ComposeModal({ open, onClose, onSend, onSaveDraft, initialTo = '
     <div className={cn(
       'fixed z-50 bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200',
       minimized
-        ? 'bottom-0 right-6 w-72 h-12'
-        : 'bottom-4 right-4 w-[560px] max-w-[calc(100vw-2rem)] h-[540px] max-h-[calc(100vh-2rem)]',
+        ? 'bottom-14 lg:bottom-0 right-6 w-72 h-12'
+        : 'bottom-16 lg:bottom-4 right-4 w-[560px] max-w-[calc(100vw-2rem)] h-[540px] max-h-[calc(100vh-6rem)] lg:max-h-[calc(100vh-2rem)]',
     )}>
       {/* Title bar */}
       <div className="flex items-center gap-2 px-4 py-3 bg-foreground/5 border-b border-border shrink-0 cursor-default">

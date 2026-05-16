@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { BottomNav } from './BottomNav'
 import { TopbarProvider, useTopbar } from '@/context/TopbarContext'
 import { NotificationPanel, useNotifications } from '@/components/notifications/NotificationPanel'
 import { CommandPalette } from '@/components/search/CommandPalette'
@@ -26,9 +27,10 @@ function ShellInner({ user, onLogout }: AppShellProps) {
   const { actions } = useTopbar()
   const navigate = useNavigate()
 
-  const [notifOpen, setNotifOpen]     = useState(false)
-  const [paletteOpen, setPaletteOpen] = useState(false)
-  const [sessionKey, setSessionKey]   = useState(0)
+  const [notifOpen, setNotifOpen]       = useState(false)
+  const [paletteOpen, setPaletteOpen]   = useState(false)
+  const [sessionKey, setSessionKey]     = useState(0)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const handleStayLoggedIn = useCallback(async () => {
     await supabase.auth.refreshSession()
@@ -58,7 +60,11 @@ function ShellInner({ user, onLogout }: AppShellProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar user={user} />
+      <Sidebar
+        user={user}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+      />
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Topbar
@@ -67,11 +73,12 @@ function ShellInner({ user, onLogout }: AppShellProps) {
           onLogout={onLogout}
           onSearchClick={() => setPaletteOpen(true)}
           onNotificationsClick={() => setNotifOpen(true)}
+          onMobileMenuClick={() => setMobileNavOpen(true)}
         >
           {actions}
         </Topbar>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col overflow-hidden pb-14 lg:pb-0">
           <ErrorBoundary onGoHome={() => navigate(ROUTES.DASHBOARD)}>
             <Suspense fallback={<PageLoader />}>
               <Outlet />
@@ -79,6 +86,8 @@ function ShellInner({ user, onLogout }: AppShellProps) {
           </ErrorBoundary>
         </main>
       </div>
+
+      <BottomNav />
 
       {/* Notification panel */}
       <NotificationPanel

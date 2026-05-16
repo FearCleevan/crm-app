@@ -8,7 +8,7 @@ interface PageWrapperProps {
 
 export function PageWrapper({ children, className, noPad }: PageWrapperProps) {
   return (
-    <div className={cn('flex-1 overflow-y-auto page-enter', !noPad && 'p-6', className)}>
+    <div className={cn('flex-1 overflow-y-auto page-enter', !noPad && 'p-4 md:p-6', className)}>
       {children}
     </div>
   )

@@ -120,7 +120,7 @@ export function WorkflowsPage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { icon: Zap,      label: 'Total Workflows', value: workflows.length, color: 'text-brand-600 dark:text-brand-400',    bg: 'bg-brand-50 dark:bg-brand-900/20' },
               { icon: Play,     label: 'Active',          value: activeCount,       color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },

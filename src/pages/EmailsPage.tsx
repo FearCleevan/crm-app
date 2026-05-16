@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { PenSquare, Inbox, Send, FileText, BarChart2, Search, X } from 'lucide-react'
+import { PenSquare, Inbox, Send, FileText, BarChart2, Search, X, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { TopbarSlot } from '@/context/TopbarContext'
 import { PageWrapper } from '@/components/layout/PageWrapper'
@@ -159,9 +159,48 @@ export function EmailsPage() {
       </TopbarSlot>
 
       <PageWrapper noPad className="flex flex-col h-full">
+        {/* Mobile nav bar — Compose + scrollable tabs */}
+        <div className="md:hidden shrink-0 border-b border-border bg-card">
+          <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+            <button
+              type="button"
+              onClick={() => { setReplyTo(undefined); setComposeOpen(true) }}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shrink-0"
+            >
+              <PenSquare className="h-3.5 w-3.5" /> Compose
+            </button>
+            <div className="flex overflow-x-auto gap-0.5 no-scrollbar">
+              {NAV.map(({ id, label, icon: Icon }) => {
+                const count = id === 'inbox' ? unreadCount : id === 'drafts' ? emails.filter(e => e.folder === 'drafts').length : 0
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => { setView(id); setSelected(null) }}
+                    className={cn(
+                      'flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors',
+                      view === id
+                        ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
+                        : 'text-muted-foreground hover:bg-accent',
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    {label}
+                    {count > 0 && (
+                      <span className="h-4 min-w-4 rounded-full bg-brand-500 text-white text-[9px] font-bold px-1 flex items-center justify-center">
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-1 min-h-0">
-          {/* Sidebar */}
-          <aside className="w-44 shrink-0 border-r border-border bg-card flex flex-col py-4 gap-1 px-2">
+          {/* Sidebar — hidden on mobile, shown on tablet+ */}
+          <aside className="hidden md:flex w-44 shrink-0 border-r border-border bg-card flex-col py-4 gap-1 px-2">
             <button
               type="button"
               onClick={() => { setReplyTo(undefined); setComposeOpen(true) }}
@@ -199,58 +238,82 @@ export function EmailsPage() {
           {/* Mail views */}
           {isMailView && (
             <div className="flex flex-1 min-w-0 min-h-0">
-              {/* Email list pane */}
-              <div className={cn(
-                'flex flex-col border-r border-border shrink-0 transition-all',
-                selected ? 'w-72' : 'flex-1',
-              )}>
-                {/* Search */}
-                <div className="px-4 py-3 border-b border-border shrink-0">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <input
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      placeholder="Search emails…"
-                      className="w-full h-8 pl-8 pr-7 rounded-lg border border-input bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    {search && (
-                      <button type="button" aria-label="Clear search" onClick={() => setSearch('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                        <X className="h-3 w-3" />
+              {/* ── Mobile: stacked (list OR detail, not both) ── */}
+              <div className="md:hidden flex flex-col flex-1 min-w-0 min-h-0">
+                {selected ? (
+                  <div className="flex flex-col flex-1 min-h-0">
+                    {/* Back button */}
+                    <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card shrink-0">
+                      <button type="button" onClick={() => setSelected(null)}
+                        className="flex items-center gap-1.5 h-8 px-2 rounded-lg hover:bg-accent text-sm font-medium text-foreground transition-colors">
+                        <ArrowLeft className="h-4 w-4" /> Back
                       </button>
-                    )}
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      <EmailDetail email={selected} onReply={handleReply} onDelete={handleDelete} onToggleStar={toggleStar} />
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto">
-                  <EmailList
-                    emails={folderEmails}
-                    selectedId={selected?.id ?? null}
-                    onSelect={handleSelect}
-                    onToggleStar={toggleStar}
-                  />
-                </div>
+                ) : (
+                  <div className="flex flex-col flex-1 min-h-0">
+                    <div className="px-4 py-3 border-b border-border shrink-0">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search emails…"
+                          className="w-full h-8 pl-8 pr-7 rounded-lg border border-input bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                        {search && (
+                          <button type="button" aria-label="Clear search" onClick={() => setSearch('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      <EmailList emails={folderEmails} selectedId={null} onSelect={handleSelect} onToggleStar={toggleStar} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Email detail pane */}
-              {selected ? (
-                <div className="flex-1 min-w-0">
-                  <EmailDetail
-                    email={selected}
-                    onReply={handleReply}
-                    onDelete={handleDelete}
-                    onToggleStar={toggleStar}
-                  />
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  <div className="text-center space-y-2">
-                    <Inbox className="h-10 w-10 mx-auto opacity-20" />
-                    <p className="text-sm">Select an email to read</p>
+              {/* ── Tablet+ (≥768px): side-by-side split ── */}
+              <div className="hidden md:flex flex-1 min-w-0 min-h-0">
+                {/* Email list pane */}
+                <div className={cn(
+                  'flex flex-col border-r border-border shrink-0 transition-all',
+                  selected ? 'w-72' : 'flex-1',
+                )}>
+                  <div className="px-4 py-3 border-b border-border shrink-0">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search emails…"
+                        className="w-full h-8 pl-8 pr-7 rounded-lg border border-input bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                      {search && (
+                        <button type="button" aria-label="Clear search" onClick={() => setSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    <EmailList emails={folderEmails} selectedId={selected?.id ?? null} onSelect={handleSelect} onToggleStar={toggleStar} />
                   </div>
                 </div>
-              )}
+
+                {/* Email detail pane */}
+                {selected ? (
+                  <div className="flex-1 min-w-0">
+                    <EmailDetail email={selected} onReply={handleReply} onDelete={handleDelete} onToggleStar={toggleStar} />
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center space-y-2">
+                      <Inbox className="h-10 w-10 mx-auto opacity-20" />
+                      <p className="text-sm">Select an email to read</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

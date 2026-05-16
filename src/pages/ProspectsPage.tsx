@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Search, SlidersHorizontal, UserPlus, Upload, Download, FileDown, X } from 'lucide-react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { Search, SlidersHorizontal, UserPlus, Upload, Download, FileDown, X, MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import Papa from 'papaparse'
 import { useAuth } from '@/context/AuthContext'
@@ -200,6 +200,8 @@ export function ProspectsPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [detailRow, setDetailRow] = useState<ProspectRow | null>(null)
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
+  const mobileActionsRef = useRef<HTMLDivElement>(null)
 
   const detailProspect = detailRow ? rowToProspect(detailRow) : null
 
@@ -411,31 +413,33 @@ export function ProspectsPage() {
 
       <PageWrapper noPad className="flex flex-col h-full">
         {/* Toolbar */}
-        <div className="px-6 pt-5 pb-3 space-y-3 border-b border-border bg-card">
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <input
-                type="search"
-                value={searchInput}
-                onChange={e => handleSearchChange(e.target.value)}
-                placeholder="Search name, email, company…"
-                className="w-full h-9 pl-9 pr-9 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-              />
-              {searchInput && (
-                <button type="button" aria-label="Clear search" onClick={() => handleSearchChange('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+        <div className="px-4 pt-4 pb-3 space-y-2 border-b border-border bg-card">
 
+          {/* Row 1 (always): Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={e => handleSearchChange(e.target.value)}
+              placeholder="Search name, email, company…"
+              className="w-full h-9 pl-9 pr-9 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+            />
+            {searchInput && (
+              <button type="button" aria-label="Clear search" onClick={() => handleSearchChange('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Row 2: Filter + actions */}
+          <div className="flex items-center gap-2">
             {/* Filter button */}
             <button type="button" onClick={() => setFilterOpen(true)}
               className="relative flex items-center gap-2 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
               <SlidersHorizontal className="h-4 w-4" />
-              Filters
+              <span className="hidden sm:inline">Filters</span>
               {activeFilterCount > 0 && (
                 <span className="h-4 min-w-4 rounded-full bg-brand-500 text-white text-[9px] font-bold px-1 flex items-center justify-center">
                   {activeFilterCount}
@@ -443,19 +447,18 @@ export function ProspectsPage() {
               )}
             </button>
 
-            <div className="ml-auto flex items-center gap-2">
+            {/* Desktop actions */}
+            <div className="hidden sm:flex items-center gap-2 ml-auto">
               <button type="button" onClick={downloadTemplate}
                 className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
                 <FileDown className="h-4 w-4" />
                 Template CSV
               </button>
-
               <button type="button" onClick={exportCSV}
                 className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
                 <Download className="h-4 w-4" />
                 Export
               </button>
-
               <PermissionGate permission="leads_import">
                 <button type="button" onClick={() => setImportOpen(true)}
                   className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
@@ -463,7 +466,6 @@ export function ProspectsPage() {
                   Import CSV
                 </button>
               </PermissionGate>
-
               <PermissionGate permission="leads_create">
                 <button type="button" onClick={() => setAddOpen(true)}
                   className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors">
@@ -471,6 +473,39 @@ export function ProspectsPage() {
                   Add Prospect
                 </button>
               </PermissionGate>
+            </div>
+
+            {/* Mobile overflow menu */}
+            <div ref={mobileActionsRef} className="relative sm:hidden ml-auto">
+              <button type="button" onClick={() => setMobileActionsOpen(p => !p)}
+                aria-label="More actions"
+                className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {mobileActionsOpen && (
+                <div className="absolute right-0 top-11 z-30 w-48 rounded-xl border border-border bg-card shadow-lg py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+                  <button type="button" onClick={() => { downloadTemplate(); setMobileActionsOpen(false) }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors">
+                    <FileDown className="h-4 w-4 text-muted-foreground" /> Template CSV
+                  </button>
+                  <button type="button" onClick={() => { exportCSV(); setMobileActionsOpen(false) }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors">
+                    <Download className="h-4 w-4 text-muted-foreground" /> Export
+                  </button>
+                  <PermissionGate permission="leads_import">
+                    <button type="button" onClick={() => { setImportOpen(true); setMobileActionsOpen(false) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors">
+                      <Upload className="h-4 w-4 text-muted-foreground" /> Import CSV
+                    </button>
+                  </PermissionGate>
+                  <PermissionGate permission="leads_create">
+                    <button type="button" onClick={() => { setAddOpen(true); setMobileActionsOpen(false) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-brand-500 hover:bg-accent transition-colors font-medium">
+                      <UserPlus className="h-4 w-4" /> Add Prospect
+                    </button>
+                  </PermissionGate>
+                </div>
+              )}
             </div>
           </div>
 

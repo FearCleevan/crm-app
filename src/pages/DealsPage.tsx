@@ -204,23 +204,27 @@ export function DealsPage() {
         </div>
 
         <div className="flex-1 min-h-0 overflow-hidden">
-          {view === 'board' ? (
-            <div className="h-full overflow-x-auto">
-              <PipelineBoard
-                deals={filtered}
-                activeId={activeId}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onCardClick={setDetailDeal}
-              />
-            </div>
-          ) : (
-            <DealsList
-              deals={filtered}
-              onRowClick={setDetailDeal}
-              onDelete={deleteDeal}
-            />
-          )}
+          {/* Mobile (<768px): always list */}
+          <div className="md:hidden h-full">
+            <DealsList deals={filtered} onRowClick={setDetailDeal} onDelete={deleteDeal} />
+          </div>
+
+          {/* Tablet+ (≥768px): board or list based on view toggle */}
+          <div className="hidden md:block h-full overflow-hidden">
+            {view === 'board' ? (
+              <div className="h-full overflow-x-auto">
+                <PipelineBoard
+                  deals={filtered}
+                  activeId={activeId}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onCardClick={setDetailDeal}
+                />
+              </div>
+            ) : (
+              <DealsList deals={filtered} onRowClick={setDetailDeal} onDelete={deleteDeal} />
+            )}
+          </div>
         </div>
       </PageWrapper>
 

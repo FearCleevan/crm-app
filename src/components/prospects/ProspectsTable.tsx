@@ -277,7 +277,123 @@ export function ProspectsTable({
   const cellPad = compact ? 'px-2 py-1' : 'px-3 py-3'
   const textSz  = compact ? 'text-xs'   : 'text-sm'
 
+  // ── Mobile card view (<768px) ────────────────────────────────
+  const mobileCards = (
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Loading */}
+      {isLoading && (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
+      )}
+
+      {/* Empty */}
+      {!isLoading && prospects.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
+            <Mail className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <p className="font-semibold text-foreground">No prospects found</p>
+          <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
+        </div>
+      )}
+
+      {/* Cards */}
+      <div className="flex-1 overflow-y-auto divide-y divide-border">
+        {!isLoading && prospects.map(p => (
+          <div
+            key={p.id}
+            onClick={() => onRowClick(p)}
+            className={cn(
+              'flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors',
+              selected.has(p.id) && 'bg-brand-50/50 dark:bg-brand-900/10',
+            )}
+          >
+            {/* Checkbox */}
+            <input
+              type="checkbox"
+              aria-label={`Select ${p.fullname || 'row'}`}
+              checked={selected.has(p.id)}
+              onChange={() => toggleRow(p.id)}
+              onClick={e => e.stopPropagation()}
+              className="mt-1 h-4 w-4 shrink-0 rounded border-input accent-brand-500 cursor-pointer"
+            />
+
+            {/* Avatar */}
+            <div className="h-9 w-9 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[11px] font-bold text-brand-700 dark:text-brand-300 shrink-0">
+              {(p.firstname?.[0] ?? '').toUpperCase()}{(p.lastname?.[0] ?? '').toUpperCase()}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0 space-y-0.5">
+              <p className="font-medium text-sm text-foreground truncate">{p.fullname || '—'}</p>
+              <p className="text-xs text-muted-foreground truncate">{p.jobtitle || '—'} · {p.company || '—'}</p>
+              <p className="text-xs text-muted-foreground truncate">{p.email || '—'}</p>
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                <StatusBadge status={p.status} />
+                <EmailBadge code={p.emailcode} />
+                <DispositionBadge code={p.dispositioncode} />
+              </div>
+            </div>
+
+            {/* 3-dot menu */}
+            <div className="relative shrink-0" onClick={e => e.stopPropagation()}>
+              <button type="button" aria-label="Row actions"
+                onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
+                className="h-8 w-8 rounded-lg hover:bg-accent flex items-center justify-center transition-colors">
+                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+              </button>
+              {openMenu === p.id && (
+                <div className="absolute right-0 top-9 z-20 w-36 rounded-xl border border-border bg-card shadow-lg py-1">
+                  <button type="button" onClick={() => { onRowClick(p); setOpenMenu(null) }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" /> View Details
+                  </button>
+                  <button type="button" onClick={() => { onDelete(p.id); setOpenMenu(null) }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors">
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <DataTablePagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={onPageChange}
+        onPageSizeChange={s => { onPageSizeChange(s); onPageChange(1) }}
+      />
+    </div>
+  )
+
   return (
+    <>
+      {/* Mobile (<768px): card list */}
+      <div className="flex flex-col flex-1 min-h-0 md:hidden">
+        {someSelected && (
+          <div className="flex items-center gap-3 px-4 py-2 bg-brand-50 dark:bg-brand-900/20 border-b border-brand-200 dark:border-brand-800 shrink-0">
+            <span className="text-sm font-semibold text-brand-700 dark:text-brand-300">
+              {selected.size} selected
+            </span>
+            <div className="flex items-center gap-2 ml-2">
+              <button type="button" onClick={handleBulkDelete}
+                className="flex items-center gap-1.5 h-7 px-3 rounded-lg bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-400 text-xs font-medium transition-colors">
+                <Trash2 className="h-3 w-3" /> Delete
+              </button>
+            </div>
+            <button type="button" onClick={() => setSelected(new Set())}
+              className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Clear
+            </button>
+          </div>
+        )}
+        {mobileCards}
+      </div>
+
+      {/* Tablet+ (≥768px): virtualized table */}
+      <div className="hidden md:flex flex-col flex-1 min-h-0">
     <div className="flex flex-col flex-1 min-h-0">
 
       {/* ── Bulk actions bar ─────────────────────────────── */}
@@ -505,5 +621,7 @@ export function ProspectsTable({
         onPageSizeChange={s => { onPageSizeChange(s); onPageChange(1) }}
       />
     </div>
+    </div>
+  </>
   )
 }

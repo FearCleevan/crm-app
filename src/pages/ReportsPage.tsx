@@ -66,8 +66,21 @@ export function ReportsPage() {
           <ReportDateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
 
+        {/* Mobile tab bar — normal flow, outside flex, scrollable */}
+        <div className="md:hidden flex items-center gap-1 overflow-x-auto px-4 py-3 border-b border-border bg-card shrink-0 no-scrollbar">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button key={id} type="button" onClick={() => setActiveTab(id)}
+              className={cn(
+                'flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border shrink-0',
+                activeTab === id ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:bg-accent bg-card',
+              )}>
+              <Icon className="h-3.5 w-3.5" />{label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-1 min-h-0">
-          {/* Sidebar nav */}
+          {/* Sidebar nav (tablet+) */}
           <aside className="hidden md:flex flex-col w-52 shrink-0 border-r border-border bg-card py-4 gap-1 px-2">
             {TABS.map(({ id, label, icon: Icon }) => (
               <button key={id} type="button" onClick={() => setActiveTab(id)}
@@ -82,19 +95,6 @@ export function ReportsPage() {
               </button>
             ))}
           </aside>
-
-          {/* Mobile tab bar */}
-          <div className="md:hidden flex items-center gap-1 overflow-x-auto px-4 py-3 border-b border-border bg-card shrink-0 absolute left-0 right-0" style={{ scrollbarWidth: 'none' }}>
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button key={id} type="button" onClick={() => setActiveTab(id)}
-                className={cn(
-                  'flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border',
-                  activeTab === id ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:bg-accent bg-card',
-                )}>
-                <Icon className="h-3.5 w-3.5" />{label}
-              </button>
-            ))}
-          </div>
 
           {/* Content */}
           <main className="flex-1 overflow-y-auto p-6">

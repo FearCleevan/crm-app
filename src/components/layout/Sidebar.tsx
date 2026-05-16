@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Handshake, StickyNote, Mail, BarChart3,
   Zap, Settings, HelpCircle, ChevronLeft, ChevronRight,
   Star, FolderOpen, Plus, MoreHorizontal, Users, UserCog,
-  Pencil, Trash2, ChevronDown,
+  Pencil, Trash2, ChevronDown, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NavItem } from './NavItem'
@@ -304,18 +304,39 @@ interface SidebarProps {
     role: string
     avatarUrl?: string
   }
+  mobileOpen?: boolean
+  onMobileClose?: () => void
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, mobileOpen = false, onMobileClose }: SidebarProps) {
   const navigate = useNavigate()
   const { favorites, projects } = useSidebarLists()
 
-  const [collapsed, setCollapsed] = useState(() => {
+  const [desktopCollapsed, setDesktopCollapsed] = useState(() => {
     return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
   })
 
+  // Track whether we're in tablet range (768–1023px) for force-collapse
+  const [isTablet, setIsTablet] = useState(() => {
+    const w = window.innerWidth
+    return w >= 768 && w < 1024
+  })
+
+  useEffect(() => {
+    function onResize() {
+      const w = window.innerWidth
+      setIsTablet(w >= 768 && w < 1024)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // On tablet, sidebar is always collapsed. On mobile overlay it always shows expanded.
+  const collapsed = isTablet && !mobileOpen ? true : (!mobileOpen && desktopCollapsed)
+
   function toggleCollapse() {
-    setCollapsed(prev => {
+    if (isTablet) return
+    setDesktopCollapsed(prev => {
       const next = !prev
       localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next))
       return next
@@ -323,142 +344,171 @@ export function Sidebar({ user }: SidebarProps) {
   }
 
   return (
-    <aside
-      className={cn(
-        'relative flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out shrink-0',
-        collapsed ? 'w-[60px]' : 'w-[220px]',
+    <>
+      {/* Backdrop for mobile/tablet overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={onMobileClose}
+          aria-hidden="true"
+        />
       )}
-    >
-      {/* ── Logo ── */}
-      <div className={cn('flex items-center h-14 px-4 border-b border-sidebar-border gap-2.5', collapsed && 'justify-center px-2')}>
-        <div className="h-7 w-7 rounded-lg bg-brand-500 flex items-center justify-center shrink-0">
-          <span className="text-white font-bold text-xs">B</span>
-        </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-sidebar-foreground leading-tight">Brisk</p>
-            <p className="text-[10px] text-muted-foreground leading-tight">CR Management</p>
-          </div>
+
+      <aside
+        className={cn(
+          'flex flex-col h-screen bg-sidebar border-r border-sidebar-border shrink-0',
+          'transition-[transform,width] duration-300 ease-in-out',
+          // Mobile (<768px): fixed overlay, always 220px wide, slide in/out
+          'fixed inset-y-0 left-0 z-50 w-[220px]',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          // Tablet (768–1023px): static in layout, always 60px
+          'md:static md:z-auto md:translate-x-0 md:w-[60px]',
+          // Desktop (1024px+): respect localStorage
+          desktopCollapsed ? 'lg:w-[60px]' : 'lg:w-[220px]',
         )}
-      </div>
-
-      {/* ── Collapse toggle ── */}
-      <button
-        type="button"
-        onClick={toggleCollapse}
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        className="absolute -right-3 top-[52px] z-10 h-6 w-6 rounded-full border border-border bg-card shadow-sm flex items-center justify-center hover:bg-accent transition-colors"
       >
-        {collapsed
-          ? <ChevronRight className="h-3 w-3 text-muted-foreground" />
-          : <ChevronLeft  className="h-3 w-3 text-muted-foreground" />
-        }
-      </button>
+        {/* ── Logo ── */}
+        <div className={cn('flex items-center h-14 px-4 border-b border-sidebar-border gap-2.5', collapsed && 'justify-center px-2')}>
+          <div className="h-7 w-7 rounded-lg bg-brand-500 flex items-center justify-center shrink-0">
+            <span className="text-white font-bold text-xs">B</span>
+          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-sidebar-foreground leading-tight">Brisk</p>
+              <p className="text-[10px] text-muted-foreground leading-tight">CR Management</p>
+            </div>
+          )}
+          {/* Close button — only visible when open as mobile overlay */}
+          {mobileOpen && (
+            <button
+              type="button"
+              onClick={onMobileClose}
+              aria-label="Close menu"
+              className="ml-auto h-7 w-7 flex items-center justify-center rounded-lg hover:bg-sidebar-accent text-muted-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
 
-      {/* ── Workspace picker ── */}
-      {!collapsed && (
-        <div className="px-3 py-2 border-b border-sidebar-border">
-          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-sidebar-accent cursor-pointer transition-colors">
-            <span className="text-sm font-medium text-sidebar-foreground">Mesh</span>
-            <div className="flex gap-0.5 text-muted-foreground">
-              <ChevronRight className="h-3.5 w-3.5 rotate-90" />
-              <ChevronRight className="h-3.5 w-3.5 -rotate-90 -ml-2" />
+        {/* ── Collapse toggle (desktop only) ── */}
+        <button
+          type="button"
+          onClick={toggleCollapse}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="hidden lg:flex absolute -right-3 top-[52px] z-10 h-6 w-6 rounded-full border border-border bg-card shadow-sm items-center justify-center hover:bg-accent transition-colors"
+        >
+          {collapsed
+            ? <ChevronRight className="h-3 w-3 text-muted-foreground" />
+            : <ChevronLeft  className="h-3 w-3 text-muted-foreground" />
+          }
+        </button>
+
+        {/* ── Workspace picker ── */}
+        {!collapsed && (
+          <div className="px-3 py-2 border-b border-sidebar-border">
+            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-sidebar-accent cursor-pointer transition-colors">
+              <span className="text-sm font-medium text-sidebar-foreground">Mesh</span>
+              <div className="flex gap-0.5 text-muted-foreground">
+                <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+                <ChevronRight className="h-3.5 w-3.5 -rotate-90 -ml-2" />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── Scrollable nav ── */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {mainNav.map(item => (
+        {/* ── Scrollable nav ── */}
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5" onClick={onMobileClose}>
+          {mainNav.map(item => (
+            <NavItem
+              key={item.to}
+              to={item.to}
+              icon={item.icon}
+              label={item.label}
+              end={item.end}
+              collapsed={collapsed}
+            />
+          ))}
+
           <NavItem
-            key={item.to}
-            to={item.to}
-            icon={item.icon}
-            label={item.label}
-            end={item.end}
+            to={ROUTES.PROSPECTS}
+            icon={Users}
+            label="Prospects"
             collapsed={collapsed}
           />
-        ))}
 
-        <NavItem
-          to={ROUTES.PROSPECTS}
-          icon={Users}
-          label="Prospects"
-          collapsed={collapsed}
-        />
-
-        {user?.role === 'Super Admin' && (
-          <NavItem
-            to={ROUTES.USERS}
-            icon={UserCog}
-            label="User Management"
-            collapsed={collapsed}
-          />
-        )}
-
-        {/* ── Favorites & Projects — hidden when collapsed ── */}
-        {!collapsed && (
-          <>
-            <SidebarSection
-              title="Favorites"
-              items={favorites.items}
-              icon={Star}
-              iconClass="text-amber-400 fill-amber-400"
-              navigateTo={ROUTES.PROSPECTS}
-              onAdd={favorites.add}
-              onRename={favorites.rename}
-              onRemove={favorites.remove}
-              onClearAll={favorites.clearAll}
+          {user?.role === 'Super Admin' && (
+            <NavItem
+              to={ROUTES.USERS}
+              icon={UserCog}
+              label="User Management"
+              collapsed={collapsed}
             />
-
-            <SidebarSection
-              title="Projects"
-              items={projects.items}
-              icon={FolderOpen}
-              iconClass="text-brand-400"
-              navigateTo={ROUTES.DEALS}
-              onAdd={projects.add}
-              onRename={projects.rename}
-              onRemove={projects.remove}
-              onClearAll={projects.clearAll}
-            />
-          </>
-        )}
-      </nav>
-
-      {/* ── Bottom section ── */}
-      <div className="border-t border-sidebar-border px-2 py-3 space-y-0.5">
-        <NavItem to={ROUTES.SETTINGS} icon={Settings}   label="Settings"    collapsed={collapsed} />
-        <NavItem to="/help"           icon={HelpCircle} label="Help Center" collapsed={collapsed} />
-
-        {!collapsed && (
-          <div className="mt-3 px-1">
-            <StorageBar used={1.8} total={2} unit="GB" />
-          </div>
-        )}
-
-        {/* User — navigates to Settings > Profile */}
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label="Go to profile settings"
-          onClick={() => navigate(ROUTES.SETTINGS)}
-          onKeyDown={e => e.key === 'Enter' && navigate(ROUTES.SETTINGS)}
-          className={cn(
-            'mt-3 px-1 py-1 rounded-lg hover:bg-sidebar-accent cursor-pointer transition-colors',
-            collapsed && 'px-0 flex justify-center',
           )}
-        >
-          <UserBadge
-            name={user?.name ?? 'Janson Williams'}
-            email={user?.email ?? 'williams@mesh.com'}
-            role={user?.role ?? 'Super Admin'}
-            avatarUrl={user?.avatarUrl}
-            collapsed={collapsed}
-          />
+
+          {/* ── Favorites & Projects — hidden when collapsed ── */}
+          {!collapsed && (
+            <>
+              <SidebarSection
+                title="Favorites"
+                items={favorites.items}
+                icon={Star}
+                iconClass="text-amber-400 fill-amber-400"
+                navigateTo={ROUTES.PROSPECTS}
+                onAdd={favorites.add}
+                onRename={favorites.rename}
+                onRemove={favorites.remove}
+                onClearAll={favorites.clearAll}
+              />
+
+              <SidebarSection
+                title="Projects"
+                items={projects.items}
+                icon={FolderOpen}
+                iconClass="text-brand-400"
+                navigateTo={ROUTES.DEALS}
+                onAdd={projects.add}
+                onRename={projects.rename}
+                onRemove={projects.remove}
+                onClearAll={projects.clearAll}
+              />
+            </>
+          )}
+        </nav>
+
+        {/* ── Bottom section ── */}
+        <div className="border-t border-sidebar-border px-2 py-3 space-y-0.5">
+          <NavItem to={ROUTES.SETTINGS} icon={Settings}   label="Settings"    collapsed={collapsed} />
+          <NavItem to="/help"           icon={HelpCircle} label="Help Center" collapsed={collapsed} />
+
+          {!collapsed && (
+            <div className="mt-3 px-1">
+              <StorageBar used={1.8} total={2} unit="GB" />
+            </div>
+          )}
+
+          {/* User — navigates to Settings > Profile */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Go to profile settings"
+            onClick={() => navigate(ROUTES.SETTINGS)}
+            onKeyDown={e => e.key === 'Enter' && navigate(ROUTES.SETTINGS)}
+            className={cn(
+              'mt-3 px-1 py-1 rounded-lg hover:bg-sidebar-accent cursor-pointer transition-colors',
+              collapsed && 'px-0 flex justify-center',
+            )}
+          >
+            <UserBadge
+              name={user?.name ?? 'Janson Williams'}
+              email={user?.email ?? 'williams@mesh.com'}
+              role={user?.role ?? 'Super Admin'}
+              avatarUrl={user?.avatarUrl}
+              collapsed={collapsed}
+            />
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }

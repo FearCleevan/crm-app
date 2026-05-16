@@ -299,8 +299,11 @@ export function FilterPanel({ open, onClose, filters, onApply, options, optionsL
       )}
 
       <div className={cn(
-        'fixed top-0 right-0 h-full z-50 w-120 bg-card border-l border-border shadow-2xl flex flex-col transition-transform duration-300',
-        open ? 'translate-x-0' : 'translate-x-full'
+        'fixed z-50 bg-card shadow-2xl flex flex-col transition-transform duration-300',
+        // Mobile: full-width bottom sheet sliding up
+        'bottom-0 left-0 right-0 h-[90vh] rounded-t-2xl border-t border-border',
+        'sm:top-0 sm:bottom-auto sm:left-auto sm:right-0 sm:h-full sm:w-[480px] sm:rounded-none sm:border-t-0 sm:border-l sm:border-border',
+        open ? 'translate-y-0 sm:translate-x-0' : 'translate-y-full sm:translate-y-0 sm:translate-x-full'
       )}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">

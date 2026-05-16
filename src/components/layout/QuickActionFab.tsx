@@ -68,7 +68,7 @@ export function QuickActionFab() {
   }, [open])
 
   return (
-    <div ref={containerRef} className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3">
+    <div ref={containerRef} className="hidden lg:flex fixed bottom-6 right-6 z-30 flex-col items-end gap-3">
       {/* Action items — slide up when open */}
       <div className={cn(
         'flex flex-col items-end gap-2 transition-all duration-200',
