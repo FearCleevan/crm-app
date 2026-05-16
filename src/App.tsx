@@ -21,6 +21,8 @@ import { EmailsPage } from '@/pages/EmailsPage'
 import { WorkflowsPage } from '@/pages/WorkflowsPage'
 import { UserManagementPage } from '@/pages/UserManagementPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { NotesPage } from '@/pages/NotesPage'
+import { HelpPage } from '@/pages/HelpPage'
 import { ROUTES } from '@/constants/routes'
 import type { PermissionKey } from '@/constants/roles'
 
@@ -90,8 +92,8 @@ const router = createBrowserRouter([
       children: [
         // Accessible to all authenticated users
         { path: ROUTES.DASHBOARD, element: <DashboardPage /> },
-        { path: '/notes',         element: <PlaceholderPage name="Notes" /> },
-        { path: '/help',          element: <PlaceholderPage name="Help Center" /> },
+        { path: ROUTES.NOTES,     element: <NotesPage /> },
+        { path: ROUTES.HELP,      element: <HelpPage /> },
         { path: ROUTES.SETTINGS,  element: <SettingsPage /> },
 
         // Requires leads_view

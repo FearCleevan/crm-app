@@ -12,6 +12,7 @@ export const ROUTES = {
   WORKFLOWS:   '/workflows',
   USERS:       '/users',
   SETTINGS:    '/settings',
+  HELP:        '/help',
   FORBIDDEN:   '/403',
   NOT_FOUND:   '*',
 } as const
