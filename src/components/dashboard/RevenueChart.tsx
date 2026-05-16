@@ -4,19 +4,19 @@ import {
   Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { TrendingUp } from 'lucide-react'
-import { MOCK_REVENUE_DATA } from '@/constants/mockData'
 import { cn } from '@/lib/utils'
+import type { RevenuePoint } from '@/services/analytics.service'
 
 const FILTERS = ['1D', '1W', '1M', '6M', '1Y', 'ALL'] as const
 type Filter = typeof FILTERS[number]
 
-const SLICE_MAP: Record<Filter, number> = {
+const SLICE_COUNTS: Record<Filter, number> = {
   '1D':  1,
-  '1W':  7,
+  '1W':  4,
   '1M':  3,
   '6M':  6,
   '1Y':  12,
-  'ALL': MOCK_REVENUE_DATA.length,
+  'ALL': 0, // handled separately
 }
 
 function formatCurrency(v: number) {
@@ -39,18 +39,23 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   )
 }
 
-export function RevenueChart() {
+interface Props {
+  data?: RevenuePoint[]
+}
+
+export function RevenueChart({ data: allData = [] }: Props) {
   const [activeFilter, setActiveFilter] = useState<Filter>('1Y')
 
   const data = useMemo(() => {
-    const count = SLICE_MAP[activeFilter]
-    return MOCK_REVENUE_DATA.slice(-count)
-  }, [activeFilter])
+    if (activeFilter === 'ALL') return allData
+    const count = SLICE_COUNTS[activeFilter]
+    return allData.slice(-count)
+  }, [activeFilter, allData])
 
-  const latest = data[data.length - 1]?.value ?? 0
-  const prev   = data[data.length - 2]?.value ?? latest
+  const latest   = data[data.length - 1]?.value ?? 0
+  const prev     = data[data.length - 2]?.value ?? latest
   const pctChange = prev > 0 ? ((latest - prev) / prev * 100).toFixed(0) : '0'
-  const isUp = latest >= prev
+  const isUp     = latest >= prev
 
   return (
     <div className="bg-card rounded-xl border border-border p-5 space-y-4">
@@ -63,14 +68,16 @@ export function RevenueChart() {
           </div>
           <div className="flex items-end gap-2">
             <p className="text-2xl font-bold text-foreground">{formatCurrency(latest)}</p>
-            <span className={cn(
-              'inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-semibold mb-1',
-              isUp
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-            )}>
-              {isUp ? '+' : ''}{pctChange}% vs last month
-            </span>
+            {data.length > 1 && (
+              <span className={cn(
+                'inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-semibold mb-1',
+                isUp
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+              )}>
+                {isUp ? '+' : ''}{pctChange}% vs last month
+              </span>
+            )}
           </div>
         </div>
 
@@ -80,6 +87,7 @@ export function RevenueChart() {
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
+              type="button"
               className={cn(
                 'px-2.5 py-1 rounded-md text-xs font-medium transition-all',
                 activeFilter === f
@@ -95,41 +103,47 @@ export function RevenueChart() {
 
       {/* Chart */}
       <div className="h-52">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor="hsl(245,58%,51%)" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="hsl(245,58%,51%)" stopOpacity={0}   />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" strokeOpacity={0.6} vertical={false} />
-            <XAxis
-              dataKey="month"
-              tick={{ fontSize: 11, fill: 'hsl(215,16%,47%)' }}
-              axisLine={false}
-              tickLine={false}
-              dy={6}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: 'hsl(215,16%,47%)' }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={v => `$${(v / 1000).toFixed(0)}k`}
-              width={40}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'hsl(245,58%,51%)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="hsl(245,58%,51%)"
-              strokeWidth={2.5}
-              fill="url(#revenueGradient)"
-              dot={false}
-              activeDot={{ r: 5, fill: 'hsl(245,58%,51%)', stroke: '#fff', strokeWidth: 2 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        {allData.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">No revenue data yet</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="hsl(245,58%,51%)" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="hsl(245,58%,51%)" stopOpacity={0}   />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" strokeOpacity={0.6} vertical={false} />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: 'hsl(215,16%,47%)' }}
+                axisLine={false}
+                tickLine={false}
+                dy={6}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: 'hsl(215,16%,47%)' }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={v => `$${(v / 1000).toFixed(0)}k`}
+                width={40}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'hsl(245,58%,51%)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="hsl(245,58%,51%)"
+                strokeWidth={2.5}
+                fill="url(#revenueGradient)"
+                dot={false}
+                activeDot={{ r: 5, fill: 'hsl(245,58%,51%)', stroke: '#fff', strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   )

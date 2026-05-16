@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { dealsService, type DealFilters, type DealSort } from '@/services/deals.service'
+import { supabase } from '@/lib/supabase'
 import type { DealRow, DealInsert, DealUpdate, DealStage } from '@/types/database'
 
 interface UseDealsParams {
@@ -54,6 +55,47 @@ export function useDeals({ filters, sort }: UseDealsParams = {}) {
     return () => { aliveRef.current = false }
   }, [fetchDeals])
 
+  // ── Real-time subscription ────────────────────────────────────
+  // Optimistic updates: apply changes to local state immediately so the
+  // board reflects changes from other users without waiting for a refetch.
+  useEffect(() => {
+    const channel = supabase
+      .channel('deals-rt')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'deals' },
+        payload => {
+          const newRow = payload.new as DealRow
+          cache.clear()
+          setData(prev => prev.some(d => d.id === newRow.id) ? prev : [newRow, ...prev])
+          setTotal(t => t + 1)
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'deals' },
+        payload => {
+          const updated = payload.new as DealRow
+          cache.clear()
+          setData(prev => prev.map(d => d.id === updated.id ? updated : d))
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'deals' },
+        payload => {
+          const deleted = payload.old as { id: string }
+          cache.clear()
+          setData(prev => prev.filter(d => d.id !== deleted.id))
+          setTotal(t => Math.max(0, t - 1))
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, []) // mount once
+
+  // ── Mutations ─────────────────────────────────────────────────
   const refetch = useCallback(() => {
     cache.delete(cacheKey)
     return fetchDeals()
@@ -93,7 +135,6 @@ export function useDeals({ filters, sort }: UseDealsParams = {}) {
   }, [cacheKey])
 
   const reorder = useCallback(async (ids: string[]): Promise<void> => {
-    // Optimistic update first
     setData(prev => {
       const byId = Object.fromEntries(prev.map(d => [d.id, d]))
       const reordered = ids.map((id, i) => ({ ...byId[id], sort_order: i })).filter(Boolean) as DealRow[]

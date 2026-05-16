@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { prospectsService, type ProspectFilters, type ProspectSort } from '@/services/prospects.service'
+import { supabase } from '@/lib/supabase'
 import type { ProspectRow } from '@/types/database'
 
 interface UseProspectsParams {
@@ -31,13 +32,11 @@ export function useProspects({
   const [loading, setLoading] = useState<boolean>(() => !cache.has(cacheKey))
   const [error, setError]     = useState<Error | null>(null)
 
-  // Track whether this component instance is still mounted to avoid stale updates
   const aliveRef = useRef(true)
 
   const fetchPage = useCallback(async () => {
     const hit = cache.get(cacheKey)
     if (hit) {
-      // Show cached data immediately while re-fetching in background
       setData(hit.data)
       setTotal(hit.count)
       setLoading(false)
@@ -67,6 +66,30 @@ export function useProspects({
     return () => { aliveRef.current = false }
   }, [fetchPage])
 
+  // ── Real-time subscription ────────────────────────────────────
+  // Keep a ref to the latest fetchPage so the channel callback stays
+  // stable and we don't recreate the channel on every param change.
+  const fetchPageRef = useRef(fetchPage)
+  useEffect(() => { fetchPageRef.current = fetchPage }, [fetchPage])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('prospects-rt')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'prospects' },
+        () => {
+          // Invalidate every cached page and reload the current one
+          cache.clear()
+          fetchPageRef.current()
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, []) // mount once — channel is stable
+
+  // ── Mutations ─────────────────────────────────────────────────
   const refetch = useCallback(() => {
     cache.delete(cacheKey)
     return fetchPage()

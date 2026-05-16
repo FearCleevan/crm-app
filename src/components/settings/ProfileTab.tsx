@@ -2,7 +2,10 @@ import { useState, useRef } from 'react'
 import { Camera, Save, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
+import { usersService } from '@/services/users.service'
+import { storageService } from '@/services/storage.service'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { UnsavedChangesGuard } from '@/components/ui/UnsavedChangesGuard'
 
@@ -26,14 +29,16 @@ export function ProfileTab() {
   const { user } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [firstName,    setFirstName]   = useState(user?.first_name ?? '')
-  const [lastName,     setLastName]    = useState(user?.last_name ?? '')
-  const [phone,        setPhone]       = useState(user?.phone_no ?? '')
-  const [department,   setDepartment]  = useState(user?.department ?? '')
-  const [address,      setAddress]     = useState('')
-  const [birthday,     setBirthday]    = useState('')
-  const [avatarSrc,    setAvatarSrc]   = useState(user?.profile_url ?? '')
+  const [firstName,    setFirstName]    = useState(user?.first_name ?? '')
+  const [lastName,     setLastName]     = useState(user?.last_name ?? '')
+  const [phone,        setPhone]        = useState(user?.phone_no ?? '')
+  const [department,   setDepartment]   = useState(user?.department ?? '')
+  const [address,      setAddress]      = useState('')
+  const [birthday,     setBirthday]     = useState('')
+  const [avatarSrc,    setAvatarSrc]    = useState(user?.profile_url ?? '')
+  const [avatarFile,   setAvatarFile]   = useState<File | null>(null)
   const [profileDirty, setProfileDirty] = useState(false)
+  const [profileSaving, setProfileSaving] = useState(false)
 
   const [currentPw, setCurrentPw] = useState('')
   const [newPw,     setNewPw]     = useState('')
@@ -49,15 +54,39 @@ export function ProfileTab() {
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    setAvatarFile(file)
     const reader = new FileReader()
     reader.onload = ev => setAvatarSrc(String(ev.target?.result ?? ''))
     reader.readAsDataURL(file)
     setProfileDirty(true)
   }
 
-  function saveProfile() {
-    toast.success('Profile updated successfully')
-    setProfileDirty(false)
+  async function saveProfile() {
+    if (!user?.id) return
+    setProfileSaving(true)
+    try {
+      let profileUrl = user.profile_url ?? ''
+
+      if (avatarFile) {
+        profileUrl = await storageService.uploadAvatar(avatarFile)
+        setAvatarFile(null)
+      }
+
+      await usersService.updateUser(user.id, {
+        first_name:  firstName,
+        last_name:   lastName,
+        phone_no:    phone   || null,
+        department:  department || null,
+        profile_url: profileUrl || null,
+      })
+
+      toast.success('Profile updated successfully')
+      setProfileDirty(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save profile')
+    } finally {
+      setProfileSaving(false)
+    }
   }
 
   async function savePassword() {
@@ -65,14 +94,32 @@ export function ProfileTab() {
     if (!currentPw) { setPwError('Current password is required'); return }
     if (newPw.length < 8) { setPwError('New password must be at least 8 characters'); return }
     if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
+
     setPwSaving(true)
-    await new Promise(r => setTimeout(r, 600))
-    toast.success('Password changed successfully')
-    setCurrentPw(''); setNewPw(''); setConfirmPw('')
-    setPwSaving(false)
+    try {
+      // Re-authenticate with current password to verify it before changing
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user?.email) throw new Error('No active session')
+
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email:    session.user.email,
+        password: currentPw,
+      })
+      if (signInErr) throw new Error('Current password is incorrect')
+
+      const { error: updateErr } = await supabase.auth.updateUser({ password: newPw })
+      if (updateErr) throw new Error(updateErr.message)
+
+      toast.success('Password changed successfully')
+      setCurrentPw(''); setNewPw(''); setConfirmPw('')
+    } catch (err) {
+      setPwError(err instanceof Error ? err.message : 'Failed to change password')
+    } finally {
+      setPwSaving(false)
+    }
   }
 
-  const initials = `${user?.first_name[0] ?? ''}${user?.last_name[0] ?? ''}`
+  const initials = `${user?.first_name?.[0] ?? ''}${user?.last_name?.[0] ?? ''}`
 
   return (
     <>
@@ -157,9 +204,10 @@ export function ProfileTab() {
               className={inputCls()} />
           </Field>
           <div className="flex justify-end pt-1">
-            <button type="button" onClick={saveProfile} disabled={!profileDirty}
+            <button type="button" onClick={saveProfile} disabled={!profileDirty || profileSaving}
               className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
-              <Save className="h-3.5 w-3.5" /> Save Profile
+              <Save className="h-3.5 w-3.5" />
+              {profileSaving ? 'Saving…' : 'Save Profile'}
             </button>
           </div>
         </div>

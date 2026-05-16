@@ -3,9 +3,42 @@ import { X, Check, Trash2, Package, Briefcase, CheckSquare, User, Settings, Aler
 import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { MOCK_NOTIFICATIONS, type AppNotification, type NotificationCategory } from '@/constants/mockNotifications'
+import { supabase } from '@/lib/supabase'
+import { notificationsService } from '@/services/notifications.service'
+import { useAuth } from '@/context/AuthContext'
+import type { NotificationRow } from '@/types/database'
+import type { NotificationCategory, NotificationIcon, AppNotification } from '@/constants/mockNotifications'
 
-const ICON_MAP: Record<AppNotification['icon'], React.ElementType> = {
+// ── DB row → UI shape mapping ─────────────────────────────────
+const TYPE_TO_ICON: Record<NotificationRow['type'], NotificationIcon> = {
+  info:    'system',
+  success: 'deal',
+  warning: 'alert',
+  error:   'alert',
+}
+
+const TYPE_TO_CATEGORY: Record<NotificationRow['type'], NotificationCategory> = {
+  info:    'system',
+  success: 'assignment',
+  warning: 'system',
+  error:   'system',
+}
+
+function mapRow(row: NotificationRow): AppNotification {
+  return {
+    id:       row.id,
+    category: TYPE_TO_CATEGORY[row.type] ?? 'system',
+    icon:     TYPE_TO_ICON[row.type] ?? 'system',
+    title:    row.title,
+    message:  row.body ?? '',
+    time:     row.created_at,
+    read:     row.is_read,
+    link:     row.link ?? undefined,
+  }
+}
+
+// ── Icon + colour maps (same as before) ──────────────────────
+const ICON_MAP: Record<NotificationIcon, React.ElementType> = {
   import:  Upload,
   deal:    Briefcase,
   task:    CheckSquare,
@@ -14,7 +47,7 @@ const ICON_MAP: Record<AppNotification['icon'], React.ElementType> = {
   alert:   AlertTriangle,
 }
 
-const ICON_COLOR: Record<AppNotification['icon'], string> = {
+const ICON_COLOR: Record<NotificationIcon, string> = {
   import:  'text-brand-500 bg-brand-100 dark:bg-brand-900/30',
   deal:    'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30',
   task:    'text-amber-600 bg-amber-100 dark:bg-amber-900/30',
@@ -65,7 +98,7 @@ export function NotificationPanel({
   }, [open, onClose])
 
   const filtered = notifications.filter(n => tab === 'all' || n.category === tab)
-  const unread = notifications.filter(n => !n.read).length
+  const unread   = notifications.filter(n => !n.read).length
 
   function handleItemClick(n: AppNotification) {
     onMarkRead(n.id)
@@ -196,23 +229,83 @@ export function NotificationPanel({
   )
 }
 
+// ── useNotifications — real data + real-time ──────────────────
 export function useNotifications() {
-  const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS)
+  const { user } = useAuth()
+  const userId   = user?.id ?? null
 
-  function markRead(id: string) {
-    setNotifications(p => p.map(n => n.id === id ? { ...n, read: true } : n))
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+
+  // Initial load
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+
+    notificationsService.getAll(userId)
+      .then(rows => { if (!cancelled) setNotifications(rows.map(mapRow)) })
+      .catch(() => {})
+
+    return () => { cancelled = true }
+  }, [userId])
+
+  // Real-time subscription — filtered to this user's notifications
+  useEffect(() => {
+    if (!userId) return
+
+    const channel = supabase
+      .channel(`notifications-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        payload => {
+          const newRow = mapRow(payload.new as NotificationRow)
+          setNotifications(prev =>
+            prev.some(n => n.id === newRow.id) ? prev : [newRow, ...prev]
+          )
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        payload => {
+          const updated = mapRow(payload.new as NotificationRow)
+          setNotifications(prev => prev.map(n => n.id === updated.id ? updated : n))
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        payload => {
+          const deletedId = (payload.old as { id: string }).id
+          setNotifications(prev => prev.filter(n => n.id !== deletedId))
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [userId])
+
+  // ── Actions — optimistic UI + DB write ───────────────────────
+  async function markRead(id: string) {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    await notificationsService.markRead(id).catch(() => {})
   }
 
-  function markAllRead() {
-    setNotifications(p => p.map(n => ({ ...n, read: true })))
+  async function markAllRead() {
+    if (!userId) return
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    await notificationsService.markAllRead(userId).catch(() => {})
   }
 
-  function remove(id: string) {
-    setNotifications(p => p.filter(n => n.id !== id))
+  async function remove(id: string) {
+    setNotifications(prev => prev.filter(n => n.id !== id))
+    await notificationsService.remove(id).catch(() => {})
   }
 
-  function clearAll() {
+  async function clearAll() {
+    if (!userId) return
     setNotifications([])
+    await notificationsService.clearAll(userId).catch(() => {})
   }
 
   const unreadCount = notifications.filter(n => !n.read).length

@@ -1,5 +1,6 @@
 import React from 'react'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 interface State {
   hasError: boolean
@@ -23,6 +24,21 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[ErrorBoundary]', error, info.componentStack)
+    this.logError(error, info.componentStack ?? '')
+  }
+
+  private async logError(error: Error, componentStack: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await supabase.from('error_logs').insert({
+        user_id:       session?.user?.id ?? null,
+        error_message: error.message,
+        stack_trace:   componentStack,
+        page:          window.location.pathname,
+      })
+    } catch {
+      // Logging must never throw
+    }
   }
 
   handleReload = () => {

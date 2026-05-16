@@ -2,18 +2,17 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
-import { MOCK_RETENTION_DATA } from '@/constants/mockData'
+import type { SegmentPoint } from '@/services/analytics.service'
 
 const COLORS = {
-  SMEs:        'hsl(245,58%,51%)',
-  Startups:    'hsl(160,84%,39%)',
-  Enterprises: 'hsl(215,16%,47%)',
+  smes:       'hsl(245,58%,51%)',
+  midmarket:  'hsl(160,84%,39%)',
+  enterprise: 'hsl(215,16%,47%)',
 }
 
-interface LegendPayload {
-  color: string
-  value: string
-}
+const LABELS = { smes: 'SMEs', midmarket: 'Mid-Market', enterprise: 'Enterprise' }
+
+interface LegendPayload { color: string; value: string }
 
 function CustomLegend({ payload }: { payload?: LegendPayload[] }) {
   if (!payload) return null
@@ -29,17 +28,25 @@ function CustomLegend({ payload }: { payload?: LegendPayload[] }) {
   )
 }
 
-export function RetentionChart() {
+interface Props {
+  segments?: SegmentPoint[]
+}
+
+export function RetentionChart({ segments = [] }: Props) {
+  const total    = segments.reduce((s, m) => s + m.smes + m.midmarket + m.enterprise, 0)
+  const lastMonth = segments[segments.length - 1]
+  const lastTotal = lastMonth ? lastMonth.smes + lastMonth.midmarket + lastMonth.enterprise : 0
+
   return (
     <div className="bg-card rounded-xl border border-border p-5 space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">Retention Rate</p>
+          <p className="text-sm font-medium text-muted-foreground">New Prospects by Segment</p>
           <div className="flex items-end gap-2 mt-1">
-            <p className="text-2xl font-bold text-foreground">95%</p>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 mb-0.5">
-              +12% vs last month
+            <p className="text-2xl font-bold text-foreground">{total.toLocaleString()}</p>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 mb-0.5">
+              {lastTotal} last month
             </span>
           </div>
         </div>
@@ -47,38 +54,41 @@ export function RetentionChart() {
 
       {/* Chart */}
       <div className="h-44">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={MOCK_RETENTION_DATA} margin={{ top: 4, right: 4, bottom: 0, left: -20 }} barSize={6} barGap={2}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" strokeOpacity={0.6} vertical={false} />
-            <XAxis
-              dataKey="month"
-              tick={{ fontSize: 10, fill: 'hsl(215,16%,47%)' }}
-              axisLine={false}
-              tickLine={false}
-              dy={4}
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: 'hsl(215,16%,47%)' }}
-              axisLine={false}
-              tickLine={false}
-              domain={[0, 100]}
-              tickFormatter={v => `${v}%`}
-            />
-            <Tooltip
-              contentStyle={{
-                borderRadius: '10px',
-                border: '1px solid hsl(214,32%,91%)',
-                backgroundColor: 'hsl(0,0%,100%)',
-                fontSize: '12px',
-              }}
-              formatter={(v) => [`${v}%`]}
-            />
-            <Legend content={<CustomLegend />} />
-            <Bar dataKey="SMEs"        fill={COLORS.SMEs}        radius={[3, 3, 0, 0]} />
-            <Bar dataKey="Startups"    fill={COLORS.Startups}    radius={[3, 3, 0, 0]} />
-            <Bar dataKey="Enterprises" fill={COLORS.Enterprises} radius={[3, 3, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {segments.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">No segment data yet</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={segments} margin={{ top: 4, right: 4, bottom: 0, left: -20 }} barSize={6} barGap={2}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" strokeOpacity={0.6} vertical={false} />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 10, fill: 'hsl(215,16%,47%)' }}
+                axisLine={false}
+                tickLine={false}
+                dy={4}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: 'hsl(215,16%,47%)' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: '10px',
+                  border: '1px solid hsl(214,32%,91%)',
+                  backgroundColor: 'hsl(0,0%,100%)',
+                  fontSize: '12px',
+                }}
+              />
+              <Legend content={<CustomLegend />} formatter={v => LABELS[v as keyof typeof LABELS] ?? v} />
+              <Bar dataKey="smes"       name={LABELS.smes}       fill={COLORS.smes}       radius={[3, 3, 0, 0]} />
+              <Bar dataKey="midmarket"  name={LABELS.midmarket}  fill={COLORS.midmarket}  radius={[3, 3, 0, 0]} />
+              <Bar dataKey="enterprise" name={LABELS.enterprise} fill={COLORS.enterprise} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   )

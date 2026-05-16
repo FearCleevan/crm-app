@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Users, Percent, Clock, Sparkles, SlidersHorizontal, RefreshCw, Upload, Download, ChevronDown } from 'lucide-react'
+import { Users, TrendingUp, DollarSign, Sparkles, SlidersHorizontal, RefreshCw, Upload, Download, ChevronDown } from 'lucide-react'
 import Papa from 'papaparse'
 import { toast } from 'sonner'
 import { TopbarSlot } from '@/context/TopbarContext'
@@ -11,17 +11,17 @@ import { LeadsManagementCard } from '@/components/dashboard/LeadsManagementCard'
 import { RetentionChart } from '@/components/dashboard/RetentionChart'
 import { LocationsCard } from '@/components/dashboard/LocationsCard'
 import { WidgetCustomizerPanel, type WidgetConfig } from '@/components/dashboard/WidgetCustomizerPanel'
-import { MOCK_REVENUE_DATA } from '@/constants/mockData'
+import { useDashboardData } from '@/hooks/useDashboardData'
 
 const STORAGE_KEY = 'brisk_dashboard_widgets'
 
 const DEFAULT_WIDGETS: WidgetConfig[] = [
-  { id: 'metrics',  label: 'Metric Cards',      description: 'Leads, Conversion Rate, CLV',  visible: true },
-  { id: 'revenue',  label: 'Revenue Chart',      description: 'Revenue over time',             visible: true },
-  { id: 'calendar', label: 'Calendar',           description: 'Activity calendar',             visible: true },
-  { id: 'leads',    label: 'Leads Management',   description: 'Lead source breakdown',         visible: true },
-  { id: 'retention',label: 'Retention Chart',    description: 'Customer retention metrics',    visible: true },
-  { id: 'locations',label: 'Locations',          description: 'Geographic distribution',       visible: true },
+  { id: 'metrics',   label: 'Metric Cards',    description: 'Leads, Revenue, Avg Deal Size',  visible: true },
+  { id: 'revenue',   label: 'Revenue Chart',   description: 'Revenue over time',              visible: true },
+  { id: 'calendar',  label: 'Calendar',        description: 'Activity calendar',              visible: true },
+  { id: 'leads',     label: 'Leads Management',description: 'Lead source breakdown',          visible: true },
+  { id: 'retention', label: 'Segment Chart',   description: 'Prospects by company segment',  visible: true },
+  { id: 'locations', label: 'Locations',       description: 'Geographic distribution',        visible: true },
 ]
 
 function loadWidgets(): WidgetConfig[] {
@@ -38,9 +38,17 @@ function loadWidgets(): WidgetConfig[] {
   }
 }
 
+function fmt(v: number) {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000)    return `$${(v / 1_000).toFixed(0)}k`
+  return `$${v}`
+}
+
 export function DashboardPage() {
   const [customizerOpen, setCustomizerOpen] = useState(false)
   const [widgets, setWidgets] = useState<WidgetConfig[]>(loadWidgets)
+
+  const { loading, metrics, revenueData, breakdown, countries, segments } = useDashboardData()
 
   const toggleWidget = useCallback((id: string) => {
     setWidgets(prev => {
@@ -51,16 +59,22 @@ export function DashboardPage() {
   }, [])
 
   function exportCSV() {
-    const metrics = [
-      { Metric: 'Total Leads',       Value: '129',  Change: '+24 vs last week'  },
-      { Metric: 'Conversion Rate',   Value: '24%',  Change: '+8 vs last week'   },
-      { Metric: 'Avg. CLV',          Value: '14d',  Change: '+1d vs last week'  },
+    const metricRows = [
+      { Metric: 'Total Prospects', Value: metrics?.total_prospects ?? '—', Change: `+${metrics?.new_this_week ?? 0} this week` },
+      { Metric: 'Total Revenue',   Value: fmt(metrics?.total_revenue ?? 0), Change: '' },
+      { Metric: 'Avg Deal Size',   Value: fmt(metrics?.avg_deal_size ?? 0),  Change: '' },
     ]
-    const revenue = MOCK_REVENUE_DATA.map(d => ({ Month: d.month, Revenue: `$${d.value.toLocaleString()}` }))
+    const revRows = revenueData.map(d => ({ Month: d.month, Revenue: `$${d.value.toLocaleString()}` }))
 
-    const metricsCSV  = Papa.unparse(metrics)
-    const revenueCSV  = Papa.unparse(revenue)
-    const combined    = `Dashboard Summary Export — ${new Date().toLocaleDateString()}\n\nKEY METRICS\n${metricsCSV}\n\nMONTHLY REVENUE\n${revenueCSV}`
+    const combined = [
+      `Dashboard Summary Export — ${new Date().toLocaleDateString()}`,
+      '',
+      'KEY METRICS',
+      Papa.unparse(metricRows),
+      '',
+      'MONTHLY REVENUE',
+      Papa.unparse(revRows),
+    ].join('\n')
 
     const blob = new Blob([combined], { type: 'text/csv' })
     const url  = URL.createObjectURL(blob)
@@ -71,6 +85,13 @@ export function DashboardPage() {
   }
 
   const visible = (id: string) => widgets.find(w => w.id === id)?.visible ?? true
+
+  // Derive metric card values
+  const totalProspects = metrics?.total_prospects ?? 0
+  const newThisWeek    = metrics?.new_this_week   ?? 0
+  const totalRevenue   = metrics?.total_revenue   ?? 0
+  const avgDealSize    = metrics?.avg_deal_size   ?? 0
+  const closedWon      = metrics?.closed_won_count ?? 0
 
   return (
     <>
@@ -90,7 +111,7 @@ export function DashboardPage() {
           </button>
           <div className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-xs font-medium text-emerald-700 dark:text-emerald-400">
             <RefreshCw className="h-3 w-3" />
-            Last updated now
+            {loading ? 'Loading…' : 'Live data'}
           </div>
           <button type="button" className="flex items-center gap-1 h-8 px-3 rounded-lg border border-border bg-card hover:bg-accent text-xs font-medium text-foreground transition-colors">
             <Upload className="h-3.5 w-3.5" />
@@ -114,9 +135,30 @@ export function DashboardPage() {
           {/* Metric cards */}
           {visible('metrics') && (
             <div className="col-span-12 lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <MetricCard title="Leads"           value="129"  change={8}  trend="up"   changeLabel="+24 vs last week" icon={Users}   />
-              <MetricCard title="Conversion Rate" value="24%"  change={2}  trend="up"   changeLabel="+8 vs last week"  icon={Percent} />
-              <MetricCard title="CLV"             value="14d"  change={-4} trend="down" changeLabel="+1d vs last week" icon={Clock}   />
+              <MetricCard
+                title="Total Prospects"
+                value={loading ? '…' : totalProspects.toLocaleString()}
+                change={newThisWeek}
+                trend="up"
+                changeLabel={`+${newThisWeek} this week`}
+                icon={Users}
+              />
+              <MetricCard
+                title="Total Revenue"
+                value={loading ? '…' : fmt(totalRevenue)}
+                change={closedWon}
+                trend="up"
+                changeLabel={`${closedWon} deals closed`}
+                icon={DollarSign}
+              />
+              <MetricCard
+                title="Avg Deal Size"
+                value={loading ? '…' : fmt(avgDealSize)}
+                change={0}
+                trend="up"
+                changeLabel="Closed Won avg"
+                icon={TrendingUp}
+              />
             </div>
           )}
 
@@ -132,7 +174,7 @@ export function DashboardPage() {
           {/* Revenue chart */}
           {visible('revenue') && (
             <div className="col-span-12 lg:col-span-8">
-              <RevenueChart />
+              <RevenueChart data={revenueData} />
             </div>
           )}
         </div>
@@ -140,9 +182,9 @@ export function DashboardPage() {
         {/* Bottom row */}
         {(visible('leads') || visible('retention') || visible('locations')) && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {visible('leads')     && <LeadsManagementCard />}
-            {visible('retention') && <RetentionChart />}
-            {visible('locations') && <LocationsCard />}
+            {visible('leads')     && <LeadsManagementCard breakdown={breakdown} />}
+            {visible('retention') && <RetentionChart segments={segments} />}
+            {visible('locations') && <LocationsCard countries={countries} />}
           </div>
         )}
       </PageWrapper>

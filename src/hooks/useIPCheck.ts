@@ -16,13 +16,13 @@ export function useIPCheck(): IPCheckResult {
   })
 
   useEffect(() => {
-    ipService
-      .checkCurrentIP()
+    const failOpen = new Promise<{ allowed: boolean; ip: string }>(resolve =>
+      setTimeout(() => resolve({ allowed: true, ip: '' }), 4000)
+    )
+
+    Promise.race([ipService.checkCurrentIP(), failOpen])
       .then(result => setState({ ...result, loading: false }))
-      .catch(() => {
-        // EF not deployed or network error — fail open so the app stays accessible
-        setState({ allowed: true, loading: false, ip: '' })
-      })
+      .catch(() => setState({ allowed: true, loading: false, ip: '' }))
   }, [])
 
   return state

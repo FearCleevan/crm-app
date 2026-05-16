@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
+import { EmailEditor } from './EmailEditor'
 import type { EmailTemplate } from '@/constants/mockEmails'
 
 const CATEGORIES = ['Outreach', 'Follow-up', 'Sales', 'Onboarding', 'Support', 'Newsletter', 'Other']
@@ -55,7 +56,7 @@ export function TemplateFormModal({ open, initial, onClose, onSave }: Props) {
     if (!f.name.trim()) e.name = 'Template name is required'
     if (!f.category) e.category = 'Category is required'
     if (!f.subject.trim()) e.subject = 'Subject line is required'
-    if (!f.body.trim()) e.body = 'Body content is required'
+    if (!f.body.replace(/<[^>]*>/g, '').trim()) e.body = 'Body content is required'
     return e
   }
 
@@ -147,23 +148,18 @@ export function TemplateFormModal({ open, initial, onClose, onSave }: Props) {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="tpl-body" className="text-xs font-semibold text-foreground">
-                Body *
-              </label>
+              <label className="text-xs font-semibold text-foreground">Body *</label>
               <p className="text-[11px] text-muted-foreground">
                 Use{' '}
-                <code className="font-mono bg-muted px-1 rounded text-[11px]">
-                  {'{{variable_name}}'}
-                </code>{' '}
-                for dynamic content. HTML is supported.
+                <code className="font-mono bg-muted px-1 rounded text-[11px]">{'{{variable_name}}'}</code>
+                {' '}for dynamic content (e.g. {'{{first_name}}'}).
               </p>
-              <textarea
-                id="tpl-body"
-                value={form.body}
-                onChange={e => handleChange('body', e.target.value)}
-                rows={10}
-                placeholder={'<p>Hi {{first_name}},</p>\n<p>Your message here...</p>'}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-y font-mono"
+              <EmailEditor
+                key={open ? (initial?.id ?? 'new') : 'closed'}
+                content={form.body}
+                onChange={html => handleChange('body', html)}
+                placeholder="Hi {{first_name}}, your message here…"
+                minHeight="200px"
               />
               {errors.body && <p className="text-xs text-destructive">{errors.body}</p>}
             </div>
