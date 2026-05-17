@@ -1,70 +1,46 @@
-import { cn } from '@/lib/utils'
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('animate-pulse rounded-lg bg-muted', className)} />
+interface PageLoaderProps {
+  message?: string
 }
 
-export function PageLoader() {
+export function PageLoader({ message }: PageLoaderProps = {}) {
   return (
-    <div className="p-6 space-y-6">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-4 w-24" />
-        </div>
-        <Skeleton className="h-9 w-28 rounded-lg" />
-      </div>
+    <div className="flex min-h-screen w-full flex-col items-center justify-center gap-5 bg-background">
+      {/* Spinning arc around the logo */}
+      <div className="relative flex items-center justify-center">
+        <svg
+          className="absolute h-[72px] w-[72px] animate-spin"
+          viewBox="0 0 72 72"
+          fill="none"
+          aria-hidden="true"
+        >
+          <circle
+            cx="36"
+            cy="36"
+            r="32"
+            stroke="currentColor"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeDasharray="50 151"
+            className="text-brand-500"
+          />
+        </svg>
 
-      {/* Metric cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-card border border-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-8 w-8 rounded-lg" />
-            </div>
-            <Skeleton className="h-7 w-24" />
-            <Skeleton className="h-3 w-16" />
-          </div>
-        ))}
-      </div>
-
-      {/* Content area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-4 space-y-3">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-48 w-full rounded-lg" />
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-          <Skeleton className="h-5 w-28" />
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-9 w-9 rounded-full shrink-0" />
-              <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-3.5 w-full" />
-                <Skeleton className="h-3 w-2/3" />
-              </div>
-            </div>
-          ))}
+        {/* Brisk "B" logo mark */}
+        <div className="h-12 w-12 rounded-xl bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
+          <span className="text-white font-bold text-[22px] leading-none select-none">B</span>
         </div>
       </div>
 
-      {/* Table skeleton */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-border flex gap-4">
-          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-4 w-20" />)}
-        </div>
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="flex items-center gap-4 px-5 py-3.5 border-b border-border/50 last:border-0">
-            <Skeleton className="h-9 w-9 rounded-full shrink-0" />
-            <Skeleton className="h-4 flex-1" />
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-6 w-14 rounded-full" />
-          </div>
-        ))}
+      {/* Three bouncing dots */}
+      <div className="flex items-center gap-1.5" aria-hidden="true">
+        <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce [animation-delay:-0.3s]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce [animation-delay:-0.15s]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce" />
       </div>
+
+      {message && (
+        <p className="text-sm text-muted-foreground">{message}</p>
+      )}
     </div>
   )
 }

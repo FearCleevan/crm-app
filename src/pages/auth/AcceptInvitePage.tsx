@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
-import { Loader2, AlertCircle, KeyRound } from 'lucide-react'
+import { AlertCircle, KeyRound } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/constants/routes'
 
@@ -36,15 +37,7 @@ export function AcceptInvitePage() {
 
   // Show spinner while AuthContext is initialising or invite token is being processed
   if (isLoading || waiting) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <div className="h-10 w-10 rounded-xl bg-brand-500 flex items-center justify-center">
-          <span className="text-white font-bold text-lg">B</span>
-        </div>
-        <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
-        <p className="text-sm text-muted-foreground">Setting up your account…</p>
-      </div>
-    )
+    return <PageLoader message="Setting up your account…" />
   }
 
   // Not authenticated & done waiting → error state

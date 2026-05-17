@@ -61,34 +61,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return
 
         if (event === 'INITIAL_SESSION') {
-          if (!session?.user) {
-            setUser(null)
-            setNeedsPasswordSetup(false)
-          } else {
-            // Enforce "remember me = false" — sign out if this is a new browser session
-            if (shouldClearSessionOnLoad()) {
-              await supabase.auth.signOut()
-              if (mounted) { setUser(null); setNeedsPasswordSetup(false); setIsLoading(false) }
-              return
+          try {
+            if (!session?.user) {
+              if (mounted) { setUser(null); setNeedsPasswordSetup(false) }
+            } else {
+              // Enforce "remember me = false" — clear session when browser tab was closed
+              const isInvitePage = window.location.pathname === '/accept-invite'
+              if (!isInvitePage && shouldClearSessionOnLoad()) {
+                await supabase.auth.signOut()
+                if (mounted) { setUser(null); setNeedsPasswordSetup(false) }
+                return // finally still fires → setIsLoading(false)
+              }
+              if (!isInvitePage) markSessionActive()
+              const profile = await fetchProfile(session.user.id)
+              if (mounted) {
+                setUser(profile)
+                setNeedsPasswordSetup(session.user.user_metadata?.needs_password_setup === true)
+              }
             }
-            markSessionActive()
+          } catch {
+            if (mounted) { setUser(null); setNeedsPasswordSetup(false) }
+          } finally {
+            if (mounted) setIsLoading(false)
+          }
+        }
+
+        // Silently update user state from invite-link sign-in (SIGNED_IN fires after INITIAL_SESSION=null).
+        // Does NOT touch isLoading — INITIAL_SESSION already owns that state.
+        if (event === 'SIGNED_IN' && session?.user && !loginActiveRef.current) {
+          try {
             const profile = await fetchProfile(session.user.id)
-            if (mounted) {
+            if (mounted && profile) {
               setUser(profile)
               setNeedsPasswordSetup(session.user.user_metadata?.needs_password_setup === true)
             }
-          }
-          if (mounted) setIsLoading(false)
-        }
-
-        // Handle sign-in from invite link (not from our login() function)
-        if (event === 'SIGNED_IN' && session?.user && !loginActiveRef.current) {
-          if (mounted) setIsLoading(true)
-          const profile = await fetchProfile(session.user.id)
-          if (mounted) {
-            setUser(profile)
-            setNeedsPasswordSetup(session.user.user_metadata?.needs_password_setup === true)
-            setIsLoading(false)
+          } catch {
+            // fetchProfile failed — leave existing state intact
           }
         }
 
