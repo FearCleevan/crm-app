@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { X, SlidersHorizontal, Search, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { searchFilterOptions } from '@/hooks/useFilterOptions'
 import type { FilterOptions } from '@/services/prospects.service'
 
 // ── Filter shape ───────────────────────────────────────────────
@@ -72,7 +74,8 @@ function PillSelect({ label, options, value, onChange }: {
   )
 }
 
-// ── Searchable checkbox list (dynamic / long lists) ────────────
+// ── Searchable checkbox list (static / short lists) ────────────
+// Props are unchanged; internal list is now virtualised via @tanstack/react-virtual.
 function SearchableSelect({ label, options, value, onChange, loading }: {
   label: string
   options: { value: string; label: string }[]
@@ -81,12 +84,20 @@ function SearchableSelect({ label, options, value, onChange, loading }: {
   loading?: boolean
 }) {
   const [query, setQuery] = useState('')
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
     if (!query.trim()) return options
     const q = query.toLowerCase()
     return options.filter(o => o.label.toLowerCase().includes(q))
   }, [options, query])
+
+  const rowVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 32,
+    overscan: 5,
+  })
 
   function toggle(v: string) {
     onChange(value.includes(v) ? value.filter(x => x !== v) : [...value, v])
@@ -168,31 +179,188 @@ function SearchableSelect({ label, options, value, onChange, loading }: {
             </button>
           )}
 
-          {/* Options list */}
-          <div className="max-h-44 overflow-y-auto">
+          {/* Virtualised options list — height: 176px = max-h-44 */}
+          <div ref={scrollRef} className="h-44 overflow-y-auto">
             {filtered.length === 0 ? (
               <p className="text-xs text-muted-foreground px-3 py-2 italic">No matches for "{query}"</p>
-            ) : filtered.map(o => (
-              <label key={o.value}
-                className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent cursor-pointer transition-colors">
-                <div className={cn(
-                  'h-3.5 w-3.5 rounded border shrink-0 flex items-center justify-center transition-colors',
-                  value.includes(o.value) ? 'bg-brand-500 border-brand-500' : 'border-input bg-background'
-                )}>
-                  {value.includes(o.value) && (
-                    <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 10 10" fill="none">
-                      <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </div>
-                <input type="checkbox" className="sr-only"
-                  checked={value.includes(o.value)} onChange={() => toggle(o.value)} />
-                <span className="text-xs text-foreground truncate">{o.label}</span>
-              </label>
-            ))}
+            ) : (
+              <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
+                {rowVirtualizer.getVirtualItems().map(virtualItem => {
+                  const o = filtered[virtualItem.index]
+                  return (
+                    <label
+                      key={virtualItem.key}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: virtualItem.size,
+                        transform: `translateY(${virtualItem.start}px)`,
+                      }}
+                      className="flex items-center gap-2.5 px-3 hover:bg-accent cursor-pointer transition-colors"
+                    >
+                      <div className={cn(
+                        'h-3.5 w-3.5 rounded border shrink-0 flex items-center justify-center transition-colors',
+                        value.includes(o.value) ? 'bg-brand-500 border-brand-500' : 'border-input bg-background'
+                      )}>
+                        {value.includes(o.value) && (
+                          <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                            <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      <input type="checkbox" className="sr-only"
+                        checked={value.includes(o.value)} onChange={() => toggle(o.value)} />
+                      <span className="text-xs text-foreground truncate">{o.label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── On-demand searchable select for large distinct-value fields ─
+// Fetches results from the DB as the user types (debounced 300 ms).
+// Shows selected values when the search query is empty so items can be deselected.
+function AsyncSearchableSelect({ label, field, value, onChange }: {
+  label: string
+  field: string          // DB column name (e.g. 'country', 'city')
+  value: string[]
+  onChange: (v: string[]) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<string[]>([])
+  const [searching, setSearching] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Debounced search — fires 300 ms after the user stops typing
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) {
+      setResults([])
+      return
+    }
+    let cancelled = false
+    setSearching(true)
+    const timer = setTimeout(async () => {
+      try {
+        const data = await searchFilterOptions(field, q)
+        if (!cancelled) setResults(data)
+      } catch {
+        if (!cancelled) setResults([])
+      } finally {
+        if (!cancelled) setSearching(false)
+      }
+    }, 300)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [query, field])
+
+  // When query is empty show already-selected values; otherwise show search results
+  const displayItems = query.trim() ? results : value
+
+  const rowVirtualizer = useVirtualizer({
+    count: displayItems.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 32,
+    overscan: 5,
+  })
+
+  function toggle(v: string) {
+    onChange(value.includes(v) ? value.filter(x => x !== v) : [...value, v])
+  }
+
+  const emptyMessage = query.trim()
+    ? searching ? 'Searching…' : `No matches for "${query}"`
+    : value.length === 0 ? `Type to search ${label.toLowerCase()}…` : null
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-foreground">{label}</p>
+        <div className="flex items-center gap-2">
+          {value.length > 0 && (
+            <span className="text-[10px] font-semibold text-brand-500 bg-brand-50 dark:bg-brand-900/20 px-1.5 py-0.5 rounded-full">
+              {value.length} selected
+            </span>
+          )}
+          {value.length > 0 && (
+            <button type="button" onClick={() => onChange([])}
+              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-input overflow-hidden bg-background">
+        {/* Search input */}
+        <div className="flex items-center gap-2 border-b border-input px-2.5 py-1.5">
+          {searching
+            ? <Loader2 className="h-3 w-3 text-muted-foreground shrink-0 animate-spin" />
+            : <Search className="h-3 w-3 text-muted-foreground shrink-0" />
+          }
+          <input
+            type="text"
+            placeholder={`Search ${label.toLowerCase()}…`}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+          />
+          {query && (
+            <button type="button" aria-label="Clear search" onClick={() => setQuery('')}
+              className="text-muted-foreground hover:text-foreground transition-colors">
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+
+        {/* Virtualised results — height: 176px = max-h-44 */}
+        <div ref={scrollRef} className="h-44 overflow-y-auto">
+          {emptyMessage !== null ? (
+            <p className="text-xs text-muted-foreground px-3 py-2 italic">{emptyMessage}</p>
+          ) : (
+            <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
+              {rowVirtualizer.getVirtualItems().map(virtualItem => {
+                const v = displayItems[virtualItem.index]
+                const checked = value.includes(v)
+                return (
+                  <label
+                    key={virtualItem.key}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: virtualItem.size,
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                    className="flex items-center gap-2.5 px-3 hover:bg-accent cursor-pointer transition-colors"
+                  >
+                    <div className={cn(
+                      'h-3.5 w-3.5 rounded border shrink-0 flex items-center justify-center transition-colors',
+                      checked ? 'bg-brand-500 border-brand-500' : 'border-input bg-background'
+                    )}>
+                      {checked && (
+                        <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                          <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
+                    <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggle(v)} />
+                    <span className="text-xs text-foreground truncate">{v}</span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -250,13 +418,13 @@ interface FilterPanelProps {
 export function FilterPanel({ open, onClose, filters, onApply, options, optionsLoading }: FilterPanelProps) {
   const [draft, setDraft] = useState<ProspectFilters>(filters)
 
-  // Sync draft when panel reopens with new committed filters
-  // (user may have cleared filters outside while panel was closed)
-  const [wasOpen, setWasOpen] = useState(open)
-  if (open !== wasOpen) {
-    setWasOpen(open)
+  // Sync draft to committed filters whenever the panel transitions to open.
+  // Intentionally omits `filters` from the dep array — we only want to reset
+  // on the open transition, not every time the parent updates filters.
+  useEffect(() => {
     if (open) setDraft(filters)
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   function setField(k: keyof ProspectFilters, v: string) {
     setDraft(p => ({ ...p, [k]: v }))
@@ -268,7 +436,7 @@ export function FilterPanel({ open, onClose, filters, onApply, options, optionsL
   function reset() { setDraft(EMPTY_FILTERS) }
   function apply() { onApply(draft); onClose() }
 
-  // Build options for code-based selects
+  // Build options for code-based selects (small lookup tables only)
   const dispositionOpts = options.dispositions.map(d => ({
     value: d.disposition_code, label: d.disposition_name,
   }))
@@ -278,13 +446,6 @@ export function FilterPanel({ open, onClose, filters, onApply, options, optionsL
   const providerOpts = options.providers.map(p => ({
     value: p.provider_code, label: p.provider_name,
   }))
-  const countryOpts = options.countries.map(c => ({ value: c, label: c }))
-  const industryOpts = options.industries.map(i => ({ value: i, label: i }))
-  const seniorityOpts = options.seniorities.map(s => ({ value: s, label: s }))
-  const departmentOpts = options.departments.map(d => ({ value: d, label: d }))
-  const cityOpts = options.cities.map(c => ({ value: c, label: c }))
-  const jobtitleOpts = (options.jobtitles ?? []).map(t => ({ value: t, label: t }))
-  const companyOpts = (options.companies ?? []).map(c => ({ value: c, label: c }))
 
   const activeCount = Object.entries(draft).reduce((n, [k, v]) => {
     if (k === 'employeesizeMin' || k === 'employeesizeMax' || k === 'annualrevenueMin' || k === 'annualrevenueMax' || k === 'dateFrom' || k === 'dateTo')
@@ -332,6 +493,7 @@ export function FilterPanel({ open, onClose, filters, onApply, options, optionsL
             onChange={v => setMulti('status', v)}
           />
 
+          {/* Small lookup-table lists — static, use SearchableSelect */}
           <SearchableSelect
             label="Disposition"
             options={dispositionOpts}
@@ -356,60 +518,54 @@ export function FilterPanel({ open, onClose, filters, onApply, options, optionsL
             loading={optionsLoading}
           />
 
-          <SearchableSelect
+          {/* Large distinct-value fields — on-demand search via AsyncSearchableSelect */}
+          <AsyncSearchableSelect
             label="Job Title"
-            options={jobtitleOpts}
+            field="jobtitle"
             value={draft.jobtitle}
             onChange={v => setMulti('jobtitle', v)}
-            loading={optionsLoading}
           />
 
-          <SearchableSelect
+          <AsyncSearchableSelect
             label="Company"
-            options={companyOpts}
+            field="company"
             value={draft.company}
             onChange={v => setMulti('company', v)}
-            loading={optionsLoading}
           />
 
-          <SearchableSelect
+          <AsyncSearchableSelect
             label="Country"
-            options={countryOpts}
+            field="country"
             value={draft.country}
             onChange={v => setMulti('country', v)}
-            loading={optionsLoading}
           />
 
-          <SearchableSelect
+          <AsyncSearchableSelect
             label="Industry"
-            options={industryOpts}
+            field="industry"
             value={draft.industry}
             onChange={v => setMulti('industry', v)}
-            loading={optionsLoading}
           />
 
-          <SearchableSelect
+          <AsyncSearchableSelect
             label="Seniority"
-            options={seniorityOpts}
+            field="seniority"
             value={draft.seniority}
             onChange={v => setMulti('seniority', v)}
-            loading={optionsLoading}
           />
 
-          <SearchableSelect
+          <AsyncSearchableSelect
             label="Department"
-            options={departmentOpts}
+            field="department"
             value={draft.department}
             onChange={v => setMulti('department', v)}
-            loading={optionsLoading}
           />
 
-          <SearchableSelect
+          <AsyncSearchableSelect
             label="City"
-            options={cityOpts}
+            field="city"
             value={draft.city}
             onChange={v => setMulti('city', v)}
-            loading={optionsLoading}
           />
 
           <RangeInput

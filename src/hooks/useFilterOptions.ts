@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react'
 import { prospectsService, type FilterOptions } from '@/services/prospects.service'
 
+// On-demand search for large distinct-value fields (country, city, jobtitle, etc.).
+// Debounce at the call site; this function simply delegates to the service.
+export async function searchFilterOptions(field: string, query: string): Promise<string[]> {
+  return prospectsService.searchFilterOptions(field, query)
+}
+
 const EMPTY: FilterOptions = {
   dispositions: [], emailStatuses: [], providers: [],
   countries: [], industries: [], seniorities: [], departments: [], cities: [],

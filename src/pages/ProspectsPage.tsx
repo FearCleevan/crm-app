@@ -387,7 +387,7 @@ export function ProspectsPage() {
 
     const toastId = toast.loading(`Exporting… 0 rows`)
     try {
-      const csvRows: string[] = []
+      const parts: Blob[] = []
       let exported = 0
       let firstChunk = true
 
@@ -425,14 +425,15 @@ export function ProspectsPage() {
           CreatedOn: p.created_on,
         }))
 
-        // First chunk includes the header row; subsequent chunks skip it
-        csvRows.push(Papa.unparse(mapped, { header: firstChunk }))
+        // Collect each chunk as a Blob — avoids building one giant string in memory
+        const chunkCsv = Papa.unparse(mapped, { header: firstChunk })
+        parts.push(new Blob([chunkCsv + '\n'], { type: 'text/csv' }))
         firstChunk = false
         exported += chunk.length
         toast.loading(`Exporting… ${exported.toLocaleString()} rows`, { id: toastId })
       }
 
-      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' })
+      const blob = new Blob(parts, { type: 'text/csv' })
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')
       a.href = url; a.download = `prospects-${Date.now()}.csv`; a.click()

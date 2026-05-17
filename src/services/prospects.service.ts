@@ -247,33 +247,61 @@ export const prospectsService = {
   },
 
   async getFilterOptions(): Promise<FilterOptions> {
-    const [rpcResult, disp, email, prov] = await Promise.all([
-      supabase.rpc('get_prospect_filter_options'),
+    // Only fetch the small lookup tables; large distinct-value fields are
+    // loaded on-demand via searchFilterOptions to avoid megabyte payloads.
+    const [disp, email, prov] = await Promise.all([
       supabase.from('prospects_disposition').select('*').order('disposition_name'),
       supabase.from('prospects_email_status').select('*').order('email_name'),
       supabase.from('prospects_provider').select('*').order('provider_name'),
     ])
-    if (rpcResult.error) throw new Error(rpcResult.error.message)
-    const dynamic = (rpcResult.data ?? {}) as {
-      countries?: string[]
-      industries?: string[]
-      seniorities?: string[]
-      departments?: string[]
-      cities?: string[]
-      jobtitles?: string[]
-      companies?: string[]
-    }
+    if (disp.error) throw new Error(disp.error.message)
+    if (email.error) throw new Error(email.error.message)
+    if (prov.error) throw new Error(prov.error.message)
     return {
       dispositions: (disp.data ?? []) as FilterOptions['dispositions'],
       emailStatuses: (email.data ?? []) as FilterOptions['emailStatuses'],
       providers: (prov.data ?? []) as FilterOptions['providers'],
-      countries: dynamic.countries ?? [],
-      industries: dynamic.industries ?? [],
-      seniorities: dynamic.seniorities ?? [],
-      departments: dynamic.departments ?? [],
-      cities: dynamic.cities ?? [],
-      jobtitles: dynamic.jobtitles ?? [],
-      companies: dynamic.companies ?? [],
+      countries: [],
+      industries: [],
+      seniorities: [],
+      departments: [],
+      cities: [],
+      jobtitles: [],
+      companies: [],
     }
+  },
+
+  // Returns up to 100 distinct values for a searchable field, fetched on demand.
+  // Only the fields listed in SEARCHABLE_FIELDS are permitted (allowlist guard).
+  async searchFilterOptions(field: string, query: string): Promise<string[]> {
+    const SEARCHABLE_FIELDS = ['country', 'industry', 'seniority', 'department', 'city', 'jobtitle', 'company'] as const
+    if (!(SEARCHABLE_FIELDS as readonly string[]).includes(field)) {
+      console.warn(`[searchFilterOptions] Unknown field "${field}". Must be one of: ${SEARCHABLE_FIELDS.join(', ')}`)
+      return []
+    }
+
+    const pattern = `%${query.trim()}%`
+    const { data, error } = await supabase
+      .from('prospects')
+      .select(field)
+      .not(field, 'is', null)
+      .neq(field, '')
+      .ilike(field, pattern)
+      .limit(500)
+
+    if (error) {
+      console.warn(`[searchFilterOptions] Query failed for field "${field}":`, error.message)
+      return []
+    }
+
+    const unique = [
+      ...new Set(
+        (data ?? [])
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((r: any) => r[field] as string)
+          .filter(Boolean),
+      ),
+    ]
+    return unique.sort().slice(0, 100)
   },
 }
