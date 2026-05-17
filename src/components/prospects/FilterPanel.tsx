@@ -275,9 +275,12 @@ function AsyncSearchableSelect({ label, field, value, onChange }: {
     onChange(value.includes(v) ? value.filter(x => x !== v) : [...value, v])
   }
 
-  const emptyMessage = query.trim()
-    ? searching ? 'Searching…' : `No matches for "${query}"`
-    : value.length === 0 ? `Type to search ${label.toLowerCase()}…` : null
+  const emptyMessage: string | null = (() => {
+    if (!query.trim()) return value.length === 0 ? `Type to search ${label.toLowerCase()}…` : null
+    if (searching) return 'Searching…'
+    if (displayItems.length === 0) return `No matches for "${query}"`
+    return null
+  })()
 
   return (
     <div className="space-y-1.5">

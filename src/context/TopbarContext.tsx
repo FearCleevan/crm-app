@@ -33,8 +33,6 @@ export function TopbarSlot({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setActions(children)
     return () => setActions(null)
-    // children is intentionally omitted — we set once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setActions])
+  }, [setActions, children])
   return null
 }
