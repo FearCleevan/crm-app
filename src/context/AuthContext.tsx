@@ -30,20 +30,25 @@ const AuthContext = createContext<AuthContextValue>({
 })
 
 async function fetchProfile(authId: string): Promise<CRMUser | null> {
-  const { data, error } = await supabase
+  const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 5000))
+
+  const query = supabase
     .from('crm_users')
     .select('*')
     .eq('auth_id', authId)
     .maybeSingle()
+    .then(({ data, error }) => {
+      if (error) {
+        console.error('[Auth] fetchProfile error:', error.message, error)
+        return null
+      }
+      if (!data) {
+        console.warn('[Auth] No crm_users row for auth_id:', authId)
+      }
+      return (data as CRMUser) ?? null
+    })
 
-  if (error) {
-    console.error('[Auth] fetchProfile error:', error.message, error)
-    return null
-  }
-  if (!data) {
-    console.warn('[Auth] No crm_users row for auth_id:', authId)
-  }
-  return (data as CRMUser) ?? null
+  return Promise.race([query, timeout])
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -51,6 +56,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading]               = useState(true)
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false)
   const loginActiveRef                          = useRef(false)
+
+  // Hard safety: if INITIAL_SESSION never fires or its handler hangs, unlock the UI
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 10_000)
+    return () => clearTimeout(timer)
+  }, [])
 
   // ── Session restoration & invite handling ─────────────────────
   useEffect(() => {
