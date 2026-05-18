@@ -20,6 +20,7 @@ import { ReportsPage } from '@/pages/ReportsPage'
 import { EmailsPage } from '@/pages/EmailsPage'
 import { WorkflowsPage } from '@/pages/WorkflowsPage'
 import { UserManagementPage } from '@/pages/UserManagementPage'
+import { PipelinePage } from '@/pages/PipelinePage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { NotesPage } from '@/pages/NotesPage'
 import { HelpPage } from '@/pages/HelpPage'
@@ -102,6 +103,14 @@ const router = createBrowserRouter([
           children: [
             { path: ROUTES.PROSPECTS, element: <ProspectsPage /> },
             { path: '/prospects/:id', element: <PlaceholderPage name="Prospect Detail" /> },
+          ],
+        },
+
+        // Requires leads_import (Pipeline sessions dashboard)
+        {
+          element: <ProtectedRoute requiredPermission={'leads_import' as PermissionKey} />,
+          children: [
+            { path: ROUTES.PIPELINE, element: <PipelinePage /> },
           ],
         },
 

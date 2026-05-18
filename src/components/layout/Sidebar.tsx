@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Handshake, StickyNote, Mail, BarChart3,
   Zap, Settings, HelpCircle, ChevronLeft, ChevronRight,
   Star, FolderOpen, Plus, MoreHorizontal, Users, UserCog,
-  Pencil, Trash2, ChevronDown, X,
+  Pencil, Trash2, ChevronDown, X, Workflow,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NavItem } from './NavItem'
@@ -434,6 +434,13 @@ export function Sidebar({ user, mobileOpen = false, onMobileClose }: SidebarProp
             to={ROUTES.PROSPECTS}
             icon={Users}
             label="Prospects"
+            collapsed={collapsed}
+          />
+
+          <NavItem
+            to={ROUTES.PIPELINE}
+            icon={Workflow}
+            label="Pipeline"
             collapsed={collapsed}
           />
 

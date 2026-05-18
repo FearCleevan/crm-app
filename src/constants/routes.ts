@@ -10,6 +10,7 @@ export const ROUTES = {
   EMAILS:      '/emails',
   REPORTS:     '/reports',
   WORKFLOWS:   '/workflows',
+  PIPELINE:    '/pipeline',
   USERS:       '/users',
   SETTINGS:    '/settings',
   HELP:        '/help',

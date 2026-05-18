@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { Search, SlidersHorizontal, UserPlus, Upload, Download, FileDown, X, MoreHorizontal, Columns3, AlignJustify, Check } from 'lucide-react'
+import { Search, SlidersHorizontal, UserPlus, Upload, Download, FileDown, X, MoreHorizontal, Columns3, AlignJustify, Check, Workflow } from 'lucide-react'
 import { toast } from 'sonner'
 import Papa from 'papaparse'
 import { useAuth } from '@/context/AuthContext'
@@ -17,6 +17,7 @@ import {
 import { FilterPanel, FilterChips, EMPTY_FILTERS, type ProspectFilters } from '@/components/prospects/FilterPanel'
 import { AddProspectModal } from '@/components/prospects/AddProspectModal'
 import { ImportModal } from '@/components/prospects/ImportModal'
+import { PipelineUploadModal } from '@/components/pipeline/PipelineUploadModal'
 import { ProspectDetailSheet } from '@/components/prospects/ProspectDetailSheet'
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useProspects } from '@/hooks/useProspects'
@@ -248,6 +249,7 @@ export function ProspectsPage() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [pipelineOpen, setPipelineOpen] = useState(false)
   const [detailRow, setDetailRow] = useState<ProspectRow | null>(null)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const mobileActionsRef = useRef<HTMLDivElement>(null)
@@ -598,6 +600,13 @@ export function ProspectsPage() {
                   Import CSV
                 </button>
               </PermissionGate>
+              <PermissionGate permission="leads_import">
+                <button type="button" onClick={() => setPipelineOpen(true)}
+                  className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-brand-500 bg-brand-50 dark:bg-brand-900/20 hover:bg-brand-100 dark:hover:bg-brand-900/40 text-sm font-medium text-brand-600 dark:text-brand-400 transition-colors">
+                  <Workflow className="h-4 w-4" />
+                  Data Pipeline
+                </button>
+              </PermissionGate>
               <PermissionGate permission="leads_create">
                 <button type="button" onClick={() => setAddOpen(true)}
                   className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors">
@@ -628,6 +637,12 @@ export function ProspectsPage() {
                     <button type="button" onClick={() => { setImportOpen(true); setMobileActionsOpen(false) }}
                       className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors">
                       <Upload className="h-4 w-4 text-muted-foreground" /> Import CSV
+                    </button>
+                  </PermissionGate>
+                  <PermissionGate permission="leads_import">
+                    <button type="button" onClick={() => { setPipelineOpen(true); setMobileActionsOpen(false) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-brand-600 dark:text-brand-400 hover:bg-accent transition-colors font-medium">
+                      <Workflow className="h-4 w-4" /> Data Pipeline
                     </button>
                   </PermissionGate>
                   <PermissionGate permission="leads_create">
@@ -698,6 +713,13 @@ export function ProspectsPage() {
       <ImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
+        onImported={refetch}
+        userId={user?.id ?? ''}
+      />
+
+      <PipelineUploadModal
+        open={pipelineOpen}
+        onClose={() => setPipelineOpen(false)}
         onImported={refetch}
         userId={user?.id ?? ''}
       />
