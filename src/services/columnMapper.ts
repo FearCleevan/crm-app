@@ -265,7 +265,7 @@ export function mapColumns(sourceHeaders: string[]): MappingResult {
  * Returns the new full mapping with conflicts resolved.
  */
 export function remapColumn(
-  sourceHeaders: string[],
+  _sourceHeaders: string[],
   currentMapping: ColumnMap,
   changedHeader: string,
   newFieldKey: string | null,
