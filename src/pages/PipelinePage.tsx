@@ -188,7 +188,7 @@ export function PipelinePage() {
                 Try again
               </button>
             </div>
-          : loading && sessions.length === 0 ? (
+          ) : loading && sessions.length === 0 ? (
             <div className="flex items-center justify-center h-40 gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Loading sessions…</span>
