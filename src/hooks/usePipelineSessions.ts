@@ -8,18 +8,20 @@ const PAGE_SIZE = 25
 export function usePipelineSessions() {
   const [sessions, setSessions]   = useState<PipelineSession[]>([])
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
   const [page, setPage]           = useState(1)
   const [hasMore, setHasMore]     = useState(false)
 
   const load = useCallback(async (p: number) => {
     setLoading(true)
+    setError(null)
     try {
-      // Fetch one extra to determine hasMore
       const rows = await pipelineSessionsService.listSessions(p * PAGE_SIZE + 1)
       setHasMore(rows.length > p * PAGE_SIZE)
       setSessions(rows.slice(0, p * PAGE_SIZE))
-    } catch {
-      // silently fail — table may not exist yet in dev
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load sessions')
+      setSessions([])
     } finally {
       setLoading(false)
     }
@@ -51,5 +53,5 @@ export function usePipelineSessions() {
 
   function refresh() { load(page) }
 
-  return { sessions, loading, page, hasMore, nextPage, prevPage, refresh }
+  return { sessions, loading, error, page, hasMore, nextPage, prevPage, refresh }
 }

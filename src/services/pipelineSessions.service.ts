@@ -24,9 +24,13 @@ export const pipelineSessionsService = {
   },
 
   async listSessions(limit = 50): Promise<PipelineSession[]> {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
     const { data, error } = await supabase
       .from('pipeline_sessions')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(limit)
 

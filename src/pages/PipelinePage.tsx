@@ -142,7 +142,7 @@ function SessionDetailDrawer({
 // ── Page ──────────────────────────────────────────────────────────────────────
 export function PipelinePage() {
   const { user } = useAuth()
-  const { sessions, loading, page, hasMore, nextPage, prevPage, refresh } = usePipelineSessions()
+  const { sessions, loading, error, page, hasMore, nextPage, prevPage, refresh } = usePipelineSessions()
   const [pipelineOpen, setPipelineOpen] = useState(false)
   const [selected, setSelected] = useState<PipelineSession | null>(null)
 
@@ -178,7 +178,17 @@ export function PipelinePage() {
 
         {/* Table */}
         <div className="flex-1 min-h-0 overflow-auto">
-          {loading && sessions.length === 0 ? (
+          {error ? (
+            <div className="flex flex-col items-center justify-center h-40 gap-2 text-center px-4">
+              <AlertCircle className="h-6 w-6 text-rose-500" />
+              <p className="text-sm font-medium text-rose-600 dark:text-rose-400">Failed to load sessions</p>
+              <p className="text-xs text-muted-foreground max-w-sm">{error}</p>
+              <button type="button" onClick={refresh}
+                className="mt-1 text-xs text-brand-500 underline underline-offset-2 hover:text-brand-700">
+                Try again
+              </button>
+            </div>
+          : loading && sessions.length === 0 ? (
             <div className="flex items-center justify-center h-40 gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Loading sessions…</span>
