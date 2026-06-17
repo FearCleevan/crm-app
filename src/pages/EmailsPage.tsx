@@ -6,8 +6,9 @@ import { PageWrapper } from '@/components/layout/PageWrapper'
 import { EmailList } from '@/components/emails/EmailList'
 import { EmailDetail } from '@/components/emails/EmailDetail'
 import { ComposeModal } from '@/components/emails/ComposeModal'
-import { CampaignStats } from '@/components/emails/CampaignStats'
+import { CampaignListView } from '@/components/emails/CampaignListView'
 import { MOCK_EMAILS, MOCK_RICH_TEMPLATES, type RichTemplate, type EmailMessage, type EmailFolder } from '@/constants/mockEmails'
+import { MOCK_CAMPAIGNS, type MockCampaign } from '@/constants/mockCampaigns'
 import { TemplateManager } from '@/components/emails/TemplateManager'
 import { cn } from '@/lib/utils'
 
@@ -68,6 +69,20 @@ function useTemplatesState() {
 export function EmailsPage() {
   const { emails, markRead, toggleStar, deleteEmail, addEmail } = useEmailsState()
   const { templates, addTemplate, updateTemplate, deleteTemplate, duplicateTemplate } = useTemplatesState()
+
+  const [campaigns, setCampaigns] = useState<MockCampaign[]>(MOCK_CAMPAIGNS)
+  const [viewingCampaignId, setViewingCampaignId] = useState<string | null>(null)
+
+  function togglePause(id: string) {
+    setCampaigns(prev => prev.map(c => c.id === id
+      ? { ...c, status: c.status === 'active' ? 'paused' : 'active' }
+      : c
+    ))
+  }
+  function deleteCampaign(id: string) {
+    setCampaigns(prev => prev.filter(c => c.id !== id))
+    toast.success('Campaign deleted')
+  }
 
   const [view, setView] = useState<View>('inbox')
   const [selected, setSelected] = useState<EmailMessage | null>(null)
@@ -301,9 +316,16 @@ export function EmailsPage() {
           )}
 
           {/* Campaigns view */}
-          {view === 'campaigns' && (
-            <div className="flex-1 min-w-0 overflow-y-auto">
-              <CampaignStats />
+          {view === 'campaigns' && !viewingCampaignId && (
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <CampaignListView
+                campaigns={campaigns}
+                onNew={() => toast.info('Campaign wizard coming in next task')}
+                onEdit={c => toast.info(`Edit: ${c.name} — wizard coming soon`)}
+                onView={c => setViewingCampaignId(c.id)}
+                onDelete={deleteCampaign}
+                onTogglePause={togglePause}
+              />
             </div>
           )}
         </div>
