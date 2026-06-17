@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ProspectSelector } from '@/components/prospects/ProspectSelector'
-import { formatDate } from '@/lib/campaign-utils'
 import type { RichTemplate } from '@/constants/mockEmails'
 import type { MockCampaign } from '@/constants/mockCampaigns'
 
@@ -42,9 +41,6 @@ export function CreateCampaignWizard({ open, templates, initial, onClose, onSave
 
   const watchedLimit = watch('daily_limit')
   const estDays = prospectIds.length > 0 ? Math.ceil(prospectIds.length / (watchedLimit || 50)) : 0
-
-  // suppress unused import warning
-  void formatDate
 
   if (!open) return null
 

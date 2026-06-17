@@ -9,7 +9,6 @@ lerna-debug.log*
 
 # Local dev secrets — never commit real keys
 .env
-.env.example
 .env.local
 .env.production
 # .env.example is intentionally tracked as a safe template

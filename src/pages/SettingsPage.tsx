@@ -17,7 +17,7 @@ const TABS: { id: Tab; label: string; icon: typeof User; adminOnly?: boolean }[]
   { id: 'security', label: 'Security',         icon: Shield,  adminOnly: true },
   { id: 'system',   label: 'System',           icon: Settings, adminOnly: true },
   { id: 'api',      label: 'API Integration',  icon: Puzzle  },
-  { id: 'outreach', label: 'Email Outreach',   icon: Mail    },
+  { id: 'outreach', label: 'Email Outreach',   icon: Mail,    adminOnly: true },
 ]
 
 export function SettingsPage() {
