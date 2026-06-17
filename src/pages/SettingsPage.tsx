@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { User, Shield, Settings, Puzzle } from 'lucide-react'
+import { User, Shield, Settings, Puzzle, Mail } from 'lucide-react'
 import { TopbarSlot } from '@/context/TopbarContext'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { useAuth } from '@/context/AuthContext'
@@ -7,15 +7,17 @@ import { ProfileTab } from '@/components/settings/ProfileTab'
 import { SecurityTab } from '@/components/settings/SecurityTab'
 import { SystemTab } from '@/components/settings/SystemTab'
 import { ApiTab } from '@/components/settings/ApiTab'
+import { EmailOutreachTab } from '@/components/settings/EmailOutreachTab'
 import { cn } from '@/lib/utils'
 
-type Tab = 'profile' | 'security' | 'system' | 'api'
+type Tab = 'profile' | 'security' | 'system' | 'api' | 'outreach'
 
 const TABS: { id: Tab; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: 'profile',  label: 'Profile',         icon: User    },
   { id: 'security', label: 'Security',         icon: Shield,  adminOnly: true },
   { id: 'system',   label: 'System',           icon: Settings, adminOnly: true },
   { id: 'api',      label: 'API Integration',  icon: Puzzle  },
+  { id: 'outreach', label: 'Email Outreach',   icon: Mail    },
 ]
 
 export function SettingsPage() {
@@ -80,6 +82,7 @@ export function SettingsPage() {
             {tab === 'security' && <SecurityTab />}
             {tab === 'system'   && <SystemTab />}
             {tab === 'api'      && <ApiTab />}
+            {tab === 'outreach' && <EmailOutreachTab />}
           </main>
         </div>
       </PageWrapper>
