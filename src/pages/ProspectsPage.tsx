@@ -18,6 +18,7 @@ import { FilterPanel, FilterChips, EMPTY_FILTERS, type ProspectFilters } from '@
 import { AddProspectModal } from '@/components/prospects/AddProspectModal'
 import { ImportModal } from '@/components/prospects/ImportModal'
 import { PipelineUploadModal } from '@/components/pipeline/PipelineUploadModal'
+import { ExportColumnModal } from '@/components/prospects/ExportColumnModal'
 import { ProspectDetailSheet } from '@/components/prospects/ProspectDetailSheet'
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useProspects } from '@/hooks/useProspects'
@@ -252,6 +253,7 @@ export function ProspectsPage() {
   const [pipelineOpen, setPipelineOpen] = useState(false)
   const [detailRow, setDetailRow] = useState<ProspectRow | null>(null)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
   const mobileActionsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -383,68 +385,6 @@ export function ProspectsPage() {
     'Dispositioncode', 'Providercode', 'Comments', 'Department', 'Seniority', 'Status', 'CreatedOn',
   ]
 
-  async function exportCSV() {
-    const { allowed } = await rateLimiter.check(user?.id ?? 'anon', 'export')
-    if (!allowed) return
-
-    const toastId = toast.loading(`Exporting… 0 rows`)
-    try {
-      const parts: Blob[] = []
-      let exported = 0
-      let firstChunk = true
-
-      for await (const chunk of prospectsService.exportProspectsChunked(serviceFilters, search)) {
-        const mapped = chunk.map(p => ({
-          Fullname: p.fullname ?? '',
-          Firstname: p.firstname ?? '',
-          Lastname: p.lastname ?? '',
-          Jobtitle: p.jobtitle ?? '',
-          Company: p.company ?? '',
-          Website: p.website ?? '',
-          Personallinkedin: p.personallinkedin ?? '',
-          Companylinkedin: p.companylinkedin ?? '',
-          Altphonenumber: p.altphonenumber,
-          Companyphonenumber: p.companyphonenumber,
-          Email: p.email ?? '',
-          Emailcode: p.emailcode ?? '',
-          Address: p.address ?? '',
-          Street: p.street ?? '',
-          City: p.city ?? '',
-          State: p.state ?? '',
-          Postalcode: p.postalcode ?? '',
-          Country: p.country ?? '',
-          Annualrevenue: p.annualrevenue,
-          Industry: p.industry ?? '',
-          Employeesize: p.employeesize,
-          Siccode: p.siccode,
-          Naicscode: p.naicscode,
-          Dispositioncode: p.dispositioncode ?? '',
-          Providercode: p.providercode ?? '',
-          Comments: p.comments ?? '',
-          Department: p.department ?? '',
-          Seniority: p.seniority ?? '',
-          Status: p.status,
-          CreatedOn: p.created_on,
-        }))
-
-        // Collect each chunk as a Blob — avoids building one giant string in memory
-        const chunkCsv = Papa.unparse(mapped, { header: firstChunk })
-        parts.push(new Blob([chunkCsv + '\n'], { type: 'text/csv' }))
-        firstChunk = false
-        exported += chunk.length
-        toast.loading(`Exporting… ${exported.toLocaleString()} rows`, { id: toastId })
-      }
-
-      const blob = new Blob(parts, { type: 'text/csv' })
-      const url  = URL.createObjectURL(blob)
-      const a    = document.createElement('a')
-      a.href = url; a.download = `prospects-${Date.now()}.csv`; a.click()
-      URL.revokeObjectURL(url)
-      toast.success(`Exported ${exported.toLocaleString()} records`, { id: toastId })
-    } catch {
-      toast.error('Export failed', { id: toastId })
-    }
-  }
 
   function downloadTemplate() {
     const sample = [[
@@ -588,7 +528,7 @@ export function ProspectsPage() {
                 <FileDown className="h-4 w-4" />
                 Template CSV
               </button>
-              <button type="button" onClick={exportCSV}
+              <button type="button" onClick={() => setExportModalOpen(true)}
                 className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-card hover:bg-accent text-sm font-medium text-foreground transition-colors">
                 <Download className="h-4 w-4" />
                 Export
@@ -629,7 +569,7 @@ export function ProspectsPage() {
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors">
                     <FileDown className="h-4 w-4 text-muted-foreground" /> Template CSV
                   </button>
-                  <button type="button" onClick={() => { exportCSV(); setMobileActionsOpen(false) }}
+                  <button type="button" onClick={() => { setExportModalOpen(true); setMobileActionsOpen(false) }}
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors">
                     <Download className="h-4 w-4 text-muted-foreground" /> Export
                   </button>
@@ -732,6 +672,12 @@ export function ProspectsPage() {
           onDelete={handleDetailDelete}
         />
       )}
+
+      <ExportColumnModal
+        prospects={data}
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+      />
     </>
   )
 }
