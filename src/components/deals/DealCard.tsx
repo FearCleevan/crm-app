@@ -4,6 +4,7 @@ import { Calendar, TrendingUp, Clock, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CRMUserRow } from '@/types/database'
 import type { Deal } from '@/constants/mockData'
+import { CampaignBadge } from './CampaignBadge'
 
 interface DealCardProps {
   deal: Deal
@@ -85,6 +86,9 @@ export function DealCard({ deal, users, onClick, overlay = false }: DealCardProp
               <span className="text-xs text-muted-foreground truncate">{assignee.first_name} {assignee.last_name}</span>
             </div>
           )}
+
+          {/* Campaign badge */}
+          {(deal as any).fromCampaign && <CampaignBadge campaignName={(deal as any).fromCampaign} />}
         </div>
       </div>
     </div>

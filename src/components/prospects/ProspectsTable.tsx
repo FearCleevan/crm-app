@@ -42,6 +42,7 @@ export const ALL_COLUMNS: ColDef[] = [
   { key: 'dispositioncode',    label: 'Disposition',   defaultOn: true,  sortable: false, width: 120 },
   { key: 'providercode',       label: 'Provider',      defaultOn: true,  sortable: false, width: 90  },
   { key: 'status',             label: 'Status',        defaultOn: true,  sortable: true,  width: 100 },
+  { key: 'lastcampaign',       label: 'Last Campaign', defaultOn: true,  sortable: false, width: 140 },
   { key: 'createdon',          label: 'Created',       defaultOn: true,  sortable: true,  width: 100 },
 ]
 
@@ -105,6 +106,7 @@ const CellContent = memo(function CellContent({ col, p, compact }: { col: ColDef
     case 'dispositioncode': return <DispositionBadge code={p.dispositioncode} />
     case 'providercode':   return <span className="text-xs text-muted-foreground">{providerName(p.providercode)}</span>
     case 'status':         return <StatusBadge status={p.status} />
+    case 'lastcampaign':   return <span className="text-xs text-muted-foreground whitespace-nowrap">—</span>
     case 'createdon':      return <span className="text-xs text-muted-foreground whitespace-nowrap">{safeDate(p.createdon)}</span>
     case 'annualrevenue':  return <span className="text-xs text-muted-foreground">{p.annualrevenue ? `$${Number(p.annualrevenue).toLocaleString()}` : '—'}</span>
     case 'employeesize':   return <span className="text-xs text-muted-foreground">{p.employeesize ? Number(p.employeesize).toLocaleString() : '—'}</span>

@@ -12,6 +12,7 @@ import { StatusBadge } from './ProspectBadges'
 import { ProspectForm, type ProspectFormValues } from './ProspectForm'
 import type { Prospect } from '@/constants/mockData'
 import { MOCK_USERS, DISPOSITION_CODES, EMAIL_STATUSES, PROVIDERS } from '@/constants/mockData'
+import { CampaignActivityFeed } from './CampaignActivityFeed'
 
 
 interface MockNote {
@@ -340,6 +341,13 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
                   <p className="text-sm text-foreground py-3">{prospect.comments}</p>
                 </SectionCard>
               )}
+
+              {/* Campaign activity feed */}
+              <SectionCard title="Campaign Activity">
+                <div className="py-3">
+                  <CampaignActivityFeed />
+                </div>
+              </SectionCard>
             </>
           )}
 
