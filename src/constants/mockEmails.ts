@@ -149,6 +149,69 @@ export const MOCK_TEMPLATES: EmailTemplate[] = [
   },
 ]
 
+export const TEMPLATE_CATEGORIES = [
+  { value: 'general',          label: 'General'          },
+  { value: 'follow_up',        label: 'Follow-up'        },
+  { value: 'introduction',     label: 'Introduction'     },
+  { value: 'proposal',         label: 'Proposal'         },
+  { value: 'closing',          label: 'Closing'          },
+  { value: 're_engagement',    label: 'Re-engagement'    },
+  { value: 'newsletter',       label: 'Newsletter'       },
+  { value: 'cold_outreach',    label: 'Cold Outreach'    },
+  { value: 'no_website',       label: 'No Website'       },
+  { value: 'outdated_website', label: 'Outdated Website' },
+]
+
+// Replaces the existing EmailTemplate type for richer mock data
+export interface RichTemplate {
+  id: string
+  name: string
+  category: string
+  subject: string
+  body: string
+  variables: string[]
+  updatedAt: string
+}
+
+export const MOCK_RICH_TEMPLATES: RichTemplate[] = [
+  {
+    id: '1',
+    name: 'No Website — Cold Outreach',
+    category: 'cold_outreach',
+    subject: 'Quick question about {{company}}',
+    body: `Hi {{first_name}},\n\nI was looking up {{company}} and couldn't find a website — are you currently looking to get one built?\n\nI specialize in fast, modern websites for businesses like yours.\n\nPortfolio: {{my_portfolio}}\n\nWorth a quick chat?\n\n— {{my_name}}`,
+    variables: ['first_name', 'company', 'my_portfolio', 'my_name'],
+    updatedAt: '2026-06-15',
+  },
+  {
+    id: '2',
+    name: 'Outdated Website — Refresh Pitch',
+    category: 'outdated_website',
+    subject: `{{company}}'s website`,
+    body: `Hi {{first_name}},\n\nI came across {{company}} and noticed your site could use a modern refresh — especially on mobile.\n\nI build clean, fast websites starting at $300 USD.\n\nPortfolio: {{my_portfolio}}\n\nOpen to a quick email exchange?\n\n— {{my_name}}`,
+    variables: ['first_name', 'company', 'my_portfolio', 'my_name'],
+    updatedAt: '2026-06-14',
+  },
+  {
+    id: '3',
+    name: 'First Follow-Up',
+    category: 'follow_up',
+    subject: `Re: {{company}}'s website`,
+    body: `Hi {{first_name}},\n\nJust following up on my last email — still happy to help if the timing is right.\n\n— {{my_name}}`,
+    variables: ['first_name', 'company', 'my_name'],
+    updatedAt: '2026-06-10',
+  },
+  {
+    id: '4',
+    name: 'Second Follow-Up',
+    category: 'follow_up',
+    subject: `Last follow-up — {{company}}`,
+    body: `Hi {{first_name}},\n\nI know inboxes get busy — this will be my last follow-up.\n\nIf you ever need a fast, modern website built, I'm happy to help.\n\n{{my_portfolio}}\n\n— {{my_name}}`,
+    variables: ['first_name', 'company', 'my_portfolio', 'my_name'],
+    updatedAt: '2026-06-08',
+  },
+]
+
 export const CAMPAIGN_STATS = [
   { label: 'Emails Sent',    value: '2,847', change: '+12%',  positive: true  },
   { label: 'Open Rate',      value: '38.4%', change: '+3.1%', positive: true  },

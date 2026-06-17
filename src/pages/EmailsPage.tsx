@@ -6,10 +6,9 @@ import { PageWrapper } from '@/components/layout/PageWrapper'
 import { EmailList } from '@/components/emails/EmailList'
 import { EmailDetail } from '@/components/emails/EmailDetail'
 import { ComposeModal } from '@/components/emails/ComposeModal'
-import { TemplatesPanel } from '@/components/emails/TemplatesPanel'
-import { TemplateFormModal } from '@/components/emails/TemplateFormModal'
 import { CampaignStats } from '@/components/emails/CampaignStats'
-import { MOCK_EMAILS, MOCK_TEMPLATES, type EmailMessage, type EmailTemplate, type EmailFolder } from '@/constants/mockEmails'
+import { MOCK_EMAILS, MOCK_RICH_TEMPLATES, type RichTemplate, type EmailMessage, type EmailFolder } from '@/constants/mockEmails'
+import { TemplateManager } from '@/components/emails/TemplateManager'
 import { cn } from '@/lib/utils'
 
 type View = EmailFolder | 'templates' | 'campaigns'
@@ -46,38 +45,35 @@ function useEmailsState() {
 }
 
 function useTemplatesState() {
-  const [templates, setTemplates] = useState<EmailTemplate[]>(MOCK_TEMPLATES)
-
-  const addTemplate = useCallback((data: Omit<EmailTemplate, 'id'>) => {
-    const tpl: EmailTemplate = { ...data, id: `tpl-${Date.now()}` }
-    setTemplates(prev => [...prev, tpl])
-    toast.success(`Template "${tpl.name}" created`)
+  const [templates, setTemplates] = useState<RichTemplate[]>(MOCK_RICH_TEMPLATES)
+  const addTemplate    = useCallback((data: Omit<RichTemplate, 'id' | 'updatedAt'>) => {
+    setTemplates(prev => [{ ...data, id: `tpl-${Date.now()}`, updatedAt: new Date().toISOString().split('T')[0] }, ...prev])
+    toast.success('Template created')
   }, [])
-
-  const updateTemplate = useCallback((id: string, data: Omit<EmailTemplate, 'id'>) => {
-    setTemplates(prev => prev.map(t => t.id === id ? { ...t, ...data } : t))
+  const updateTemplate = useCallback((id: string, data: Omit<RichTemplate, 'id' | 'updatedAt'>) => {
+    setTemplates(prev => prev.map(t => t.id === id ? { ...t, ...data, updatedAt: new Date().toISOString().split('T')[0] } : t))
     toast.success('Template updated')
   }, [])
-
+  const duplicateTemplate = useCallback((t: RichTemplate) => {
+    setTemplates(prev => [{ ...t, id: `tpl-${Date.now()}`, name: `${t.name} (Copy)`, updatedAt: new Date().toISOString().split('T')[0] }, ...prev])
+    toast.success('Template duplicated')
+  }, [])
   const deleteTemplate = useCallback((id: string) => {
     setTemplates(prev => prev.filter(t => t.id !== id))
+    toast.success('Template deleted')
   }, [])
-
-  return { templates, addTemplate, updateTemplate, deleteTemplate }
+  return { templates, addTemplate, updateTemplate, deleteTemplate, duplicateTemplate }
 }
 
 export function EmailsPage() {
   const { emails, markRead, toggleStar, deleteEmail, addEmail } = useEmailsState()
-  const { templates, addTemplate, updateTemplate, deleteTemplate } = useTemplatesState()
+  const { templates, addTemplate, updateTemplate, deleteTemplate, duplicateTemplate } = useTemplatesState()
 
   const [view, setView] = useState<View>('inbox')
   const [selected, setSelected] = useState<EmailMessage | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
   const [replyTo, setReplyTo] = useState<{ to: string; subject: string; body: string } | undefined>()
   const [search, setSearch] = useState('')
-
-  const [templateFormOpen, setTemplateFormOpen] = useState(false)
-  const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null)
 
   const folderEmails = useMemo(() => {
     const folder = view === 'inbox' || view === 'sent' || view === 'drafts' ? view : null
@@ -114,32 +110,6 @@ export function EmailsPage() {
   function handleDelete(id: string) {
     deleteEmail(id)
     if (selected?.id === id) setSelected(null)
-  }
-
-  function handleUseTemplate(tpl: EmailTemplate) {
-    setReplyTo({ to: '', subject: tpl.subject, body: tpl.body })
-    setComposeOpen(true)
-    setView('inbox')
-  }
-
-  function handleOpenCreate() {
-    setEditingTemplate(null)
-    setTemplateFormOpen(true)
-  }
-
-  function handleOpenEdit(tpl: EmailTemplate) {
-    setEditingTemplate(tpl)
-    setTemplateFormOpen(true)
-  }
-
-  function handleTemplateSave(data: Omit<EmailTemplate, 'id'>) {
-    if (editingTemplate) {
-      updateTemplate(editingTemplate.id, data)
-    } else {
-      addTemplate(data)
-    }
-    setTemplateFormOpen(false)
-    setEditingTemplate(null)
   }
 
   const isMailView = view === 'inbox' || view === 'sent' || view === 'drafts'
@@ -320,12 +290,12 @@ export function EmailsPage() {
           {/* Templates view */}
           {view === 'templates' && (
             <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
-              <TemplatesPanel
+              <TemplateManager
                 templates={templates}
-                onUse={handleUseTemplate}
-                onCreate={handleOpenCreate}
-                onEdit={handleOpenEdit}
+                onAdd={addTemplate}
+                onUpdate={updateTemplate}
                 onDelete={deleteTemplate}
+                onDuplicate={duplicateTemplate}
               />
             </div>
           )}
@@ -349,12 +319,6 @@ export function EmailsPage() {
         initialBody={replyTo?.body}
       />
 
-      <TemplateFormModal
-        open={templateFormOpen}
-        initial={editingTemplate}
-        onClose={() => { setTemplateFormOpen(false); setEditingTemplate(null) }}
-        onSave={handleTemplateSave}
-      />
     </>
   )
 }
