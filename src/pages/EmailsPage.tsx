@@ -11,6 +11,7 @@ import { CampaignDetailView } from '@/components/emails/CampaignDetailView'
 import { MOCK_EMAILS, MOCK_RICH_TEMPLATES, type RichTemplate, type EmailMessage, type EmailFolder } from '@/constants/mockEmails'
 import { MOCK_CAMPAIGNS, type MockCampaign } from '@/constants/mockCampaigns'
 import { TemplateManager } from '@/components/emails/TemplateManager'
+import { CreateCampaignWizard } from '@/components/emails/CreateCampaignWizard'
 import { cn } from '@/lib/utils'
 
 type View = EmailFolder | 'templates' | 'campaigns'
@@ -73,6 +74,8 @@ export function EmailsPage() {
 
   const [campaigns, setCampaigns] = useState<MockCampaign[]>(MOCK_CAMPAIGNS)
   const [viewingCampaignId, setViewingCampaignId] = useState<string | null>(null)
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [editingCampaign, setEditingCampaign] = useState<MockCampaign | null>(null)
 
   function togglePause(id: string) {
     setCampaigns(prev => prev.map(c => c.id === id
@@ -321,8 +324,8 @@ export function EmailsPage() {
             <div className="flex-1 min-w-0 overflow-hidden">
               <CampaignListView
                 campaigns={campaigns}
-                onNew={() => toast.info('Campaign wizard coming in next task')}
-                onEdit={c => toast.info(`Edit: ${c.name} — wizard coming soon`)}
+                onNew={() => { setEditingCampaign(null); setWizardOpen(true) }}
+                onEdit={c => { setEditingCampaign(c); setWizardOpen(true) }}
                 onView={c => setViewingCampaignId(c.id)}
                 onDelete={deleteCampaign}
                 onTogglePause={togglePause}
@@ -340,6 +343,23 @@ export function EmailsPage() {
           })()}
         </div>
       </PageWrapper>
+
+      <CreateCampaignWizard
+        open={wizardOpen}
+        templates={templates}
+        initial={editingCampaign}
+        onClose={() => setWizardOpen(false)}
+        onSave={campaign => {
+          if (editingCampaign) {
+            setCampaigns(prev => prev.map(c => c.id === editingCampaign.id ? { ...c, ...campaign } : c))
+            toast.success('Campaign updated')
+          } else {
+            setCampaigns(prev => [{ ...campaign, id: `c-${Date.now()}` }, ...prev])
+            toast.success(campaign.status === 'active' ? 'Campaign launched!' : 'Campaign saved as draft')
+          }
+          setWizardOpen(false)
+        }}
+      />
 
       <ComposeModal
         open={composeOpen}
