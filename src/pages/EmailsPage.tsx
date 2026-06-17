@@ -7,6 +7,7 @@ import { EmailList } from '@/components/emails/EmailList'
 import { EmailDetail } from '@/components/emails/EmailDetail'
 import { ComposeModal } from '@/components/emails/ComposeModal'
 import { CampaignListView } from '@/components/emails/CampaignListView'
+import { CampaignDetailView } from '@/components/emails/CampaignDetailView'
 import { MOCK_EMAILS, MOCK_RICH_TEMPLATES, type RichTemplate, type EmailMessage, type EmailFolder } from '@/constants/mockEmails'
 import { MOCK_CAMPAIGNS, type MockCampaign } from '@/constants/mockCampaigns'
 import { TemplateManager } from '@/components/emails/TemplateManager'
@@ -328,6 +329,15 @@ export function EmailsPage() {
               />
             </div>
           )}
+
+          {view === 'campaigns' && viewingCampaignId && (() => {
+            const c = campaigns.find(x => x.id === viewingCampaignId)
+            return c ? (
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <CampaignDetailView campaign={c} onBack={() => setViewingCampaignId(null)} />
+              </div>
+            ) : null
+          })()}
         </div>
       </PageWrapper>
 
