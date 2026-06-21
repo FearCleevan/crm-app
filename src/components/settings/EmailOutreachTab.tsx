@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { AlertTriangle } from 'lucide-react'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useOutreachSettings } from '@/hooks/useOutreachSettings'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const TIMEZONES = ['Asia/Manila','America/New_York','America/Chicago','America/Los_Angeles','Europe/London','Europe/Paris','Asia/Tokyo','Australia/Sydney']
@@ -15,6 +17,9 @@ function buildWarmupData(limit: number) {
 }
 
 export function EmailOutreachTab() {
+  const { user } = useCurrentUser()
+  const { settings, saving, save } = useOutreachSettings(user?.id ?? null)
+
   const [senderName,    setSenderName]    = useState('Peter Lazan')
   const [senderEmail,   setSenderEmail]   = useState('peter@lazandev.dev')
   const [dailyLimit,    setDailyLimit]    = useState(50)
@@ -26,13 +31,43 @@ export function EmailOutreachTab() {
   const [unsubFooter,   setUnsubFooter]   = useState(true)
   const [unsubText,     setUnsubText]     = useState('To unsubscribe from these emails, reply with "unsubscribe".')
 
+  useEffect(() => {
+    setSenderName(settings.sender_name)
+    setSenderEmail(settings.sender_email)
+    setDailyLimit(settings.daily_limit)
+    setFromHour(settings.send_from_hour)
+    setToHour(settings.send_to_hour)
+    setSendDays(settings.send_days)
+    setWarmup(settings.warmup_enabled)
+    setUnsubFooter(settings.unsubscribe_footer)
+    setUnsubText(settings.unsubscribe_text)
+  }, [settings])
+
   function toggleDay(day: string) {
     setSendDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])
   }
 
-  function handleSave() {
-    if (fromHour >= toHour) { toast.error('Send window start time must be before end time.'); return }
-    toast.success('Outreach settings saved')
+  async function handleSave() {
+    if (fromHour >= toHour) {
+      toast.error('Send window start time must be before end time.')
+      return
+    }
+    try {
+      await save({
+        sender_name:        senderName,
+        sender_email:       senderEmail,
+        daily_limit:        dailyLimit,
+        send_from_hour:     fromHour,
+        send_to_hour:       toHour,
+        send_days:          sendDays,
+        warmup_enabled:     warmup,
+        unsubscribe_footer: unsubFooter,
+        unsubscribe_text:   unsubText,
+      })
+      toast.success('Outreach settings saved')
+    } catch {
+      toast.error('Failed to save settings')
+    }
   }
 
   const hours = Array.from({ length: 24 }, (_, i) => {
@@ -154,9 +189,9 @@ export function EmailOutreachTab() {
         )}
       </section>
 
-      <button type="button" onClick={handleSave}
-        className="h-9 px-6 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-        Save Settings
+      <button type="button" onClick={handleSave} disabled={saving}
+        className="h-9 px-6 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+        {saving ? 'Saving…' : 'Save Settings'}
       </button>
     </div>
   )
