@@ -1,6 +1,7 @@
 import { useState, useRef, type KeyboardEvent } from 'react'
 import { X, Minus, Maximize2, Paperclip, Send, Clock, ChevronDown, PenSquare, Eye, Edit2 } from 'lucide-react'
 import { toast } from 'sonner'
+import DOMPurify from 'dompurify'
 import { cn } from '@/lib/utils'
 import { MOCK_PROSPECTS } from '@/constants/mockData'
 import { emailService } from '@/services/email.service'
@@ -87,7 +88,7 @@ function EmailChipInput({
                 onMouseDown={e => { e.preventDefault(); onSuggestionPick?.(p.email) }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent text-left transition-colors">
                 <div className="h-7 w-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[10px] font-bold text-brand-700 dark:text-brand-300 shrink-0">
-                  {p.firstname[0]}{p.lastname[0]}
+                  {(p.firstname?.[0] ?? '?')}{(p.lastname?.[0] ?? '')}
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{p.fullname}</p>
@@ -135,14 +136,16 @@ function buildSignature(user: { first_name?: string; last_name?: string; role?: 
   return `<br/><table cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><tr><td style="padding-right:14px;vertical-align:middle">${user.profile_url ? `<table><tr>${avatar}</tr></table>` : `<table><tr>${avatar}</tr></table>`}</td><td style="vertical-align:middle"><div style="font-weight:700;font-size:14px;color:#111827;line-height:1.3">${name}</div><div style="font-size:12px;color:#6b7280;margin-top:2px">${user.role ?? ''}</div><div style="font-size:12px;color:#6b7280;margin-top:2px">${user.email ?? ''}</div>${user.phone_no ? `<div style="font-size:12px;color:#6b7280;margin-top:2px">${user.phone_no}</div>` : ''}</td></tr></table>`
 }
 
-function buildMessage(to: string, cc: string, subject: string, html: string, folder: 'sent' | 'drafts'): EmailMessage {
-  const prospect = MOCK_PROSPECTS.find(p => p.email === to)
+function buildMessage(to: string[], cc: string[], subject: string, html: string, folder: 'sent' | 'drafts'): EmailMessage {
   return {
     id:      `em-${Date.now()}`,
     folder,
     from:    { name: 'Me', email: 'me@briskcrm.com' },
-    to:      [{ name: prospect?.fullname ?? to, email: to }],
-    cc:      cc ? [{ name: cc, email: cc }] : undefined,
+    to:      to.map(email => {
+      const prospect = MOCK_PROSPECTS.find(p => p.email === email)
+      return { name: prospect?.fullname ?? email, email }
+    }),
+    cc:      cc.length > 0 ? cc.map(email => ({ name: email, email })) : undefined,
     subject: subject || '(no subject)',
     preview: html.replace(/<[^>]+>/g, '').slice(0, 120),
     body:    html,
@@ -233,6 +236,7 @@ export function ComposeModal({
     const tplId = e.target.value
     if (!tplId) {
       setSelectedTemplate(null)
+      setPreviewMode(false)
       return
     }
     const tpl = MOCK_RICH_TEMPLATES.find(t => t.id === tplId)
@@ -298,6 +302,10 @@ export function ComposeModal({
 
     // Schedule send
     if (scheduledAt) {
+      if (new Date(scheduledAt) <= new Date()) {
+        toast.error('Scheduled time must be in the future')
+        return
+      }
       const formatted = new Date(scheduledAt).toLocaleString()
       toast.success(`Email scheduled for ${formatted}`)
       onClose()
@@ -313,7 +321,7 @@ export function ComposeModal({
         subject: subject || '(no subject)',
         html:    getFinalHtml(),
       })
-      onSend(buildMessage(toChips[0], ccChips[0] ?? '', subject, getFinalHtml(), 'sent'))
+      onSend(buildMessage(toChips, ccChips, subject, getFinalHtml(), 'sent'))
       toast.success('Email sent')
       onClose()
     } catch (err) {
@@ -324,7 +332,7 @@ export function ComposeModal({
   }
 
   function handleSaveDraft() {
-    onSaveDraft(buildMessage(toChips[0] ?? '', ccChips[0] ?? '', subject, getFinalHtml(), 'drafts'))
+    onSaveDraft(buildMessage(toChips, ccChips, subject, getFinalHtml(), 'drafts'))
     toast.success('Draft saved')
     onClose()
   }
@@ -411,7 +419,7 @@ export function ComposeModal({
                         className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent text-left transition-colors"
                       >
                         <div className="h-7 w-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[10px] font-bold text-brand-700 dark:text-brand-300 shrink-0">
-                          {p.firstname[0]}{p.lastname[0]}
+                          {(p.firstname?.[0] ?? '?')}{(p.lastname?.[0] ?? '')}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{p.fullname}</p>
@@ -486,7 +494,7 @@ export function ComposeModal({
             {previewMode && selectedTemplate ? (
               <div
                 className="px-4 py-3 text-sm text-foreground leading-relaxed min-h-[200px]"
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewHtml) }}
               />
             ) : (
               <EmailEditor
@@ -503,7 +511,7 @@ export function ComposeModal({
             {sigEnabled && (
               <div
                 className="px-4 py-3 border-t border-dashed border-border/60 bg-muted/20"
-                dangerouslySetInnerHTML={{ __html: signature }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signature) }}
               />
             )}
           </div>
