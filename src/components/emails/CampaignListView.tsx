@@ -3,14 +3,14 @@ import { useState } from 'react'
 import { Plus, MoreHorizontal, Play, Pause, Pencil, Trash2, Mail, Send, Eye, MessageSquare } from 'lucide-react'
 import { formatDate, getStatusBadgeClass } from '@/lib/campaign-utils'
 import { useAuth } from '@/context/AuthContext'
-import type { MockCampaign } from '@/constants/mockCampaigns'
+import type { Campaign } from '@/types/campaigns'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  campaigns: MockCampaign[]
+  campaigns: Campaign[]
   onNew: () => void
-  onEdit: (c: MockCampaign) => void
-  onView: (c: MockCampaign) => void
+  onEdit: (c: Campaign) => void
+  onView: (c: Campaign) => void
   onDelete: (id: string) => void
   onTogglePause: (id: string) => void
 }

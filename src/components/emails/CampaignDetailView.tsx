@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { formatDate, formatTime, getStatusBadgeClass } from '@/lib/campaign-utils'
-import type { MockCampaign } from '@/constants/mockCampaigns'
+import type { Campaign } from '@/types/campaigns'
 import { cn } from '@/lib/utils'
 
 const MOCK_ACTIVITY = [
@@ -23,21 +23,21 @@ const MOCK_RECIPIENTS = [
   { id: '4', fullname: 'Mark Williams',  company: 'Williams Plumbing', email: 'mark@williams.com',        country: 'US', status: 'bounced', lastActivity: '2026-06-10T10:05:00Z' },
 ]
 
-const STAT_CARDS = (c: MockCampaign) => [
+const STAT_CARDS = (c: Campaign) => [
   { label: 'Recipients', value: c.total_recipients },
   { label: 'Sent',       value: c.total_sent       },
   { label: 'Pending',    value: c.total_recipients - c.total_sent },
   { label: 'Opened',     value: c.total_opened,  pct: c.total_sent ? `${Math.round(c.total_opened/c.total_sent*100)}%` : '—' },
-  { label: 'Clicked',    value: 12, pct: c.total_sent ? '12.2%' : '—' },
-  { label: 'Replied',    value: c.total_replied, pct: c.total_sent ? `${Math.round(c.total_replied/c.total_sent*100)}%` : '—' },
-  { label: 'Bounced',    value: 2,  pct: '2.0%' },
-  { label: 'Unsub',      value: 1,  pct: '1.0%' },
+  { label: 'Clicked',    value: c.total_clicked,       pct: c.total_sent ? `${Math.round(c.total_clicked/c.total_sent*100)}%` : '—' },
+  { label: 'Replied',    value: c.total_replied,       pct: c.total_sent ? `${Math.round(c.total_replied/c.total_sent*100)}%` : '—' },
+  { label: 'Bounced',    value: c.total_bounced,       pct: c.total_sent ? `${Math.round(c.total_bounced/c.total_sent*100)}%` : '—' },
+  { label: 'Unsub',      value: c.total_unsubscribed,  pct: c.total_sent ? `${Math.round(c.total_unsubscribed/c.total_sent*100)}%` : '—' },
 ]
 
 type TabFilter = 'all' | 'sent' | 'opened' | 'replied' | 'bounced'
 
 interface Props {
-  campaign: MockCampaign
+  campaign: Campaign
   onBack: () => void
 }
 

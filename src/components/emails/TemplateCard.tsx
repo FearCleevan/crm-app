@@ -1,13 +1,13 @@
 // src/components/emails/TemplateCard.tsx
 import { Edit2, Copy, Trash2 } from 'lucide-react'
 import { formatDate, truncateText } from '@/lib/campaign-utils'
-import type { RichTemplate } from '@/constants/mockEmails'
 import { TEMPLATE_CATEGORIES } from '@/constants/mockEmails'
+import type { RichTemplateDB } from '@/types/campaigns'
 
 interface Props {
-  template: RichTemplate
-  onEdit: (t: RichTemplate) => void
-  onDuplicate: (t: RichTemplate) => void
+  template: RichTemplateDB
+  onEdit: (t: RichTemplateDB) => void
+  onDuplicate: (t: RichTemplateDB) => void
   onDelete: (id: string) => void
 }
 
@@ -25,7 +25,7 @@ export function TemplateCard({ template, onEdit, onDuplicate, onDelete }: Props)
       <p className="text-xs text-foreground truncate">{template.subject}</p>
       <p className="text-xs text-muted-foreground line-clamp-2">{truncateText(template.body.replace(/\n/g, ' '), 120)}</p>
       <div className="flex items-center justify-between mt-1">
-        <span className="text-[10px] text-muted-foreground">Updated {formatDate(template.updatedAt)}</span>
+        <span className="text-[10px] text-muted-foreground">Updated {template.updated_at ? formatDate(template.updated_at) : '—'}</span>
         <div className="flex gap-1">
           <button type="button" aria-label="Edit template" onClick={() => onEdit(template)}
             className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">

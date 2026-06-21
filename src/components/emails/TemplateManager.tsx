@@ -3,14 +3,16 @@ import { useState } from 'react'
 import { Plus, LayoutGrid, List, Search } from 'lucide-react'
 import { TemplateCard } from './TemplateCard'
 import { TemplateModal } from './TemplateModal'
-import { TEMPLATE_CATEGORIES, type RichTemplate } from '@/constants/mockEmails'
+import { TEMPLATE_CATEGORIES } from '@/constants/mockEmails'
+import type { RichTemplateDB } from '@/types/campaigns'
+import type { TemplateFormData } from './TemplateModal'
 
 interface Props {
-  templates: RichTemplate[]
-  onAdd: (data: Omit<RichTemplate, 'id' | 'updatedAt'>) => void
-  onUpdate: (id: string, data: Omit<RichTemplate, 'id' | 'updatedAt'>) => void
+  templates: RichTemplateDB[]
+  onAdd: (data: TemplateFormData) => void
+  onUpdate: (id: string, data: TemplateFormData) => void
   onDelete: (id: string) => void
-  onDuplicate: (t: RichTemplate) => void
+  onDuplicate: (t: RichTemplateDB) => void
 }
 
 export function TemplateManager({ templates, onAdd, onUpdate, onDelete, onDuplicate }: Props) {
@@ -18,7 +20,7 @@ export function TemplateManager({ templates, onAdd, onUpdate, onDelete, onDuplic
   const [search,     setSearch]     = useState('')
   const [category,   setCategory]   = useState('')
   const [modalOpen,  setModalOpen]  = useState(false)
-  const [editing,    setEditing]    = useState<RichTemplate | null>(null)
+  const [editing,    setEditing]    = useState<RichTemplateDB | null>(null)
 
   const filtered = templates.filter(t => {
     const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.subject.toLowerCase().includes(search.toLowerCase())
@@ -27,8 +29,8 @@ export function TemplateManager({ templates, onAdd, onUpdate, onDelete, onDuplic
   })
 
   function openCreate() { setEditing(null); setModalOpen(true) }
-  function openEdit(t: RichTemplate) { setEditing(t); setModalOpen(true) }
-  function handleSave(data: Omit<RichTemplate, 'id' | 'updatedAt'>) {
+  function openEdit(t: RichTemplateDB) { setEditing(t); setModalOpen(true) }
+  function handleSave(data: TemplateFormData) {
     if (editing) onUpdate(editing.id, data); else onAdd(data)
     setModalOpen(false)
   }

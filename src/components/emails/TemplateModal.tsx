@@ -5,7 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X } from 'lucide-react'
 import { VariableChips } from './VariableChips'
-import { TEMPLATE_CATEGORIES, type RichTemplate } from '@/constants/mockEmails'
+import { TEMPLATE_CATEGORIES } from '@/constants/mockEmails'
+import type { RichTemplateDB } from '@/types/campaigns'
 
 const SAMPLE = { first_name: 'John', company: 'Acme Corp', job_title: 'CEO', website: 'acmecorp.com', last_name: 'Smith', my_name: 'Peter Lazan', my_portfolio: 'lazandev.vercel.app' }
 
@@ -35,12 +36,14 @@ const schema = z.object({
 })
 type FormValues = z.infer<typeof schema>
 
+export type TemplateFormData = Pick<RichTemplateDB, 'name' | 'category' | 'subject' | 'body' | 'variables'>
+
 interface Props {
   open: boolean
-  initial: RichTemplate | null
+  initial: RichTemplateDB | null
   existingNames: string[]
   onClose: () => void
-  onSave: (data: Omit<RichTemplate, 'id' | 'updatedAt'>) => void
+  onSave: (data: TemplateFormData) => void
 }
 
 export function TemplateModal({ open, initial, existingNames, onClose, onSave }: Props) {

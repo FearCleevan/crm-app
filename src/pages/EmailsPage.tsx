@@ -8,10 +8,15 @@ import { EmailDetail } from '@/components/emails/EmailDetail'
 import { ComposeModal } from '@/components/emails/ComposeModal'
 import { CampaignListView } from '@/components/emails/CampaignListView'
 import { CampaignDetailView } from '@/components/emails/CampaignDetailView'
-import { MOCK_EMAILS, MOCK_RICH_TEMPLATES, type RichTemplate, type EmailMessage, type EmailFolder } from '@/constants/mockEmails'
-import { MOCK_CAMPAIGNS, type MockCampaign } from '@/constants/mockCampaigns'
+import { MOCK_EMAILS, type EmailMessage, type EmailFolder } from '@/constants/mockEmails'
 import { TemplateManager } from '@/components/emails/TemplateManager'
 import { CreateCampaignWizard } from '@/components/emails/CreateCampaignWizard'
+import type { CampaignFormData } from '@/components/emails/CreateCampaignWizard'
+import type { TemplateFormData } from '@/components/emails/TemplateModal'
+import { useCampaigns } from '@/hooks/useCampaigns'
+import { useTemplates } from '@/hooks/useTemplates'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
+import type { Campaign } from '@/types/campaigns'
 import { cn } from '@/lib/utils'
 
 type View = EmailFolder | 'templates' | 'campaigns'
@@ -47,45 +52,143 @@ function useEmailsState() {
   return { emails, markRead, toggleStar, deleteEmail, addEmail }
 }
 
-function useTemplatesState() {
-  const [templates, setTemplates] = useState<RichTemplate[]>(MOCK_RICH_TEMPLATES)
-  const addTemplate    = useCallback((data: Omit<RichTemplate, 'id' | 'updatedAt'>) => {
-    setTemplates(prev => [{ ...data, id: `tpl-${Date.now()}`, updatedAt: new Date().toISOString().split('T')[0] }, ...prev])
-    toast.success('Template created')
-  }, [])
-  const updateTemplate = useCallback((id: string, data: Omit<RichTemplate, 'id' | 'updatedAt'>) => {
-    setTemplates(prev => prev.map(t => t.id === id ? { ...t, ...data, updatedAt: new Date().toISOString().split('T')[0] } : t))
-    toast.success('Template updated')
-  }, [])
-  const duplicateTemplate = useCallback((t: RichTemplate) => {
-    setTemplates(prev => [{ ...t, id: `tpl-${Date.now()}`, name: `${t.name} (Copy)`, updatedAt: new Date().toISOString().split('T')[0] }, ...prev])
-    toast.success('Template duplicated')
-  }, [])
-  const deleteTemplate = useCallback((id: string) => {
-    setTemplates(prev => prev.filter(t => t.id !== id))
-    toast.success('Template deleted')
-  }, [])
-  return { templates, addTemplate, updateTemplate, deleteTemplate, duplicateTemplate }
-}
-
 export function EmailsPage() {
-  const { emails, markRead, toggleStar, deleteEmail, addEmail } = useEmailsState()
-  const { templates, addTemplate, updateTemplate, deleteTemplate, duplicateTemplate } = useTemplatesState()
+  const { user } = useCurrentUser()
+  const userId = user?.id ?? null
 
-  const [campaigns, setCampaigns] = useState<MockCampaign[]>(MOCK_CAMPAIGNS)
+  const { emails, markRead, toggleStar, deleteEmail, addEmail } = useEmailsState()
+
+  const {
+    campaigns,
+    create: createCampaign,
+    update: updateCampaign,
+    remove: removeCampaign,
+    launch: launchCampaign,
+    pause: pauseCampaign,
+  } = useCampaigns(userId)
+
+  const {
+    templates,
+    create: createTemplate,
+    update: updateTemplate,
+    remove: removeTemplate,
+    duplicate: duplicateTemplate,
+  } = useTemplates(userId)
+
   const [viewingCampaignId, setViewingCampaignId] = useState<string | null>(null)
   const [wizardOpen, setWizardOpen] = useState(false)
-  const [editingCampaign, setEditingCampaign] = useState<MockCampaign | null>(null)
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null)
 
-  function togglePause(id: string) {
-    setCampaigns(prev => prev.map(c => c.id === id
-      ? { ...c, status: c.status === 'active' ? 'paused' : 'active' }
-      : c
-    ))
+  async function handleTogglePause(id: string) {
+    const c = campaigns.find(x => x.id === id)
+    if (!c) return
+    try {
+      if (c.status === 'active') {
+        await pauseCampaign(id)
+        toast.success('Campaign paused')
+      } else {
+        await launchCampaign(id)
+        toast.success('Campaign resumed')
+      }
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update campaign')
+    }
   }
-  function deleteCampaign(id: string) {
-    setCampaigns(prev => prev.filter(c => c.id !== id))
-    toast.success('Campaign deleted')
+
+  async function handleDeleteCampaign(id: string) {
+    try {
+      await removeCampaign(id)
+      toast.success('Campaign deleted')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete campaign')
+    }
+  }
+
+  async function handleSaveCampaign(data: CampaignFormData) {
+    if (!user) return
+    try {
+      if (editingCampaign) {
+        await updateCampaign(editingCampaign.id, {
+          name:          data.name,
+          description:   data.description ?? null,
+          template_id:   data.template_id ?? null,
+          daily_limit:   data.daily_limit,
+          send_from_hour: data.send_from_hour,
+          send_to_hour:  data.send_to_hour,
+          send_days:     data.send_days,
+          warmup_enabled: data.warmup_enabled,
+          status:        data.status,
+        })
+        toast.success('Campaign updated')
+      } else {
+        await createCampaign({
+          user_id:       user.id,
+          name:          data.name,
+          description:   data.description,
+          template_id:   data.template_id,
+          daily_limit:   data.daily_limit,
+          send_from_hour: data.send_from_hour,
+          send_to_hour:  data.send_to_hour,
+          send_days:     data.send_days,
+          warmup_enabled: data.warmup_enabled,
+        })
+        toast.success(data.status === 'active' ? 'Campaign launched!' : 'Campaign saved as draft')
+      }
+      setWizardOpen(false)
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save campaign')
+    }
+  }
+
+  async function handleAddTemplate(data: TemplateFormData) {
+    if (!user) return
+    try {
+      await createTemplate({
+        name:       data.name,
+        category:   data.category,
+        subject:    data.subject,
+        body:       data.body,
+        variables:  data.variables,
+        created_by: user.id,
+      })
+      toast.success('Template created')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to create template')
+    }
+  }
+
+  async function handleUpdateTemplate(id: string, data: TemplateFormData) {
+    try {
+      await updateTemplate(id, {
+        name:     data.name,
+        category: data.category,
+        subject:  data.subject,
+        body:     data.body,
+        variables: data.variables,
+      })
+      toast.success('Template updated')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update template')
+    }
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    try {
+      await removeTemplate(id)
+      toast.success('Template deleted')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete template')
+    }
+  }
+
+  async function handleDuplicateTemplate(t: { id: string }) {
+    if (!user) return
+    try {
+      await duplicateTemplate(t.id, user.id)
+      toast.success('Template duplicated')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to duplicate template')
+    }
   }
 
   const [view, setView] = useState<View>('inbox')
@@ -311,10 +414,10 @@ export function EmailsPage() {
             <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
               <TemplateManager
                 templates={templates}
-                onAdd={addTemplate}
-                onUpdate={updateTemplate}
-                onDelete={deleteTemplate}
-                onDuplicate={duplicateTemplate}
+                onAdd={handleAddTemplate}
+                onUpdate={handleUpdateTemplate}
+                onDelete={handleDeleteTemplate}
+                onDuplicate={handleDuplicateTemplate}
               />
             </div>
           )}
@@ -327,8 +430,8 @@ export function EmailsPage() {
                 onNew={() => { setEditingCampaign(null); setWizardOpen(true) }}
                 onEdit={c => { setEditingCampaign(c); setWizardOpen(true) }}
                 onView={c => setViewingCampaignId(c.id)}
-                onDelete={deleteCampaign}
-                onTogglePause={togglePause}
+                onDelete={handleDeleteCampaign}
+                onTogglePause={handleTogglePause}
               />
             </div>
           )}
@@ -349,16 +452,7 @@ export function EmailsPage() {
         templates={templates}
         initial={editingCampaign}
         onClose={() => setWizardOpen(false)}
-        onSave={campaign => {
-          if (editingCampaign) {
-            setCampaigns(prev => prev.map(c => c.id === editingCampaign.id ? { ...c, ...campaign } : c))
-            toast.success('Campaign updated')
-          } else {
-            setCampaigns(prev => [{ ...campaign, id: `c-${Date.now()}` }, ...prev])
-            toast.success(campaign.status === 'active' ? 'Campaign launched!' : 'Campaign saved as draft')
-          }
-          setWizardOpen(false)
-        }}
+        onSave={handleSaveCampaign}
       />
 
       <ComposeModal

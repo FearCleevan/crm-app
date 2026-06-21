@@ -4,8 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ProspectSelector } from '@/components/prospects/ProspectSelector'
-import type { RichTemplate } from '@/constants/mockEmails'
-import type { MockCampaign } from '@/constants/mockCampaigns'
+import type { Campaign, RichTemplateDB } from '@/types/campaigns'
 
 const step1Schema = z.object({
   name:        z.string().min(3, 'Min 3 chars'),
@@ -15,17 +14,30 @@ const step1Schema = z.object({
 })
 type Step1Values = z.infer<typeof step1Schema>
 
+export type CampaignFormData = {
+  name: string
+  description?: string
+  template_id?: string
+  daily_limit: number
+  send_from_hour: number
+  send_to_hour: number
+  send_days: string[]
+  warmup_enabled: boolean
+  status: Campaign['status']
+  total_recipients: number
+}
+
 interface Props {
   open: boolean
-  templates: RichTemplate[]
-  initial?: MockCampaign | null
+  templates: RichTemplateDB[]
+  initial?: Campaign | null
   onClose: () => void
-  onSave: (campaign: Omit<MockCampaign, 'id'>) => void
+  onSave: (campaign: CampaignFormData) => void
 }
 
 export function CreateCampaignWizard({ open, templates, initial, onClose, onSave }: Props) {
   const [step, setStep]                         = useState(1)
-  const [selectedTemplate, setSelectedTemplate] = useState<RichTemplate | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<RichTemplateDB | null>(null)
   const [prospectIds, setProspectIds]           = useState<number[]>([])
   const isEdit = !!initial
 
@@ -55,15 +67,18 @@ export function CreateCampaignWizard({ open, templates, initial, onClose, onSave
     else handleLaunch(values, 'active')
   }
 
-  function handleLaunch(values: Step1Values, status: MockCampaign['status']) {
+  function handleLaunch(values: Step1Values, status: Campaign['status']) {
     onSave({
-      name:              values.name,
+      name:             values.name,
+      description:      values.description,
+      template_id:      selectedTemplate?.id,
+      daily_limit:      values.daily_limit,
+      send_from_hour:   8,
+      send_to_hour:     18,
+      send_days:        ['mon', 'tue', 'wed', 'thu', 'fri'],
+      warmup_enabled:   false,
       status,
-      total_recipients:  prospectIds.length,
-      total_sent:        0,
-      total_opened:      0,
-      total_replied:     0,
-      created_at:        new Date().toISOString().split('T')[0],
+      total_recipients: prospectIds.length,
     })
     setStep(1); setSelectedTemplate(null); setProspectIds([])
   }
