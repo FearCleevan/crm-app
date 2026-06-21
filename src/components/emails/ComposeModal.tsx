@@ -1,5 +1,5 @@
 import { useState, useRef, type KeyboardEvent } from 'react'
-import { X, Minus, Maximize2, Paperclip, Send, Clock, ChevronDown, PenSquare } from 'lucide-react'
+import { X, Minus, Maximize2, Paperclip, Send, Clock, ChevronDown, PenSquare, Eye, Edit2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { MOCK_PROSPECTS } from '@/constants/mockData'
@@ -7,8 +7,20 @@ import { emailService } from '@/services/email.service'
 import { useAuth } from '@/context/AuthContext'
 import { EmailEditor } from './EmailEditor'
 import type { EmailMessage } from '@/constants/mockEmails'
+import { MOCK_RICH_TEMPLATES, type RichTemplate } from '@/constants/mockEmails'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// ── Variable resolver ─────────────────────────────────────────
+function resolveVars(text: string, prospect: { firstname?: string | null; fullname?: string | null; company?: string | null } | null): string {
+  if (!text) return text
+  return text
+    .replace(/{{first_name}}/g,   prospect?.firstname   ?? '')
+    .replace(/{{full_name}}/g,    prospect?.fullname    ?? '')
+    .replace(/{{company}}/g,      prospect?.company     ?? 'your company')
+    .replace(/{{my_name}}/g,      'Peter Lazan')
+    .replace(/{{my_portfolio}}/g, 'lazandev.vercel.app')
+}
 
 // ── Email chip input ──────────────────────────────────────────
 function EmailChipInput({
@@ -149,23 +161,46 @@ interface ComposeModalProps {
   initialBody?: string
 }
 
+// ── Highlight unresolved vars in preview ─────────────────────
+function highlightUnresolved(html: string): string {
+  return html.replace(/{{[^}]+}}/g, match =>
+    `<span style="background:#f97316;color:white;padding:0 4px;border-radius:3px;font-size:0.85em">${match}</span>`
+  )
+}
+
 export function ComposeModal({
   open, onClose, onSend, onSaveDraft,
   initialTo = '', initialSubject = '', initialBody = '',
 }: ComposeModalProps) {
   const { user } = useAuth()
-  const [minimized,    setMinimized]    = useState(false)
-  const [toChips,      setToChips]      = useState<string[]>(initialTo ? [initialTo] : [])
-  const [ccChips,      setCcChips]      = useState<string[]>([])
-  const [bccChips,     setBccChips]     = useState<string[]>([])
-  const [showCcBcc,    setShowCcBcc]    = useState(false)
-  const [subject,      setSubject]      = useState(initialSubject)
-  const [body,         setBody]         = useState(initialBody || '<p></p>')
-  const [sending,      setSending]      = useState(false)
-  const [suggestions,  setSuggestions]  = useState<typeof MOCK_PROSPECTS>([])
-  const [showPresets,  setShowPresets]  = useState(false)
-  const [presetKey,    setPresetKey]    = useState(0)
-  const [sigEnabled,   setSigEnabled]   = useState(true)
+  const [minimized,        setMinimized]        = useState(false)
+  const [toChips,          setToChips]          = useState<string[]>(initialTo ? [initialTo] : [])
+  const [ccChips,          setCcChips]          = useState<string[]>([])
+  const [bccChips,         setBccChips]         = useState<string[]>([])
+  const [showCcBcc,        setShowCcBcc]        = useState(false)
+  const [subject,          setSubject]          = useState(initialSubject)
+  const [body,             setBody]             = useState(initialBody || '<p></p>')
+  const [sending,          setSending]          = useState(false)
+  const [suggestions,      setSuggestions]      = useState<typeof MOCK_PROSPECTS>([])
+  const [showPresets,      setShowPresets]      = useState(false)
+  const [presetKey,        setPresetKey]        = useState(0)
+  const [sigEnabled,       setSigEnabled]       = useState(true)
+
+  // ── New state: template picker ────────────────────────────
+  const [selectedTemplate, setSelectedTemplate] = useState<RichTemplate | null>(null)
+
+  // ── New state: prospect linker ────────────────────────────
+  const [linkedProspect,   setLinkedProspect]   = useState<{ fullname: string; email: string; firstname?: string; company?: string } | null>(null)
+  const [prospectSearch,   setProspectSearch]   = useState('')
+  const [prospectResults,  setProspectResults]  = useState<typeof MOCK_PROSPECTS>([])
+
+  // ── New state: variable preview ───────────────────────────
+  const [previewMode,      setPreviewMode]      = useState(false)
+
+  // ── New state: schedule send ──────────────────────────────
+  const [scheduledAt,      setScheduledAt]      = useState('')
+  const [showSchedule,     setShowSchedule]     = useState(false)
+
   const fileRef = useRef<HTMLInputElement>(null)
 
   if (!open) return null
@@ -193,12 +228,82 @@ export function ComposeModal({
     setShowPresets(false)
   }
 
+  // ── Template picker handler ───────────────────────────────
+  function handleTemplateSelect(e: React.ChangeEvent<HTMLSelectElement>) {
+    const tplId = e.target.value
+    if (!tplId) {
+      setSelectedTemplate(null)
+      return
+    }
+    const tpl = MOCK_RICH_TEMPLATES.find(t => t.id === tplId)
+    if (!tpl) return
+    setSelectedTemplate(tpl)
+    setSubject(resolveVars(tpl.subject, linkedProspect))
+    const resolved = resolveVars(tpl.body, linkedProspect)
+    // Convert plain text body to HTML paragraphs
+    const htmlBody = resolved.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('')
+    setBody(htmlBody)
+    setPresetKey(k => k + 1)
+    setPreviewMode(false)
+    toast.success('Template applied')
+  }
+
+  // ── Prospect search handler ───────────────────────────────
+  function handleProspectSearch(val: string) {
+    setProspectSearch(val)
+    if (val.length >= 2) {
+      setProspectResults(
+        MOCK_PROSPECTS.filter(p =>
+          p.fullname.toLowerCase().includes(val.toLowerCase()) ||
+          p.email.toLowerCase().includes(val.toLowerCase()) ||
+          p.company.toLowerCase().includes(val.toLowerCase())
+        ).slice(0, 6)
+      )
+    } else {
+      setProspectResults([])
+    }
+  }
+
+  function handleProspectPick(prospect: typeof MOCK_PROSPECTS[0]) {
+    const linked = { fullname: prospect.fullname, email: prospect.email, firstname: prospect.firstname, company: prospect.company }
+    setLinkedProspect(linked)
+    setProspectSearch('')
+    setProspectResults([])
+    // Auto-push prospect email into To chips
+    if (!toChips.includes(prospect.email)) {
+      setToChips(prev => [...prev, prospect.email])
+    }
+    // Re-resolve template vars if a template is selected
+    if (selectedTemplate) {
+      setSubject(resolveVars(selectedTemplate.subject, linked))
+      const resolved = resolveVars(selectedTemplate.body, linked)
+      const htmlBody = resolved.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('')
+      setBody(htmlBody)
+      setPresetKey(k => k + 1)
+    }
+  }
+
+  function handleUnlinkProspect() {
+    setLinkedProspect(null)
+    setProspectSearch('')
+    setProspectResults([])
+  }
+
   function getFinalHtml() {
     return sigEnabled ? body + signature : body
   }
 
   async function handleSend() {
     if (toChips.length === 0) { toast.error('Please add a recipient'); return }
+
+    // Schedule send
+    if (scheduledAt) {
+      const formatted = new Date(scheduledAt).toLocaleString()
+      toast.success(`Email scheduled for ${formatted}`)
+      onClose()
+      return
+    }
+
     setSending(true)
     try {
       await emailService.send({
@@ -227,12 +332,15 @@ export function ComposeModal({
   const inputRow = 'flex items-center gap-2 px-4 py-2 border-b border-border/60'
   const inputCls = 'bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none'
 
+  // Build preview HTML with unresolved vars highlighted
+  const previewHtml = highlightUnresolved(resolveVars(body, linkedProspect))
+
   return (
     <div className={cn(
       'fixed z-50 bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200',
       minimized
         ? 'bottom-14 lg:bottom-0 right-6 w-72 h-12'
-        : 'bottom-16 lg:bottom-4 right-4 w-[640px] max-w-[calc(100vw-2rem)] h-[620px] max-h-[calc(100vh-5rem)]',
+        : 'bottom-16 lg:bottom-4 right-4 w-[640px] max-w-[calc(100vw-2rem)] h-[680px] max-h-[calc(100vh-5rem)]',
     )}>
       {/* Title bar */}
       <div className="flex items-center gap-2 px-4 py-3 bg-foreground/5 border-b border-border shrink-0 cursor-default">
@@ -254,6 +362,69 @@ export function ComposeModal({
 
       {!minimized && (
         <>
+          {/* ── Template Picker ── */}
+          <div className={cn(inputRow, 'gap-3')}>
+            <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">Template</span>
+            <select
+              value={selectedTemplate?.id ?? ''}
+              onChange={handleTemplateSelect}
+              className="flex-1 bg-transparent text-sm text-foreground focus:outline-none cursor-pointer"
+            >
+              <option value="">Use a template…</option>
+              {MOCK_RICH_TEMPLATES.map(tpl => (
+                <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* ── Prospect Linker ── */}
+          <div className={cn(inputRow, 'relative gap-3')}>
+            <span className="text-xs font-semibold text-muted-foreground shrink-0 w-16">Prospect</span>
+            {linkedProspect ? (
+              <div className="flex items-center gap-2 flex-1">
+                <span className="text-sm font-medium text-foreground">{linkedProspect.fullname}</span>
+                <span className="text-xs text-muted-foreground">→ {linkedProspect.email}</span>
+                <button
+                  type="button"
+                  onClick={handleUnlinkProspect}
+                  className="ml-auto h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  title="Unlink prospect"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex-1 relative">
+                <input
+                  value={prospectSearch}
+                  onChange={e => handleProspectSearch(e.target.value)}
+                  placeholder="Search by name, email or company…"
+                  className={cn(inputCls, 'w-full')}
+                />
+                {prospectResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-20 bg-card border border-border rounded-xl shadow-xl overflow-hidden mt-1 min-w-[280px]">
+                    {prospectResults.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); handleProspectPick(p) }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent text-left transition-colors"
+                      >
+                        <div className="h-7 w-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[10px] font-bold text-brand-700 dark:text-brand-300 shrink-0">
+                          {p.firstname[0]}{p.lastname[0]}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{p.fullname}</p>
+                          <p className="text-xs text-muted-foreground truncate">{p.email} · {p.company}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* To */}
           <div className={cn(inputRow, 'relative flex-wrap min-h-[36px]')}>
             <span className="text-xs font-semibold text-muted-foreground w-8 shrink-0">To</span>
@@ -295,7 +466,7 @@ export function ComposeModal({
             <div className="relative shrink-0">
               <button type="button" onClick={() => setShowPresets(v => !v)}
                 className="flex items-center gap-1 h-6 px-2 rounded text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border border-border">
-                Template <ChevronDown className="h-3 w-3" />
+                Preset <ChevronDown className="h-3 w-3" />
               </button>
               {showPresets && (
                 <div className="absolute top-full right-0 mt-1 z-20 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[160px]">
@@ -310,16 +481,23 @@ export function ComposeModal({
             </div>
           </div>
 
-          {/* Rich text editor */}
+          {/* Rich text editor / Preview */}
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <EmailEditor
-              key={presetKey}
-              content={body}
-              onChange={setBody}
-              placeholder="Write your message…"
-              minHeight="200px"
-              className="border-0 rounded-none"
-            />
+            {previewMode && selectedTemplate ? (
+              <div
+                className="px-4 py-3 text-sm text-foreground leading-relaxed min-h-[200px]"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            ) : (
+              <EmailEditor
+                key={presetKey}
+                content={body}
+                onChange={setBody}
+                placeholder="Write your message…"
+                minHeight="200px"
+                className="border-0 rounded-none"
+              />
+            )}
 
             {/* Signature preview */}
             {sigEnabled && (
@@ -330,16 +508,48 @@ export function ComposeModal({
             )}
           </div>
 
+          {/* Schedule datetime picker */}
+          {showSchedule && (
+            <div className={cn(inputRow, 'bg-muted/30')}>
+              <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={e => setScheduledAt(e.target.value)}
+                className={cn(inputCls, 'flex-1')}
+              />
+              {scheduledAt && (
+                <button
+                  type="button"
+                  onClick={() => { setScheduledAt(''); setShowSchedule(false) }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Footer toolbar */}
           <div className="flex items-center gap-1 px-3 py-3 border-t border-border shrink-0 bg-card">
             <button type="button" onClick={handleSend} disabled={sending}
               className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition-colors">
-              <Send className="h-3.5 w-3.5" />
-              {sending ? 'Sending…' : 'Send'}
+              {scheduledAt ? <Clock className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+              {sending ? 'Sending…' : scheduledAt ? 'Schedule Send' : 'Send'}
             </button>
 
-            <button type="button" onClick={() => toast.info('Scheduled send — available after full integration')}
-              className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Schedule send">
+            {/* Schedule button */}
+            <button
+              type="button"
+              onClick={() => setShowSchedule(v => !v)}
+              className={cn(
+                'h-9 w-9 rounded-lg flex items-center justify-center transition-colors',
+                showSchedule || scheduledAt
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              )}
+              title="Schedule send"
+            >
               <Clock className="h-4 w-4" />
             </button>
 
@@ -349,6 +559,24 @@ export function ComposeModal({
             </button>
             <input ref={fileRef} type="file" className="hidden" aria-label="Attach file" title="Attach file"
               onChange={() => toast.info('File attachments — available in a future update')} />
+
+            {/* Variable preview toggle — only when template is selected */}
+            {selectedTemplate && (
+              <button
+                type="button"
+                onClick={() => setPreviewMode(v => !v)}
+                className={cn(
+                  'h-7 px-2.5 rounded text-xs font-medium transition-colors border flex items-center gap-1',
+                  previewMode
+                    ? 'bg-primary/10 text-primary border-primary/30 dark:bg-primary/20'
+                    : 'text-muted-foreground border-border hover:bg-accent',
+                )}
+                title={previewMode ? 'Switch to editing' : 'Preview with variables resolved'}
+              >
+                {previewMode ? <Edit2 className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                {previewMode ? 'Editing' : 'Preview'}
+              </button>
+            )}
 
             <div className="flex-1" />
 
