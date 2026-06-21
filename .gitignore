@@ -11,7 +11,7 @@ lerna-debug.log*
 .env
 .env.local
 .env.production
-# .env.example is intentionally tracked as a safe template
+.env.example
 
 node_modules
 dist
