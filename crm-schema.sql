@@ -81,13 +81,14 @@ CREATE TABLE public.activities (
 CREATE TABLE public.email_templates (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
-  category text NOT NULL DEFAULT 'general'::text CHECK (category = ANY (ARRAY['general'::text, 'follow_up'::text, 'introduction'::text, 'proposal'::text, 'closing'::text, 're_engagement'::text, 'newsletter'::text])),
+  category text NOT NULL DEFAULT 'general'::text CHECK (category = ANY (ARRAY['general'::text, 'follow_up'::text, 'introduction'::text, 'proposal'::text, 'closing'::text, 're_engagement'::text, 'newsletter'::text, 'cold_outreach'::text, 'no_website'::text, 'outdated_website'::text])),
   subject text NOT NULL,
   body text NOT NULL,
   created_by uuid,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  variables jsonb NOT NULL DEFAULT '[]'::jsonb,
   CONSTRAINT email_templates_pkey PRIMARY KEY (id),
   CONSTRAINT email_templates_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.crm_users(id)
 );
@@ -391,4 +392,61 @@ CREATE TABLE public.pipeline_sessions (
   notes text,
   CONSTRAINT pipeline_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT pipeline_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.email_campaigns (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  name text NOT NULL,
+  description text,
+  template_id uuid,
+  status text NOT NULL DEFAULT 'draft'::text CHECK (status = ANY (ARRAY['draft'::text, 'active'::text, 'paused'::text, 'completed'::text])),
+  daily_limit integer NOT NULL DEFAULT 50 CHECK (daily_limit >= 10 AND daily_limit <= 500),
+  send_from_hour integer NOT NULL DEFAULT 9 CHECK (send_from_hour >= 0 AND send_from_hour <= 23),
+  send_to_hour integer NOT NULL DEFAULT 17 CHECK (send_to_hour >= 0 AND send_to_hour <= 23),
+  send_days ARRAY NOT NULL DEFAULT ARRAY['Mon'::text, 'Tue'::text, 'Wed'::text, 'Thu'::text, 'Fri'::text],
+  warmup_enabled boolean NOT NULL DEFAULT false,
+  total_recipients integer NOT NULL DEFAULT 0,
+  total_sent integer NOT NULL DEFAULT 0,
+  total_opened integer NOT NULL DEFAULT 0,
+  total_clicked integer NOT NULL DEFAULT 0,
+  total_replied integer NOT NULL DEFAULT 0,
+  total_bounced integer NOT NULL DEFAULT 0,
+  total_unsubscribed integer NOT NULL DEFAULT 0,
+  started_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT email_campaigns_pkey PRIMARY KEY (id),
+  CONSTRAINT email_campaigns_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.crm_users(id),
+  CONSTRAINT email_campaigns_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.email_templates(id)
+);
+CREATE TABLE public.campaign_recipients (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  campaign_id uuid NOT NULL,
+  prospect_id bigint NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'sent'::text, 'opened'::text, 'clicked'::text, 'replied'::text, 'bounced'::text, 'unsubscribed'::text])),
+  resend_message_id text,
+  sent_at timestamp with time zone,
+  opened_at timestamp with time zone,
+  clicked_at timestamp with time zone,
+  replied_at timestamp with time zone,
+  bounced_at timestamp with time zone,
+  unsubscribed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT campaign_recipients_pkey PRIMARY KEY (id),
+  CONSTRAINT campaign_recipients_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES public.email_campaigns(id),
+  CONSTRAINT campaign_recipients_prospect_id_fkey FOREIGN KEY (prospect_id) REFERENCES public.prospects(id)
+);
+CREATE TABLE public.email_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  campaign_id uuid,
+  recipient_id uuid,
+  prospect_id bigint,
+  event_type text NOT NULL CHECK (event_type = ANY (ARRAY['sent'::text, 'opened'::text, 'clicked'::text, 'replied'::text, 'bounced'::text, 'unsubscribed'::text])),
+  event_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT email_events_pkey PRIMARY KEY (id),
+  CONSTRAINT email_events_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES public.email_campaigns(id),
+  CONSTRAINT email_events_recipient_id_fkey FOREIGN KEY (recipient_id) REFERENCES public.campaign_recipients(id),
+  CONSTRAINT email_events_prospect_id_fkey FOREIGN KEY (prospect_id) REFERENCES public.prospects(id)
 );
