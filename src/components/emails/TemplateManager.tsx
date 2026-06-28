@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Plus, LayoutGrid, List, Search } from 'lucide-react'
 import { TemplateCard } from './TemplateCard'
+import { TemplateListRow } from './TemplateListRow'
 import { TemplateModal } from './TemplateModal'
 import { TEMPLATE_CATEGORIES } from '@/constants/mockEmails'
 import type { RichTemplateDB } from '@/types/campaigns'
@@ -75,15 +76,15 @@ export function TemplateManager({ templates, onAdd, onUpdate, onDelete, onDuplic
             {filtered.map(t => <TemplateCard key={t.id} template={t} onEdit={openEdit} onDuplicate={onDuplicate} onDelete={onDelete} />)}
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {filtered.map(t => (
-              <div key={t.id} className="flex items-center gap-4 p-3 bg-card border border-border rounded-xl hover:shadow-sm transition-shadow">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">{t.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{t.subject}</p>
-                </div>
-                <TemplateCard template={t} onEdit={openEdit} onDuplicate={onDuplicate} onDelete={onDelete} />
-              </div>
+              <TemplateListRow
+                key={t.id}
+                template={t}
+                onEdit={openEdit}
+                onDuplicate={onDuplicate}
+                onDelete={onDelete}
+              />
             ))}
           </div>
         )}

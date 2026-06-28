@@ -1,14 +1,13 @@
-import { useState, useRef, type KeyboardEvent } from 'react'
+import { useState, useRef, useCallback, type KeyboardEvent } from 'react'
 import { X, Minus, Maximize2, Paperclip, Send, Clock, ChevronDown, PenSquare, Eye, Edit2 } from 'lucide-react'
 import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
 import { cn } from '@/lib/utils'
-import { MOCK_PROSPECTS } from '@/constants/mockData'
+import { useProspectSearch, type ProspectSuggestion } from '@/hooks/useProspectSearch'
 import { emailService } from '@/services/email.service'
 import { useAuth } from '@/context/AuthContext'
 import { EmailEditor } from './EmailEditor'
-import type { EmailMessage } from '@/constants/mockEmails'
-import { MOCK_RICH_TEMPLATES, type RichTemplate } from '@/constants/mockEmails'
+import type { RichTemplateDB } from '@/types/campaigns'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -31,7 +30,7 @@ function EmailChipInput({
   chips: string[]
   onChipsChange: (chips: string[]) => void
   inputCls: string
-  suggestions?: typeof MOCK_PROSPECTS
+  suggestions?: ProspectSuggestion[]
   onSuggestionPick?: (email: string) => void
   onInput?: (val: string) => void
 }) {
@@ -85,7 +84,7 @@ function EmailChipInput({
           <div className="absolute top-full left-0 right-0 z-10 bg-card border border-border rounded-xl shadow-xl overflow-hidden mt-1 min-w-[260px]">
             {suggestions.map(p => (
               <button key={p.id} type="button"
-                onMouseDown={e => { e.preventDefault(); onSuggestionPick?.(p.email) }}
+                onMouseDown={e => { e.preventDefault(); if (p.email) onSuggestionPick?.(p.email) }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent text-left transition-colors">
                 <div className="h-7 w-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[10px] font-bold text-brand-700 dark:text-brand-300 shrink-0">
                   {(p.firstname?.[0] ?? '?')}{(p.lastname?.[0] ?? '')}
@@ -136,29 +135,13 @@ function buildSignature(user: { first_name?: string; last_name?: string; role?: 
   return `<br/><table cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><tr><td style="padding-right:14px;vertical-align:middle">${user.profile_url ? `<table><tr>${avatar}</tr></table>` : `<table><tr>${avatar}</tr></table>`}</td><td style="vertical-align:middle"><div style="font-weight:700;font-size:14px;color:#111827;line-height:1.3">${name}</div><div style="font-size:12px;color:#6b7280;margin-top:2px">${user.role ?? ''}</div><div style="font-size:12px;color:#6b7280;margin-top:2px">${user.email ?? ''}</div>${user.phone_no ? `<div style="font-size:12px;color:#6b7280;margin-top:2px">${user.phone_no}</div>` : ''}</td></tr></table>`
 }
 
-function buildMessage(to: string[], cc: string[], subject: string, html: string, folder: 'sent' | 'drafts'): EmailMessage {
-  return {
-    id:      `em-${Date.now()}`,
-    folder,
-    from:    { name: 'Me', email: 'me@briskcrm.com' },
-    to:      to.map(email => {
-      const prospect = MOCK_PROSPECTS.find(p => p.email === email)
-      return { name: prospect?.fullname ?? email, email }
-    }),
-    cc:      cc.length > 0 ? cc.map(email => ({ name: email, email })) : undefined,
-    subject: subject || '(no subject)',
-    preview: html.replace(/<[^>]+>/g, '').slice(0, 120),
-    body:    html,
-    date:    new Date().toISOString(),
-    read: true, starred: false, hasAttachment: false,
-  }
-}
 
 interface ComposeModalProps {
   open: boolean
   onClose: () => void
-  onSend: (msg: EmailMessage) => void
-  onSaveDraft: (msg: EmailMessage) => void
+  onSend: () => void
+  onSaveDraft: () => void
+  templates?: RichTemplateDB[]
   initialTo?: string
   initialSubject?: string
   initialBody?: string
@@ -172,7 +155,7 @@ function highlightUnresolved(html: string): string {
 }
 
 export function ComposeModal({
-  open, onClose, onSend, onSaveDraft,
+  open, onClose, onSend, onSaveDraft, templates = [],
   initialTo = '', initialSubject = '', initialBody = '',
 }: ComposeModalProps) {
   const { user } = useAuth()
@@ -184,18 +167,20 @@ export function ComposeModal({
   const [subject,          setSubject]          = useState(initialSubject)
   const [body,             setBody]             = useState(initialBody || '<p></p>')
   const [sending,          setSending]          = useState(false)
-  const [suggestions,      setSuggestions]      = useState<typeof MOCK_PROSPECTS>([])
+  const [toSearchQuery,    setToSearchQuery]    = useState('')
   const [showPresets,      setShowPresets]      = useState(false)
   const [presetKey,        setPresetKey]        = useState(0)
   const [sigEnabled,       setSigEnabled]       = useState(true)
 
   // ── New state: template picker ────────────────────────────
-  const [selectedTemplate, setSelectedTemplate] = useState<RichTemplate | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<RichTemplateDB | null>(null)
 
   // ── New state: prospect linker ────────────────────────────
   const [linkedProspect,   setLinkedProspect]   = useState<{ fullname: string; email: string; firstname?: string; company?: string } | null>(null)
   const [prospectSearch,   setProspectSearch]   = useState('')
-  const [prospectResults,  setProspectResults]  = useState<typeof MOCK_PROSPECTS>([])
+  const [prospectQuery,    setProspectQuery]    = useState('')
+  const { results: suggestions,     clear: clearToSuggestions }   = useProspectSearch(toSearchQuery)
+  const { results: prospectResults, clear: clearProspectResults }  = useProspectSearch(prospectQuery)
 
   // ── New state: variable preview ───────────────────────────
   const [previewMode,      setPreviewMode]      = useState(false)
@@ -206,24 +191,19 @@ export function ComposeModal({
 
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const handleToRawInput = useCallback((val: string) => {
+    setToSearchQuery(val)
+  }, [])
+
+  const handleSuggestionPick = useCallback((email: string) => {
+    if (email && !toChips.includes(email)) setToChips(prev => [...prev, email])
+    setToSearchQuery('')
+    clearToSuggestions()
+  }, [toChips, clearToSuggestions])
+
   if (!open) return null
 
   const signature = buildSignature(user)
-
-  function handleToRawInput(val: string) {
-    setSuggestions(val.length >= 2
-      ? MOCK_PROSPECTS.filter(p =>
-          p.fullname.toLowerCase().includes(val.toLowerCase()) ||
-          p.email.toLowerCase().includes(val.toLowerCase())
-        ).slice(0, 5)
-      : []
-    )
-  }
-
-  function handleSuggestionPick(email: string) {
-    if (!toChips.includes(email)) setToChips(prev => [...prev, email])
-    setSuggestions([])
-  }
 
   function applyPreset(html: string) {
     setBody(html)
@@ -239,7 +219,7 @@ export function ComposeModal({
       setPreviewMode(false)
       return
     }
-    const tpl = MOCK_RICH_TEMPLATES.find(t => t.id === tplId)
+    const tpl = templates.find(t => t.id === tplId)
     if (!tpl) return
     setSelectedTemplate(tpl)
     setSubject(resolveVars(tpl.subject, linkedProspect))
@@ -255,27 +235,18 @@ export function ComposeModal({
   // ── Prospect search handler ───────────────────────────────
   function handleProspectSearch(val: string) {
     setProspectSearch(val)
-    if (val.length >= 2) {
-      setProspectResults(
-        MOCK_PROSPECTS.filter(p =>
-          p.fullname.toLowerCase().includes(val.toLowerCase()) ||
-          p.email.toLowerCase().includes(val.toLowerCase()) ||
-          p.company.toLowerCase().includes(val.toLowerCase())
-        ).slice(0, 6)
-      )
-    } else {
-      setProspectResults([])
-    }
+    setProspectQuery(val)
   }
 
-  function handleProspectPick(prospect: typeof MOCK_PROSPECTS[0]) {
-    const linked = { fullname: prospect.fullname, email: prospect.email, firstname: prospect.firstname, company: prospect.company }
+  function handleProspectPick(prospect: ProspectSuggestion) {
+    const linked = { fullname: prospect.fullname ?? '', email: prospect.email ?? '', firstname: prospect.firstname ?? undefined, company: prospect.company ?? undefined }
     setLinkedProspect(linked)
     setProspectSearch('')
-    setProspectResults([])
+    setProspectQuery('')
+    clearProspectResults()
     // Auto-push prospect email into To chips
-    if (!toChips.includes(prospect.email)) {
-      setToChips(prev => [...prev, prospect.email])
+    if (prospect.email && !toChips.includes(prospect.email)) {
+      setToChips(prev => [...prev, prospect.email as string])
     }
     // Re-resolve template vars if a template is selected
     if (selectedTemplate) {
@@ -290,7 +261,8 @@ export function ComposeModal({
   function handleUnlinkProspect() {
     setLinkedProspect(null)
     setProspectSearch('')
-    setProspectResults([])
+    setProspectQuery('')
+    clearProspectResults()
   }
 
   function getFinalHtml() {
@@ -321,7 +293,7 @@ export function ComposeModal({
         subject: subject || '(no subject)',
         html:    getFinalHtml(),
       })
-      onSend(buildMessage(toChips, ccChips, subject, getFinalHtml(), 'sent'))
+      onSend()
       toast.success('Email sent')
       onClose()
     } catch (err) {
@@ -332,7 +304,7 @@ export function ComposeModal({
   }
 
   function handleSaveDraft() {
-    onSaveDraft(buildMessage(toChips, ccChips, subject, getFinalHtml(), 'drafts'))
+    onSaveDraft()
     toast.success('Draft saved')
     onClose()
   }
@@ -379,7 +351,7 @@ export function ComposeModal({
               className="flex-1 bg-transparent text-sm text-foreground focus:outline-none cursor-pointer"
             >
               <option value="">Use a template…</option>
-              {MOCK_RICH_TEMPLATES.map(tpl => (
+              {templates.map(tpl => (
                 <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
               ))}
             </select>
@@ -439,7 +411,7 @@ export function ComposeModal({
             <EmailChipInput
               label="To"
               chips={toChips}
-              onChipsChange={chips => { setToChips(chips); setSuggestions([]) }}
+              onChipsChange={chips => { setToChips(chips); clearToSuggestions() }}
               inputCls={inputCls}
               suggestions={suggestions}
               onSuggestionPick={handleSuggestionPick}
