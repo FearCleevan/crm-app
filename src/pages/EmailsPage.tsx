@@ -34,6 +34,7 @@ export function EmailsPage() {
     remove: removeCampaign,
     launch: launchCampaign,
     pause: pauseCampaign,
+    getRecipients,
   } = useCampaigns(userId)
 
   const {
@@ -269,7 +270,7 @@ export function EmailsPage() {
             const c = campaigns.find(x => x.id === viewingCampaignId)
             return c ? (
               <div className="flex-1 min-w-0 overflow-hidden">
-                <CampaignDetailView campaign={c} onBack={() => setViewingCampaignId(null)} />
+                <CampaignDetailView campaign={c} onBack={() => setViewingCampaignId(null)} getRecipients={getRecipients} />
               </div>
             ) : null
           })()}

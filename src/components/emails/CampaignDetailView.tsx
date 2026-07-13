@@ -1,27 +1,10 @@
 // src/components/emails/CampaignDetailView.tsx
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { formatDate, formatTime, getStatusBadgeClass } from '@/lib/campaign-utils'
-import type { Campaign } from '@/types/campaigns'
+import type { Campaign, CampaignRecipient } from '@/types/campaigns'
 import { cn } from '@/lib/utils'
-
-const MOCK_ACTIVITY = [
-  { date: '2026-06-10', sent: 20, opened: 5 },
-  { date: '2026-06-11', sent: 25, opened: 8 },
-  { date: '2026-06-12', sent: 18, opened: 6 },
-  { date: '2026-06-13', sent: 22, opened: 10 },
-  { date: '2026-06-14', sent: 13, opened: 4 },
-  { date: '2026-06-15', sent: 0,  opened: 0 },
-  { date: '2026-06-16', sent: 0,  opened: 0 },
-]
-
-const MOCK_RECIPIENTS = [
-  { id: '1', fullname: 'Sarah Mitchell', company: 'Mitchell Bakery',   email: 'sarah@mitchellbakery.com', country: 'US', status: 'opened',  lastActivity: '2026-06-11T14:30:00Z' },
-  { id: '2', fullname: 'James Ortega',   company: 'Ortega Auto',       email: 'james@ortegaauto.com',     country: 'US', status: 'replied', lastActivity: '2026-06-14T09:10:00Z' },
-  { id: '3', fullname: 'Amy Chen',       company: 'Chen Florist',      email: 'amy@chenflorist.com',      country: 'US', status: 'sent',    lastActivity: '2026-06-10T10:00:00Z' },
-  { id: '4', fullname: 'Mark Williams',  company: 'Williams Plumbing', email: 'mark@williams.com',        country: 'US', status: 'bounced', lastActivity: '2026-06-10T10:05:00Z' },
-]
 
 const STAT_CARDS = (c: Campaign) => [
   { label: 'Recipients', value: c.total_recipients },
@@ -36,15 +19,53 @@ const STAT_CARDS = (c: Campaign) => [
 
 type TabFilter = 'all' | 'sent' | 'opened' | 'replied' | 'bounced'
 
+interface DailyActivity { date: string; sent: number; opened: number }
+
+// Derive a per-day sent/opened series from recipient timestamps (no separate
+// email_events query needed — campaign_recipients already carries sent_at/opened_at).
+function buildDailyActivity(recipients: CampaignRecipient[]): DailyActivity[] {
+  const byDate = new Map<string, DailyActivity>()
+  function bump(ts: string | null, field: 'sent' | 'opened') {
+    if (!ts) return
+    const day = ts.slice(0, 10) // YYYY-MM-DD
+    const row = byDate.get(day) ?? { date: day, sent: 0, opened: 0 }
+    row[field] += 1
+    byDate.set(day, row)
+  }
+  for (const r of recipients) {
+    bump(r.sent_at, 'sent')
+    bump(r.opened_at, 'opened')
+  }
+  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date))
+}
+
+function lastActivityOf(r: CampaignRecipient): string {
+  return r.replied_at ?? r.clicked_at ?? r.opened_at ?? r.bounced_at ?? r.unsubscribed_at ?? r.sent_at ?? r.created_at
+}
+
 interface Props {
   campaign: Campaign
   onBack: () => void
+  getRecipients: (campaignId: string) => Promise<CampaignRecipient[]>
 }
 
-export function CampaignDetailView({ campaign, onBack }: Props) {
+export function CampaignDetailView({ campaign, onBack, getRecipients }: Props) {
   const [tab, setTab] = useState<TabFilter>('all')
+  const [recipients, setRecipients] = useState<CampaignRecipient[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filtered = tab === 'all' ? MOCK_RECIPIENTS : MOCK_RECIPIENTS.filter(r => r.status === tab)
+  useEffect(() => {
+    let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true)
+    getRecipients(campaign.id)
+      .then(rows => { if (!cancelled) setRecipients(rows) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [campaign.id, getRecipients])
+
+  const dailyActivity = useMemo(() => buildDailyActivity(recipients), [recipients])
+  const filtered = tab === 'all' ? recipients : recipients.filter(r => r.status === tab)
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -75,17 +96,23 @@ export function CampaignDetailView({ campaign, onBack }: Props) {
       {/* Activity chart */}
       <div className="px-5 py-4 border-b border-border shrink-0">
         <p className="text-xs font-semibold text-foreground mb-3">Daily Activity</p>
-        <ResponsiveContainer width="100%" height={180}>
-          <LineChart data={MOCK_ACTIVITY}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => formatDate(d).replace(/,.*/, '')} />
-            <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip labelFormatter={l => formatDate(l)} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
-            <Line type="monotone" dataKey="sent"   stroke="#3b82f6" strokeWidth={2} dot={false} name="Sent"   />
-            <Line type="monotone" dataKey="opened" stroke="#22c55e" strokeWidth={2} dot={false} name="Opened" />
-          </LineChart>
-        </ResponsiveContainer>
+        {dailyActivity.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-8 text-center">
+            {loading ? 'Loading…' : 'No email activity yet'}
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={dailyActivity}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => formatDate(d).replace(/,.*/, '')} />
+              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+              <Tooltip labelFormatter={l => formatDate(l)} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+              <Line type="monotone" dataKey="sent"   stroke="#3b82f6" strokeWidth={2} dot={false} name="Sent"   />
+              <Line type="monotone" dataKey="opened" stroke="#22c55e" strokeWidth={2} dot={false} name="Opened" />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Recipient table */}
@@ -98,33 +125,39 @@ export function CampaignDetailView({ campaign, onBack }: Props) {
             </button>
           ))}
         </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border">
-              {['Full Name','Company','Email','Country','Status','Last Activity'].map(h => (
-                <th key={h} className="text-left text-xs font-semibold text-muted-foreground pb-2 pr-4 whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(r => (
-              <tr key={r.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                <td className="py-2.5 pr-4 font-medium text-foreground whitespace-nowrap">{r.fullname}</td>
-                <td className="py-2.5 pr-4 text-muted-foreground">{r.company}</td>
-                <td className="py-2.5 pr-4 text-muted-foreground font-mono text-xs">{r.email}</td>
-                <td className="py-2.5 pr-4 text-muted-foreground">{r.country}</td>
-                <td className="py-2.5 pr-4">
-                  <span className={cn('inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold capitalize', getStatusBadgeClass(r.status))}>
-                    {r.status}
-                  </span>
-                </td>
-                <td className="py-2.5 pr-4 text-muted-foreground whitespace-nowrap">
-                  {formatDate(r.lastActivity)} {formatTime(r.lastActivity)}
-                </td>
+        {loading ? (
+          <p className="text-xs text-muted-foreground py-8 text-center">Loading recipients…</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-8 text-center">No recipients in this view</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                {['Full Name','Company','Email','Country','Status','Last Activity'].map(h => (
+                  <th key={h} className="text-left text-xs font-semibold text-muted-foreground pb-2 pr-4 whitespace-nowrap">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map(r => (
+                <tr key={r.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                  <td className="py-2.5 pr-4 font-medium text-foreground whitespace-nowrap">{r.prospects?.fullname ?? '—'}</td>
+                  <td className="py-2.5 pr-4 text-muted-foreground">{r.prospects?.company ?? '—'}</td>
+                  <td className="py-2.5 pr-4 text-muted-foreground font-mono text-xs">{r.prospects?.email ?? '—'}</td>
+                  <td className="py-2.5 pr-4 text-muted-foreground">{r.prospects?.country ?? '—'}</td>
+                  <td className="py-2.5 pr-4">
+                    <span className={cn('inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold capitalize', getStatusBadgeClass(r.status))}>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td className="py-2.5 pr-4 text-muted-foreground whitespace-nowrap">
+                    {formatDate(lastActivityOf(r))} {formatTime(lastActivityOf(r))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
