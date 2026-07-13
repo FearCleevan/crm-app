@@ -20,18 +20,12 @@ const EVENT_LABEL: Record<CampaignEvent['type'], string> = {
   replied: 'Reply received from',
 }
 
-// Mock feed — in backend phase this comes from email_events
-export const MOCK_CAMPAIGN_EVENTS: CampaignEvent[] = [
-  { id: '1', type: 'sent',    occurredAt: '2026-06-10T10:00:00Z', campaignName: 'US Small Business Outreach' },
-  { id: '2', type: 'opened',  occurredAt: '2026-06-11T14:30:00Z', campaignName: 'US Small Business Outreach' },
-  { id: '3', type: 'clicked', occurredAt: '2026-06-11T14:31:00Z', campaignName: 'US Small Business Outreach' },
-  { id: '4', type: 'replied', occurredAt: '2026-06-14T09:00:00Z', campaignName: 'US Small Business Outreach' },
-]
+interface Props { events: CampaignEvent[] }
 
-interface Props { events?: CampaignEvent[] }
-
-export function CampaignActivityFeed({ events = MOCK_CAMPAIGN_EVENTS }: Props) {
-  if (events.length === 0) return null
+export function CampaignActivityFeed({ events }: Props) {
+  if (events.length === 0) {
+    return <p className="text-xs text-muted-foreground">No campaign activity for this prospect yet.</p>
+  }
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold text-foreground">Campaign Activity</p>
