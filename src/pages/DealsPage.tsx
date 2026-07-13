@@ -37,6 +37,7 @@ function rowToDeal(row: DealRow): Deal {
     )),
     description: row.description ?? '',
     createdOn: row.created_at,
+    sourceCampaignName: row.source_campaign_name,
   }
 }
 

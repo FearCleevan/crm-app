@@ -38,7 +38,7 @@ const STAGE_MAP: Record<string, string> = {
   replied: 'Qualified',
 }
 
-async function autoPipelineUpdate(prospectId: number, eventType: string) {
+async function autoPipelineUpdate(prospectId: number, eventType: string, campaignId: string, campaignName: string) {
   const newStage = STAGE_MAP[eventType]
   if (!newStage) return
 
@@ -80,6 +80,8 @@ async function autoPipelineUpdate(prospectId: number, eventType: string) {
       probability:         30,
       expected_close_date: closeDate.toISOString().split('T')[0],
       stage_changed_at:    new Date().toISOString(),
+      source_campaign_id:   campaignId,
+      source_campaign_name: campaignName,
     })
   }
 }
@@ -148,7 +150,7 @@ Deno.serve(async (req) => {
   })
 
   // Trigger pipeline auto-update
-  await autoPipelineUpdate(Number(recipient.prospect_id), eventType)
+  await autoPipelineUpdate(Number(recipient.prospect_id), eventType, recipient.campaign_id, campaignName)
 
   return new Response(JSON.stringify({ ok: true }), {
     headers: { 'Content-Type': 'application/json' },

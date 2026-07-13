@@ -119,6 +119,8 @@ export function AddDealModal({ open, onClose, onAdd, userId, users }: AddDealMod
       description:        data.description ?? null,
       created_by:         userId || null,
       stage_changed_at:   new Date().toISOString(),
+      source_campaign_id:   null,
+      source_campaign_name: null,
     }
     await onAdd(payload)
     handleClose()

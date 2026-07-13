@@ -131,6 +131,8 @@ export interface DealRow {
   created_by: string | null       // uuid → crm_users.id
   created_at: string              // timestamptz
   updated_at: string              // timestamptz
+  source_campaign_id: string | null    // uuid → email_campaigns.id
+  source_campaign_name: string | null
 }
 
 export type DealInsert = Omit<DealRow, 'id' | 'created_at' | 'updated_at'>
