@@ -81,7 +81,14 @@ function safeDate(d: string | undefined | null): string {
 }
 
 // ── Cell renderer ──────────────────────────────────────────────
-const CellContent = memo(function CellContent({ col, p, compact }: { col: ColDef; p: Prospect; compact: boolean }) {
+const CellContent = memo(function CellContent({
+  col, p, compact, campaignActivity,
+}: {
+  col: ColDef
+  p: Prospect
+  compact: boolean
+  campaignActivity: Map<number, { campaignName: string; status: string; lastActivity: string }>
+}) {
   switch (col.key) {
     case 'fullname':
       return (
@@ -106,7 +113,15 @@ const CellContent = memo(function CellContent({ col, p, compact }: { col: ColDef
     case 'dispositioncode': return <DispositionBadge code={p.dispositioncode} />
     case 'providercode':   return <span className="text-xs text-muted-foreground">{providerName(p.providercode)}</span>
     case 'status':         return <StatusBadge status={p.status} />
-    case 'lastcampaign':   return <span className="text-xs text-muted-foreground whitespace-nowrap">—</span>
+    case 'lastcampaign': {
+      const activity = campaignActivity.get(Number(p.id))
+      if (!activity) return <span className="text-xs text-muted-foreground whitespace-nowrap">—</span>
+      return (
+        <span className="text-xs text-muted-foreground whitespace-nowrap truncate block max-w-[140px]" title={`${activity.campaignName} · ${activity.status}`}>
+          {activity.campaignName} · <span className="capitalize">{activity.status}</span>
+        </span>
+      )
+    }
     case 'createdon':      return <span className="text-xs text-muted-foreground whitespace-nowrap">{safeDate(p.createdon)}</span>
     case 'annualrevenue':  return <span className="text-xs text-muted-foreground">{p.annualrevenue ? `$${Number(p.annualrevenue).toLocaleString()}` : '—'}</span>
     case 'employeesize':   return <span className="text-xs text-muted-foreground">{p.employeesize ? Number(p.employeesize).toLocaleString() : '—'}</span>
@@ -153,6 +168,7 @@ interface ProspectsTableProps {
   onBulkDelete: (ids: string[]) => void
   onBulkStatusChange: (ids: string[], status: Prospect['status']) => void
   isLoading?: boolean
+  campaignActivity: Map<number, { campaignName: string; status: string; lastActivity: string }>
 }
 
 // ── Component ──────────────────────────────────────────────────
@@ -173,6 +189,7 @@ export function ProspectsTable({
   onBulkDelete,
   onBulkStatusChange,
   isLoading,
+  campaignActivity,
 }: ProspectsTableProps) {
   // ── Selection ─────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -455,7 +472,7 @@ export function ProspectsTable({
                 {/* Dynamic cells */}
                 {activeCols.map(col => (
                   <td key={col.key} className={cn(cellPad, textSz, 'overflow-hidden')}>
-                    <CellContent col={col} p={p} compact={compact} />
+                    <CellContent col={col} p={p} compact={compact} campaignActivity={campaignActivity} />
                   </td>
                 ))}
 
