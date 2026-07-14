@@ -278,9 +278,29 @@ export function ComposeModal({
         toast.error('Scheduled time must be in the future')
         return
       }
-      const formatted = new Date(scheduledAt).toLocaleString()
-      toast.success(`Email scheduled for ${formatted}`)
-      onClose()
+      if (!user?.id) {
+        toast.error('You must be signed in to schedule an email')
+        return
+      }
+      setSending(true)
+      try {
+        await emailService.scheduleSend({
+          to:      toChips,
+          ...(ccChips.length > 0 ? { cc: ccChips } : {}),
+          ...(bccChips.length > 0 ? { bcc: bccChips } : {}),
+          subject: subject || '(no subject)',
+          html:    getFinalHtml(),
+          scheduledAt: new Date(scheduledAt).toISOString(),
+          userId: user.id,
+        })
+        const formatted = new Date(scheduledAt).toLocaleString()
+        toast.success(`Email scheduled for ${formatted}`)
+        onClose()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to schedule email')
+      } finally {
+        setSending(false)
+      }
       return
     }
 
