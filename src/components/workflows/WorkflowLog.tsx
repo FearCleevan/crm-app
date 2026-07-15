@@ -1,7 +1,7 @@
 import { CheckCircle2, XCircle, SkipForward, Clock, ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { MOCK_WORKFLOW_RUNS, type WorkflowRun } from '@/constants/mockWorkflows'
+import { type WorkflowRun } from '@/constants/mockWorkflows'
 
 const STATUS_META: Record<WorkflowRun['status'], { icon: typeof CheckCircle2; color: string; bg: string; label: string }> = {
   success: { icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/30', label: 'Success' },
@@ -18,15 +18,29 @@ function timeLabel(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export function WorkflowLog() {
+interface WorkflowLogProps {
+  runs: WorkflowRun[]
+  loading: boolean
+}
+
+export function WorkflowLog({ runs, loading }: WorkflowLogProps) {
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       <div className="px-5 py-4 border-b border-border">
         <h3 className="text-sm font-semibold text-foreground">Workflow Run Log</h3>
         <p className="text-xs text-muted-foreground mt-0.5">Recent automation executions across all workflows</p>
       </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">Loading run log…</div>
+      ) : runs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+          <Clock className="h-8 w-8 opacity-20" />
+          <p className="text-sm font-medium">No runs yet</p>
+          <p className="text-xs">Workflow runs will appear here once automations start executing</p>
+        </div>
+      ) : (
       <div className="divide-y divide-border">
-        {MOCK_WORKFLOW_RUNS.map(run => {
+        {runs.map(run => {
           const meta = STATUS_META[run.status]
           const Icon = meta.icon
           return (
@@ -60,6 +74,7 @@ export function WorkflowLog() {
           )
         })}
       </div>
+      )}
     </div>
   )
 }
