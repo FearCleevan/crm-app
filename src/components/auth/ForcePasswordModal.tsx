@@ -40,6 +40,7 @@ export function ForcePasswordModal() {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     mode: 'onChange',
+    defaultValues: { password: '', confirmPassword: '' },
   })
 
   if (!needsPasswordSetup) return null
