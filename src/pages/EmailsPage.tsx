@@ -11,6 +11,7 @@ import { CreateCampaignWizard } from '@/components/emails/CreateCampaignWizard'
 import type { CampaignFormData } from '@/components/emails/CreateCampaignWizard'
 import type { TemplateFormData } from '@/components/emails/TemplateModal'
 import { useCampaigns } from '@/hooks/useCampaigns'
+import { addRecipients } from '@/services/campaignService'
 import { useTemplates } from '@/hooks/useTemplates'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import type { Campaign } from '@/types/campaigns'
@@ -93,7 +94,7 @@ export function EmailsPage() {
         })
         toast.success('Campaign updated')
       } else {
-        await createCampaign({
+        const created = await createCampaign({
           user_id:        user.id,
           name:           data.name,
           description:    data.description,
@@ -104,6 +105,10 @@ export function EmailsPage() {
           send_days:      data.send_days,
           warmup_enabled: data.warmup_enabled,
         })
+        if (data.prospectIds.length > 0) {
+          await addRecipients(created.id, data.prospectIds)
+          await updateCampaign(created.id, { total_recipients: data.prospectIds.length })
+        }
         toast.success(data.status === 'active' ? 'Campaign launched!' : 'Campaign saved as draft')
       }
       setWizardOpen(false)

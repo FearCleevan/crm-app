@@ -25,6 +25,7 @@ export type CampaignFormData = {
   warmup_enabled: boolean
   status: Campaign['status']
   total_recipients: number
+  prospectIds: number[]
 }
 
 interface Props {
@@ -79,6 +80,7 @@ export function CreateCampaignWizard({ open, templates, initial, onClose, onSave
       warmup_enabled:   false,
       status,
       total_recipients: prospectIds.length,
+      prospectIds,
     })
     setStep(1); setSelectedTemplate(null); setProspectIds([])
   }
