@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { Plus, Zap, Play, BarChart2, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { TopbarSlot } from '@/context/TopbarContext'
@@ -7,56 +7,95 @@ import { WorkflowCard } from '@/components/workflows/WorkflowCard'
 import { WorkflowBuilder } from '@/components/workflows/WorkflowBuilder'
 import { WorkflowLog } from '@/components/workflows/WorkflowLog'
 import { PermissionGate } from '@/components/auth/PermissionGate'
-import { MOCK_WORKFLOWS, type Workflow } from '@/constants/mockWorkflows'
+import { useAuth } from '@/context/AuthContext'
+import * as workflowService from '@/services/workflowService'
+import { type Workflow, type WorkflowRun } from '@/constants/mockWorkflows'
 import { cn } from '@/lib/utils'
 
 type Tab = 'workflows' | 'log'
 
-function useWorkflowsState() {
-  const [workflows, setWorkflows] = useState<Workflow[]>(MOCK_WORKFLOWS)
+function useWorkflowsState(createdBy: string) {
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [runs, setRuns] = useState<WorkflowRun[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const add = useCallback((data: Omit<Workflow, 'id' | 'runCount' | 'lastRun' | 'createdOn'>) => {
-    const wf: Workflow = {
-      ...data,
-      id: `wf-${Date.now()}`,
-      runCount: 0,
-      lastRun: null,
-      createdOn: new Date().toISOString(),
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [wf, wr] = await Promise.all([
+        workflowService.getWorkflows(),
+        workflowService.getWorkflowRuns(),
+      ])
+      setWorkflows(wf)
+      setRuns(wr)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load workflows')
+    } finally {
+      setLoading(false)
     }
-    setWorkflows(prev => [wf, ...prev])
-    toast.success(`Workflow "${wf.name}" created`)
   }, [])
 
-  const update = useCallback((updated: Workflow) => {
-    setWorkflows(prev => prev.map(w => w.id === updated.id ? updated : w))
-    toast.success('Workflow updated')
+  useEffect(() => { load() }, [load])
+
+  const add = useCallback(async (data: Omit<Workflow, 'id' | 'runCount' | 'lastRun' | 'createdOn'>) => {
+    try {
+      const wf = await workflowService.createWorkflow(data, createdBy)
+      setWorkflows(prev => [wf, ...prev])
+      toast.success(`Workflow "${wf.name}" created`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create workflow')
+    }
+  }, [createdBy])
+
+  const update = useCallback(async (id: string, data: Omit<Workflow, 'id' | 'runCount' | 'lastRun' | 'createdOn'>) => {
+    try {
+      const wf = await workflowService.updateWorkflow(id, data)
+      setWorkflows(prev => prev.map(w => w.id === wf.id ? wf : w))
+      toast.success('Workflow updated')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update workflow')
+    }
   }, [])
 
-  const toggle = useCallback((id: string) => {
-    setWorkflows(prev => prev.map(w => {
-      if (w.id !== id) return w
-      const next = w.status === 'active' ? 'paused' : 'active'
+  const toggle = useCallback(async (id: string) => {
+    const current = workflows.find(w => w.id === id)
+    if (!current) return
+    const next = current.status === 'active' ? 'paused' : 'active'
+    try {
+      const wf = await workflowService.toggleWorkflowStatus(id, next)
+      setWorkflows(prev => prev.map(w => w.id === wf.id ? wf : w))
       toast.success(`Workflow ${next === 'active' ? 'activated' : 'paused'}`)
-      return { ...w, status: next }
-    }))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update workflow status')
+    }
+  }, [workflows])
+
+  const duplicate = useCallback(async (source: Workflow) => {
+    try {
+      const wf = await workflowService.duplicateWorkflow(source, createdBy)
+      setWorkflows(prev => [wf, ...prev])
+      toast.success('Workflow duplicated')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to duplicate workflow')
+    }
+  }, [createdBy])
+
+  const remove = useCallback(async (id: string) => {
+    try {
+      await workflowService.deleteWorkflow(id)
+      setWorkflows(prev => prev.filter(w => w.id !== id))
+      toast.success('Workflow deleted')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete workflow')
+    }
   }, [])
 
-  const duplicate = useCallback((wf: Workflow) => {
-    const copy: Workflow = { ...wf, id: `wf-${Date.now()}`, name: `${wf.name} (Copy)`, status: 'paused', runCount: 0, lastRun: null, createdOn: new Date().toISOString() }
-    setWorkflows(prev => [copy, ...prev])
-    toast.success('Workflow duplicated')
-  }, [])
-
-  const remove = useCallback((id: string) => {
-    setWorkflows(prev => prev.filter(w => w.id !== id))
-    toast.success('Workflow deleted')
-  }, [])
-
-  return { workflows, add, update, toggle, duplicate, remove }
+  return { workflows, runs, loading, add, update, toggle, duplicate, remove }
 }
 
 export function WorkflowsPage() {
-  const { workflows, add, update, toggle, duplicate, remove } = useWorkflowsState()
+  const { user } = useAuth()
+  const { workflows, runs, loading, add, update, toggle, duplicate, remove } = useWorkflowsState(user?.id ?? '')
   const [tab, setTab] = useState<Tab>('workflows')
   const [builderOpen, setBuilderOpen] = useState(false)
   const [editing, setEditing] = useState<Workflow | null>(null)
@@ -82,7 +121,7 @@ export function WorkflowsPage() {
 
   function handleSave(data: Omit<Workflow, 'id' | 'runCount' | 'lastRun' | 'createdOn'>) {
     if (editing) {
-      update({ ...editing, ...data })
+      update(editing.id, data)
       setEditing(null)
     } else {
       add(data)
@@ -184,7 +223,9 @@ export function WorkflowsPage() {
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'workflows' && (
             <>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Loading workflows…</div>
+              ) : filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
                   <Zap className="h-10 w-10 opacity-20" />
                   <p className="font-medium">No workflows found</p>
@@ -213,7 +254,7 @@ export function WorkflowsPage() {
             </>
           )}
 
-          {tab === 'log' && <WorkflowLog />}
+          {tab === 'log' && <WorkflowLog runs={runs} loading={loading} />}
         </div>
       </PageWrapper>
 
