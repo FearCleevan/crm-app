@@ -157,5 +157,5 @@ export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
     .order('created_at', { ascending: false })
     .limit(50)
   if (error) throw error
-  return ((data ?? []) as WorkflowRunRow[]).map(mapRunRow)
+  return ((data ?? []) as unknown as WorkflowRunRow[]).map(mapRunRow)
 }
