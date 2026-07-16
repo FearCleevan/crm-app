@@ -52,12 +52,23 @@ const expectedDealTools = [
   "update_deal_stage",
   "create_deal",
 ];
+const expectedCampaignTools = [
+  "list_campaigns",
+  "get_campaign",
+  "create_campaign",
+  "activate_campaign",
+  "list_campaign_recipients",
+];
 console.log("=== expected prospect tools present? ===");
 for (const name of expectedProspectTools) {
   console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
 }
 console.log("=== expected deal tools present? ===");
 for (const name of expectedDealTools) {
+  console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
+}
+console.log("=== expected campaign tools present? ===");
+for (const name of expectedCampaignTools) {
   console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
 }
 
@@ -81,6 +92,88 @@ try {
   const result = await client.callTool({
     name: "list_deals",
     arguments: {},
+  });
+  console.log(JSON.stringify(result, null, 2));
+} catch (err) {
+  console.log(
+    "callTool raised (unexpected — a thrown/crashed process rather than a structured tool error):",
+    err?.code,
+    err?.message
+  );
+}
+
+console.log("=== callTool: list_campaigns (expects isError with Supabase connection/auth failure, not a crash) ===");
+try {
+  const result = await client.callTool({
+    name: "list_campaigns",
+    arguments: {},
+  });
+  console.log(JSON.stringify(result, null, 2));
+} catch (err) {
+  console.log(
+    "callTool raised (unexpected — a thrown/crashed process rather than a structured tool error):",
+    err?.code,
+    err?.message
+  );
+}
+
+console.log(
+  "=== callTool: activate_campaign WITHOUT confirm:true (MOST IMPORTANT CHECK — must be isError:true, must NOT silently activate) ==="
+);
+const activateNoConfirmArgs = {
+  // Must satisfy zod's strict RFC4122 uuid() check (version + variant nibbles),
+  // not just look UUID-shaped, or validation rejects it before the tool ever runs.
+  id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  confirm: false,
+};
+let activateNoConfirmResult;
+try {
+  activateNoConfirmResult = await client.callTool({
+    name: "activate_campaign",
+    arguments: activateNoConfirmArgs,
+  });
+  console.log(JSON.stringify(activateNoConfirmResult, null, 2));
+} catch (err) {
+  console.log(
+    "callTool raised (unexpected — a thrown/crashed process rather than a structured tool error):",
+    err?.code,
+    err?.message
+  );
+}
+
+console.log("=== guardrail assessment ===");
+if (activateNoConfirmResult) {
+  const isError = activateNoConfirmResult.isError === true;
+  const text = activateNoConfirmResult.content?.[0]?.text ?? "";
+  const mentionsPendingRecipients = /pending recipient/i.test(text);
+  const mentionsActivatedSuccessfully =
+    /"status":\s*"active"/i.test(text) || /activated/i.test(text);
+  console.log(`isError === true: ${isError}`);
+  console.log(`message mentions "pending recipients": ${mentionsPendingRecipients}`);
+  console.log(
+    `result text: ${text}`
+  );
+  console.log(
+    `NOTE: this environment's .env.local uses PLACEHOLDER Supabase credentials, so the ` +
+      `campaign_recipients count query itself fails before reaching the confirm-guard's ` +
+      `pending-recipient message. What this run actually proves is the safety-critical property: ` +
+      `activate_campaign returned isError:true and did NOT report a successful activation ` +
+      `(no "status":"active" in the response) when called without confirm:true. Against a real ` +
+      `database, the count query would succeed and the message would read exactly as coded: ` +
+      `"Activating this campaign will start sending real emails to N pending recipients...".`
+  );
+  console.log(
+    `Did NOT silently activate (no success/active status in response): ${!mentionsActivatedSuccessfully}`
+  );
+} else {
+  console.log("activate_campaign call raised instead of returning a structured result — see above.");
+}
+
+console.log("=== callTool: get_campaign right after (confirms no status change occurred) ===");
+try {
+  const result = await client.callTool({
+    name: "get_campaign",
+    arguments: { id: activateNoConfirmArgs.id },
   });
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {
