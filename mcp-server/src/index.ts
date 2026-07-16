@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { pathToFileURL } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
@@ -12,7 +13,11 @@ async function main() {
   await server.connect(transport)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Use pathToFileURL for a platform-correct comparison — on Windows,
+// `file://${process.argv[1]}` (backslashes, missing drive-letter slash)
+// never equals import.meta.url, so this guard previously never matched
+// and main() never ran.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   main().catch((err) => {
     console.error('[crm-mcp-server] fatal error:', err)
     process.exit(1)
