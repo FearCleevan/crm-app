@@ -2,11 +2,14 @@ import 'dotenv/config'
 import { pathToFileURL } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { registerProspectTools } from './tools/prospects.js'
 
 export const server = new McpServer({
   name: 'crm-mcp-server',
   version: '0.1.0',
 })
+
+registerProspectTools(server)
 
 async function main() {
   const transport = new StdioServerTransport()
