@@ -88,6 +88,43 @@ for (const name of expectedWorkflowTools) {
   console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
 }
 
+const expectedReportTools = ["get_report"];
+console.log("=== expected report tools present? ===");
+for (const name of expectedReportTools) {
+  console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
+}
+
+console.log("=== get_report schema check (type enum + date_range enum) ===");
+try {
+  const tools = await client.listTools();
+  const getReportTool = (tools.tools ?? []).find((t) => t.name === "get_report");
+  if (!getReportTool) {
+    console.log("get_report tool not found in tools/list — cannot check schema.");
+  } else {
+    const schema = getReportTool.inputSchema;
+    const typeEnum = schema?.properties?.type?.enum ?? [];
+    const dateRangeEnum = schema?.properties?.date_range?.enum ?? [];
+    const expectedTypeEnum = [
+      "dashboard_metrics",
+      "revenue_by_month",
+      "leads_breakdown",
+      "conversion_funnel",
+      "activity_breakdown",
+    ];
+    const expectedDateRangeEnum = ["7d", "30d", "month", "quarter", "year"];
+    console.log("type enum (actual):", JSON.stringify(typeEnum));
+    console.log("type enum matches expected 5 values:",
+      expectedTypeEnum.length === typeEnum.length &&
+        expectedTypeEnum.every((v) => typeEnum.includes(v)));
+    console.log("date_range enum (actual):", JSON.stringify(dateRangeEnum));
+    console.log("date_range enum matches expected:",
+      expectedDateRangeEnum.length === dateRangeEnum.length &&
+        expectedDateRangeEnum.every((v) => dateRangeEnum.includes(v)));
+  }
+} catch (err) {
+  console.log("schema check raised:", err?.code, err?.message);
+}
+
 console.log("=== callTool: search_prospects (expects isError with Supabase connection/auth failure, not a crash) ===");
 try {
   const result = await client.callTool({
@@ -235,6 +272,21 @@ try {
   const result = await client.callTool({
     name: "get_workflow_runs",
     arguments: { workflow_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+  });
+  console.log(JSON.stringify(result, null, 2));
+} catch (err) {
+  console.log(
+    "callTool raised (unexpected — a thrown/crashed process rather than a structured tool error):",
+    err?.code,
+    err?.message
+  );
+}
+
+console.log("=== callTool: get_report type=dashboard_metrics (expects isError with Supabase RPC connection error, not a crash) ===");
+try {
+  const result = await client.callTool({
+    name: "get_report",
+    arguments: { type: "dashboard_metrics" },
   });
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {
