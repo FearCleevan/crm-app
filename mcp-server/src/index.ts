@@ -5,6 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { registerProspectTools } from './tools/prospects.js'
 import { registerDealTools } from './tools/deals.js'
 import { registerCampaignTools } from './tools/campaigns.js'
+import { registerNoteTools } from './tools/notes.js'
 
 export const server = new McpServer({
   name: 'crm-mcp-server',
@@ -14,6 +15,7 @@ export const server = new McpServer({
 registerProspectTools(server)
 registerDealTools(server)
 registerCampaignTools(server)
+registerNoteTools(server)
 
 async function main() {
   const transport = new StdioServerTransport()
