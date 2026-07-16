@@ -112,3 +112,59 @@ export async function getRecipients(campaignId: string): Promise<CampaignRecipie
   if (error) throw error
   return (data ?? []) as CampaignRecipient[]
 }
+
+export interface ProspectCampaignEvent {
+  id: string
+  type: 'sent' | 'opened' | 'clicked' | 'replied'
+  occurredAt: string
+  campaignName: string
+}
+
+export async function getProspectCampaignEvents(prospectId: number): Promise<ProspectCampaignEvent[]> {
+  const { data, error } = await supabase
+    .from('email_events')
+    .select('id, event_type, occurred_at, email_campaigns(name)')
+    .eq('prospect_id', prospectId)
+    .in('event_type', ['sent', 'opened', 'clicked', 'replied'])
+    .order('occurred_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(row => ({
+    id: row.id,
+    type: row.event_type as ProspectCampaignEvent['type'],
+    occurredAt: row.occurred_at,
+    campaignName: (row.email_campaigns as unknown as { name: string } | null)?.name ?? 'Campaign',
+  }))
+}
+
+export interface LatestCampaignActivity {
+  campaignName: string
+  status: string
+  lastActivity: string
+}
+
+export async function getLatestCampaignActivity(
+  prospectIds: number[]
+): Promise<Map<number, LatestCampaignActivity>> {
+  const result = new Map<number, LatestCampaignActivity>()
+  if (prospectIds.length === 0) return result
+
+  const { data, error } = await supabase
+    .from('campaign_recipients')
+    .select('prospect_id, status, sent_at, opened_at, clicked_at, replied_at, bounced_at, unsubscribed_at, created_at, email_campaigns(name)')
+    .in('prospect_id', prospectIds)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+
+  for (const row of data ?? []) {
+    const pid = row.prospect_id as number
+    if (result.has(pid)) continue // keep the most recent per prospect (already ordered desc)
+    const lastActivity =
+      row.replied_at ?? row.clicked_at ?? row.opened_at ?? row.bounced_at ?? row.unsubscribed_at ?? row.sent_at ?? row.created_at
+    result.set(pid, {
+      campaignName: (row.email_campaigns as unknown as { name: string } | null)?.name ?? 'Campaign',
+      status: row.status,
+      lastActivity,
+    })
+  }
+  return result
+}

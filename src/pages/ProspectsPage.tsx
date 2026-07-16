@@ -25,6 +25,7 @@ import { useProspects } from '@/hooks/useProspects'
 import { useFilterOptions, invalidateFilterCache } from '@/hooks/useFilterOptions'
 import { prospectsService } from '@/services/prospects.service'
 import { rateLimiter } from '@/services/rateLimiter.service'
+import { getLatestCampaignActivity } from '@/services/campaignService'
 import type { ProspectRow, ProspectInsert, ProspectUpdate } from '@/types/database'
 import type { Prospect } from '@/constants/mockData'
 import type { ProspectFormValues } from '@/components/prospects/ProspectForm'
@@ -204,6 +205,20 @@ export function ProspectsPage() {
     })
 
   const prospects = useMemo(() => data.map(rowToProspect), [data])
+
+  // ── Campaign activity (per-page bulk lookup) ──────────────
+  const [campaignActivity, setCampaignActivity] = useState<Map<number, { campaignName: string; status: string; lastActivity: string }>>(new Map())
+
+  useEffect(() => {
+    const ids = prospects.map(p => Number(p.id)).filter(id => !Number.isNaN(id))
+    let cancelled = false
+    // getLatestCampaignActivity resolves an empty Map without hitting the network
+    // when ids is empty, so no separate synchronous early-return branch is needed here.
+    getLatestCampaignActivity(ids)
+      .then(map => { if (!cancelled) setCampaignActivity(map) })
+      .catch(() => { if (!cancelled) setCampaignActivity(new Map()) })
+    return () => { cancelled = true }
+  }, [prospects])
 
   // ── Column / compact state (persisted) ───────────────────
   const [visibleCols, setVisibleCols] = useState<Set<string>>(loadVisibleCols)
@@ -629,6 +644,7 @@ export function ProspectsPage() {
             onBulkDelete={handleBulkDelete}
             onBulkStatusChange={handleBulkStatusChange}
             isLoading={loading}
+            campaignActivity={campaignActivity}
           />
         </div>
       </PageWrapper>

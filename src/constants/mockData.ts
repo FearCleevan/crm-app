@@ -62,6 +62,7 @@ export interface Deal {
   daysInStage: number
   description: string
   createdOn: string
+  sourceCampaignName: string | null
 }
 
 // ── Lookup tables ──────────────────────────────────────────────
@@ -298,6 +299,7 @@ export const MOCK_DEALS: Deal[] = MOCK_PROSPECTS.slice(0, 20).map((p, i) => ({
   daysInStage: Math.floor(seededRandom((i + 1) * 53) * 30 + 1),
   description: `Potential ${dealStages[i % dealStages.length]} deal with ${p.company}.`,
   createdOn: p.createdon,
+  sourceCampaignName: null,
 }))
 
 // ── Dashboard mock metrics ─────────────────────────────────────

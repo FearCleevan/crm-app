@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   X, Pencil, Trash2, Phone, Mail, ExternalLink, Globe,
   Building2, MapPin, User, Calendar, Tag, Briefcase,
@@ -13,6 +13,7 @@ import { ProspectForm, type ProspectFormValues } from './ProspectForm'
 import type { Prospect } from '@/constants/mockData'
 import { MOCK_USERS, DISPOSITION_CODES, EMAIL_STATUSES, PROVIDERS } from '@/constants/mockData'
 import { CampaignActivityFeed } from './CampaignActivityFeed'
+import { getProspectCampaignEvents, type ProspectCampaignEvent } from '@/services/campaignService'
 
 
 interface MockNote {
@@ -109,6 +110,15 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
     { id: 'n2', text: 'Left voicemail — no response yet. Try again Friday.', authorId: 'usr-003', createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString() },
   ])
   const [noteInput, setNoteInput] = useState('')
+  const [campaignEvents, setCampaignEvents] = useState<ProspectCampaignEvent[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    getProspectCampaignEvents(Number(prospect.id))
+      .then(events => { if (!cancelled) setCampaignEvents(events) })
+      .catch(() => { if (!cancelled) setCampaignEvents([]) })
+    return () => { cancelled = true }
+  }, [prospect.id])
 
   const dispositionLabel = DISPOSITION_CODES.find(d => d.code === prospect.dispositioncode)?.name ?? prospect.dispositioncode
   const emailStatusLabel = EMAIL_STATUSES.find(e => e.code === prospect.emailcode)?.name ?? prospect.emailcode
@@ -345,7 +355,7 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
               {/* Campaign activity feed */}
               <SectionCard title="Campaign Activity">
                 <div className="py-3">
-                  <CampaignActivityFeed />
+                  <CampaignActivityFeed events={campaignEvents} />
                 </div>
               </SectionCard>
             </>

@@ -88,7 +88,7 @@ export function DealCard({ deal, users, onClick, overlay = false }: DealCardProp
           )}
 
           {/* Campaign badge */}
-          {(deal as any).fromCampaign && <CampaignBadge campaignName={(deal as any).fromCampaign} />}
+          {deal.sourceCampaignName && <CampaignBadge campaignName={deal.sourceCampaignName} />}
         </div>
       </div>
     </div>
