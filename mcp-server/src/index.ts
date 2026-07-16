@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { registerProspectTools } from './tools/prospects.js'
+import { registerDealTools } from './tools/deals.js'
 
 export const server = new McpServer({
   name: 'crm-mcp-server',
@@ -10,6 +11,7 @@ export const server = new McpServer({
 })
 
 registerProspectTools(server)
+registerDealTools(server)
 
 async function main() {
   const transport = new StdioServerTransport()
