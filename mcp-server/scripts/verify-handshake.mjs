@@ -63,6 +63,10 @@ const expectedNoteTools = [
   "list_notes",
   "add_note",
 ];
+const expectedWorkflowTools = [
+  "list_workflows",
+  "get_workflow_runs",
+];
 console.log("=== expected prospect tools present? ===");
 for (const name of expectedProspectTools) {
   console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
@@ -77,6 +81,10 @@ for (const name of expectedCampaignTools) {
 }
 console.log("=== expected note tools present? ===");
 for (const name of expectedNoteTools) {
+  console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
+}
+console.log("=== expected workflow tools present? ===");
+for (const name of expectedWorkflowTools) {
   console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
 }
 
@@ -197,6 +205,36 @@ try {
   const result = await client.callTool({
     name: "get_campaign",
     arguments: { id: activateNoConfirmArgs.id },
+  });
+  console.log(JSON.stringify(result, null, 2));
+} catch (err) {
+  console.log(
+    "callTool raised (unexpected — a thrown/crashed process rather than a structured tool error):",
+    err?.code,
+    err?.message
+  );
+}
+
+console.log("=== callTool: list_workflows (expects isError with Supabase connection/auth failure, not a crash) ===");
+try {
+  const result = await client.callTool({
+    name: "list_workflows",
+    arguments: {},
+  });
+  console.log(JSON.stringify(result, null, 2));
+} catch (err) {
+  console.log(
+    "callTool raised (unexpected — a thrown/crashed process rather than a structured tool error):",
+    err?.code,
+    err?.message
+  );
+}
+
+console.log("=== callTool: get_workflow_runs with fake workflow_id (expects isError with Supabase connection/auth failure, not a crash) ===");
+try {
+  const result = await client.callTool({
+    name: "get_workflow_runs",
+    arguments: { workflow_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
   });
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {
