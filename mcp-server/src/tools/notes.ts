@@ -33,6 +33,11 @@ export function registerNoteTools(server: McpServer) {
     'Add a note to a prospect',
     { prospect_id: z.number().int(), title: z.string().min(1), description: z.string().optional() },
     async ({ prospect_id, title, description }) => {
+      if (!MCP_CRM_USER_ID) {
+        return errorResult(
+          'MCP_CRM_USER_ID is not set in .env.local — set it to a real crm_users.id before adding notes, so notes are attributed correctly instead of silently written with created_by: null.',
+        )
+      }
       const { data, error } = await supabase
         .from('activities')
         .insert({

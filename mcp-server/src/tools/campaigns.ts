@@ -81,11 +81,37 @@ export function registerCampaignTools(server: McpServer) {
         .eq('campaign_id', id)
         .eq('status', 'pending')
       if (countErr) return errorResult(countErr.message)
+      // count can come back null (without an error) in edge cases — e.g. certain
+      // RLS/head-query interactions. This is the one human-facing safety prompt
+      // in the server, so never let a null count silently render as "0 pending
+      // recipients" and mislead someone into confirming activation. Treat an
+      // indeterminate count the same as an error: bail out rather than show a
+      // number that might be wrong.
+      if (count === null) {
+        return errorResult(
+          `Could not determine the number of pending recipients for campaign ${id} ` +
+            `(count query returned null). Refusing to proceed with activation until this can be verified.`,
+        )
+      }
 
       if (!confirm) {
         return errorResult(
-          `Activating this campaign will start sending real emails to ${count ?? 0} pending recipients ` +
+          `Activating campaign ${id} will start sending real emails to ${count} pending recipients ` +
             `(picked up by the dispatch-campaign-batch cron job within 15 minutes). Re-call with confirm: true to proceed.`,
+        )
+      }
+
+      const { data: existing, error: fetchErr } = await supabase
+        .from('email_campaigns')
+        .select('id, status')
+        .eq('id', id)
+        .maybeSingle()
+      if (fetchErr) return errorResult(fetchErr.message)
+      if (!existing) return errorResult(`No campaign found with id ${id}`)
+      if (existing.status === 'active' || existing.status === 'completed') {
+        return errorResult(
+          `Campaign ${id} is already "${existing.status}" — refusing to re-activate. ` +
+            `Only draft or paused campaigns can be activated.`,
         )
       }
 

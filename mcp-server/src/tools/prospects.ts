@@ -22,10 +22,16 @@ export function registerProspectTools(server: McpServer) {
       limit: z.number().int().min(1).max(100).default(20),
     },
     async ({ query, limit }) => {
+      // PostgREST's .or() filter string uses commas to separate conditions and
+      // parentheses for grouping, so a literal comma or paren in the search term
+      // would break the filter's parsing (or worse, be interpreted as extra
+      // filter syntax). Strip them out rather than change search semantics —
+      // they're not meaningful characters to match against name/email/company.
+      const sanitized = query.replace(/[(),]/g, '')
       const { data, error } = await supabase
         .from('prospects')
         .select(PROSPECT_COLUMNS)
-        .or(`fullname.ilike.%${query}%,email.ilike.%${query}%,company.ilike.%${query}%`)
+        .or(`fullname.ilike.%${sanitized}%,email.ilike.%${sanitized}%,company.ilike.%${sanitized}%`)
         .limit(limit)
       if (error) return errorResult(error.message)
       return jsonResult(data)
