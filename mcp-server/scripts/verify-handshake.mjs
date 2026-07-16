@@ -40,14 +40,24 @@ try {
   );
 }
 
-const expectedTools = [
+const expectedProspectTools = [
   "search_prospects",
   "get_prospect",
   "create_prospect",
   "update_prospect",
 ];
+const expectedDealTools = [
+  "list_deals",
+  "get_deal",
+  "update_deal_stage",
+  "create_deal",
+];
 console.log("=== expected prospect tools present? ===");
-for (const name of expectedTools) {
+for (const name of expectedProspectTools) {
+  console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
+}
+console.log("=== expected deal tools present? ===");
+for (const name of expectedDealTools) {
   console.log(`${name}: ${toolNames.includes(name) ? "FOUND" : "MISSING"}`);
 }
 
@@ -56,6 +66,21 @@ try {
   const result = await client.callTool({
     name: "search_prospects",
     arguments: { query: "a", limit: 5 },
+  });
+  console.log(JSON.stringify(result, null, 2));
+} catch (err) {
+  console.log(
+    "callTool raised (unexpected — a thrown/crashed process rather than a structured tool error):",
+    err?.code,
+    err?.message
+  );
+}
+
+console.log("=== callTool: list_deals (expects isError with Supabase connection/auth failure, not a crash) ===");
+try {
+  const result = await client.callTool({
+    name: "list_deals",
+    arguments: {},
   });
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {
