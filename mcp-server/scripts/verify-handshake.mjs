@@ -1,18 +1,15 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import path from "node:path";
 
-// dist/index.js loads config via `dotenv/config`, which only reads `.env` by
-// default. This repo's real config file is `.env.local` (gitignored), so we
-// point dotenv at it explicitly via DOTENV_CONFIG_PATH when spawning the
-// server, the same way `npm start` would need to in a real deployment.
+// dist/index.js now loads `.env.local` itself, resolved relative to its own
+// location (not cwd or any environment variable) — the same way it will be
+// launched for real via `claude mcp add crm -- node
+// crm-app/mcp-server/dist/index.js`. No DOTENV_CONFIG_PATH or cwd help here,
+// on purpose: this is what proves the real launch path works.
 const transport = new StdioClientTransport({
   command: process.execPath,
   args: ["dist/index.js"],
-  env: {
-    ...process.env,
-    DOTENV_CONFIG_PATH: path.resolve(process.cwd(), ".env.local"),
-  },
+  env: { ...process.env },
 });
 
 const client = new Client(

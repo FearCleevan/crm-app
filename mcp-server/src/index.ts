@@ -1,4 +1,8 @@
-import 'dotenv/config'
+// Must be the first import: it loads .env.local before any other module
+// (like ../supabaseClient.js, transitively imported below) reads process.env
+// at module-evaluation time. See src/env.ts for why this has to be a
+// separate imported module rather than an inline statement in this file.
+import './env.js'
 import { pathToFileURL } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
