@@ -7,6 +7,7 @@ import { registerDealTools } from './tools/deals.js'
 import { registerCampaignTools } from './tools/campaigns.js'
 import { registerNoteTools } from './tools/notes.js'
 import { registerWorkflowTools } from './tools/workflows.js'
+import { registerReportTools } from './tools/reports.js'
 
 export const server = new McpServer({
   name: 'crm-mcp-server',
@@ -18,6 +19,7 @@ registerDealTools(server)
 registerCampaignTools(server)
 registerNoteTools(server)
 registerWorkflowTools(server)
+registerReportTools(server)
 
 async function main() {
   const transport = new StdioServerTransport()
