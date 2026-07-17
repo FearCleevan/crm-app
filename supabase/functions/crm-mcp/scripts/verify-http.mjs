@@ -96,6 +96,19 @@ async function main() {
   console.log(JSON.stringify(callRes.body, null, 2))
   if (callRes.body?.result?.isError !== true) throw new Error('expected isError:true from search_prospects')
 
+  console.log('=== tools/list (expect 8 tools: 4 prospect + 4 deal) ===')
+  const list3 = await rpc('tools/list', {}, 5)
+  const names2 = list3.body.result.tools.map((t) => t.name)
+  console.log(names2)
+  for (const expected of ['list_deals', 'get_deal', 'update_deal_stage', 'create_deal']) {
+    if (!names2.includes(expected)) throw new Error(`missing tool: ${expected}`)
+  }
+
+  console.log('=== tools/call: list_deals (expect isError, placeholder credentials) ===')
+  const dealsCall = await rpc('tools/call', { name: 'list_deals', arguments: {} }, 6)
+  console.log(JSON.stringify(dealsCall.body, null, 2))
+  if (dealsCall.body?.result?.isError !== true) throw new Error('expected isError:true from list_deals')
+
   console.log('ALL CHECKS PASSED')
   proc.kill()
   process.exit(0)
