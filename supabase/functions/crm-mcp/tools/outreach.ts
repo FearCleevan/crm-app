@@ -64,6 +64,9 @@ export const outreachTools: ToolDef[] = [
         return errorResult(resendData?.message ?? `Resend returned ${resendRes.status}`)
       }
 
+      // Deliberately not checking MCP_CRM_USER_ID for null here (unlike add_note/create_campaign):
+      // the email has already been sent, and this log write is best-effort (console.warn only on
+      // failure), so we don't want to fail a successfully-sent email over a missing attribution id.
       const { error: actErr } = await supabase.from('activities').insert({
         type: 'email',
         title: subject,

@@ -14,7 +14,12 @@ this connector is meant for one person, not the whole CRM team.
 1. Dashboard → Edge Functions → **Deploy a new function**, name it `crm-mcp`.
 2. Paste in the contents of every file under `crm-app/supabase/functions/crm-mcp/` (excluding
    `scripts/` and this README — only `index.ts`, `auth.ts`, `jsonRpc.ts`, `supabaseClient.ts`,
-   `config.ts`, and `tools/*.ts` are part of the deployed function).
+   `config.ts`, and `tools/*.ts` are part of the deployed function). Preserve the `tools/`
+   subdirectory structure when uploading through the Dashboard editor — those files must stay
+   under a `tools/` folder relative to `index.ts`, not be flattened alongside it. Also include
+   `deno.json`: it pins the exact dependency versions matching `deno.lock` (the ones this was
+   actually tested against). Omitting it still works, since the runtime falls back to resolving
+   unpinned versions from the bare `npm:` specifiers, but including it is safer.
 3. **Disable JWT verification for this function specifically** (Dashboard → Edge Functions →
    `crm-mcp` → toggle off "Verify JWT"). This function does its own auth check — Supabase's
    default JWT check would otherwise reject claude.ai's requests, since claude.ai sends our own

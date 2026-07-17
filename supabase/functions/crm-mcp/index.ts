@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: CORS })
 
-  if (!checkAuth(req)) {
+  if (!(await checkAuth(req))) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...CORS, 'Content-Type': 'application/json' },
