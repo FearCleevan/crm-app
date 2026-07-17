@@ -31,3 +31,6 @@ dist-ssr
 
 # Git worktrees (agent scratch workspaces)
 .worktrees
+
+# Subagent-driven-development scratch (ledgers, task briefs/reports, diffs)
+.superpowers
