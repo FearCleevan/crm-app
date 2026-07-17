@@ -157,6 +157,21 @@ async function main() {
   console.log(JSON.stringify(workflowsCall.body, null, 2))
   if (workflowsCall.body?.result?.isError !== true) throw new Error('expected isError:true from list_workflows')
 
+  console.log('=== tools/list (expect 18 tools: 4 prospect + 4 deal + 5 campaign + 2 note + 2 workflow + 1 report) ===')
+  const list7 = await rpc('tools/list', {}, 13)
+  const names6 = list7.body.result.tools.map((t) => t.name)
+  console.log(names6)
+  if (!names6.includes('get_report')) throw new Error('missing tool: get_report')
+
+  console.log('=== tools/call: get_report type=dashboard_metrics (expect isError, placeholder credentials) ===')
+  const reportCall = await rpc(
+    'tools/call',
+    { name: 'get_report', arguments: { type: 'dashboard_metrics' } },
+    14,
+  )
+  console.log(JSON.stringify(reportCall.body, null, 2))
+  if (reportCall.body?.result?.isError !== true) throw new Error('expected isError:true from get_report')
+
   console.log('ALL CHECKS PASSED')
   proc.kill()
   process.exit(0)
