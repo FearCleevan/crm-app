@@ -1,5 +1,4 @@
 import { z } from 'npm:zod@4'
-import { zodToJsonSchema } from 'npm:zod-to-json-schema@3'
 import { CORS, jsonRpcResult, jsonRpcError } from './jsonRpc.ts'
 import { checkAuth } from './auth.ts'
 import { TOOLS } from './tools/registry.ts'
@@ -44,7 +43,7 @@ Deno.serve(async (req) => {
         tools: TOOLS.map((t) => ({
           name: t.name,
           description: t.description,
-          inputSchema: zodToJsonSchema(z.object(t.schema)),
+          inputSchema: z.toJSONSchema(z.object(t.schema)),
         })),
       })
     }

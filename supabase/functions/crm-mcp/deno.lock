@@ -2,8 +2,7 @@
   "version": "5",
   "specifiers": {
     "npm:@supabase/supabase-js@2.43.4": "2.43.4",
-    "npm:zod-to-json-schema@3.22.5": "3.22.5_zod@4.0.8",
-    "npm:zod@4.0.8": "4.0.8"
+    "npm:zod@4.4.3": "4.4.3"
   },
   "npm": {
     "@supabase/auth-js@2.64.2": {
@@ -90,21 +89,14 @@
     "ws@8.21.1": {
       "integrity": "sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw=="
     },
-    "zod-to-json-schema@3.22.5_zod@4.0.8": {
-      "integrity": "sha512-+akaPo6a0zpVCCseDed504KBJUQpEW5QZw7RMneNmKw+fGaML1Z9tUNLnHHAC8x6dzVRO1eB2oEMyZRnuBZg7Q==",
-      "dependencies": [
-        "zod"
-      ]
-    },
-    "zod@4.0.8": {
-      "integrity": "sha512-+MSh9cZU9r3QKlHqrgHMTSr3QwMGv4PLfR0M4N/sYWV5/x67HgXEhIGObdBkpnX8G78pTgWnIrBL2lZcNJOtfg=="
+    "zod@4.4.3": {
+      "integrity": "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="
     }
   },
   "workspace": {
     "dependencies": [
       "npm:@supabase/supabase-js@2.43.4",
-      "npm:zod-to-json-schema@3.22.5",
-      "npm:zod@4.0.8"
+      "npm:zod@4.4.3"
     ]
   }
 }
