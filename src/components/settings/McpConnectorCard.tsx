@@ -11,8 +11,9 @@ export function McpConnectorCard() {
 
   async function testConnection() {
     setStatus('checking')
+    const timeout = AbortSignal.timeout(8000)
     try {
-      const res = await fetch(url, { method: 'OPTIONS' })
+      const res = await fetch(url, { method: 'OPTIONS', signal: timeout })
       setStatus(res.ok ? 'ok' : 'fail')
     } catch {
       setStatus('fail')
@@ -55,13 +56,13 @@ export function McpConnectorCard() {
           </button>
 
           {status === 'ok' && (
-            <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+            <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400" role="status">
               <Check className="h-3.5 w-3.5" /> Reachable
             </span>
           )}
           {status === 'fail' && (
-            <span className="flex items-center gap-1 text-xs font-medium text-destructive">
-              <X className="h-3.5 w-3.5" /> Unreachable
+            <span className="flex items-center gap-1 text-xs font-medium text-destructive" role="status">
+              <X className="h-3.5 w-3.5" /> Unreachable — is crm-mcp deployed yet?
             </span>
           )}
         </div>
