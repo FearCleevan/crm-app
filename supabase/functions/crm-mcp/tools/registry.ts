@@ -3,5 +3,12 @@ import { prospectTools } from './prospects.ts'
 import { dealTools } from './deals.ts'
 import { campaignTools } from './campaigns.ts'
 import { noteTools } from './notes.ts'
+import { workflowTools } from './workflows.ts'
 
-export const TOOLS: ToolDef[] = [...prospectTools, ...dealTools, ...campaignTools, ...noteTools]
+export const TOOLS: ToolDef[] = [
+  ...prospectTools,
+  ...dealTools,
+  ...campaignTools,
+  ...noteTools,
+  ...workflowTools,
+]
