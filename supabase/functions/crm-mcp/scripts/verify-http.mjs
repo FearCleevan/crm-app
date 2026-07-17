@@ -109,6 +109,28 @@ async function main() {
   console.log(JSON.stringify(dealsCall.body, null, 2))
   if (dealsCall.body?.result?.isError !== true) throw new Error('expected isError:true from list_deals')
 
+  console.log('=== tools/list (expect 13 tools: 4 prospect + 4 deal + 5 campaign) ===')
+  const list4 = await rpc('tools/list', {}, 7)
+  const names3 = list4.body.result.tools.map((t) => t.name)
+  console.log(names3)
+  for (const expected of [
+    'list_campaigns', 'get_campaign', 'create_campaign', 'activate_campaign', 'list_campaign_recipients',
+  ]) {
+    if (!names3.includes(expected)) throw new Error(`missing tool: ${expected}`)
+  }
+
+  console.log('=== tools/call: activate_campaign WITHOUT confirm (MOST IMPORTANT CHECK) ===')
+  const noConfirm = await rpc(
+    'tools/call',
+    { name: 'activate_campaign', arguments: { id: '00000000-0000-0000-0000-000000000000', confirm: false } },
+    8,
+  )
+  console.log(JSON.stringify(noConfirm.body, null, 2))
+  if (noConfirm.body?.result?.isError !== true) throw new Error('activate_campaign without confirm did not return isError:true')
+  if (JSON.stringify(noConfirm.body).includes('"status":"active"')) {
+    throw new Error('activate_campaign without confirm appears to have activated something')
+  }
+
   console.log('ALL CHECKS PASSED')
   proc.kill()
   process.exit(0)
