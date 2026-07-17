@@ -172,6 +172,26 @@ async function main() {
   console.log(JSON.stringify(reportCall.body, null, 2))
   if (reportCall.body?.result?.isError !== true) throw new Error('expected isError:true from get_report')
 
+  console.log('=== tools/list (expect 19 tools: 4 prospect + 4 deal + 5 campaign + 2 note + 2 workflow + 1 report + 1 outreach) ===')
+  const list8 = await rpc('tools/list', {}, 15)
+  const names7 = list8.body.result.tools.map((t) => t.name)
+  console.log(names7)
+  if (!names7.includes('send_outreach_email')) throw new Error('missing tool: send_outreach_email')
+
+  console.log('=== tools/call: send_outreach_email WITHOUT confirm (MOST IMPORTANT CHECK) ===')
+  const noConfirmEmail = await rpc(
+    'tools/call',
+    { name: 'send_outreach_email', arguments: { prospect_id: 1, subject: 'test', body: 'test', confirm: false } },
+    16,
+  )
+  console.log(JSON.stringify(noConfirmEmail.body, null, 2))
+  if (noConfirmEmail.body?.result?.isError !== true) {
+    throw new Error('send_outreach_email without confirm did not return isError:true')
+  }
+  if (JSON.stringify(noConfirmEmail.body).includes('"sent":true')) {
+    throw new Error('send_outreach_email without confirm appears to have sent something')
+  }
+
   console.log('ALL CHECKS PASSED')
   proc.kill()
   process.exit(0)

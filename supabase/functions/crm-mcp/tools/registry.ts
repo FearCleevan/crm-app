@@ -5,6 +5,7 @@ import { campaignTools } from './campaigns.ts'
 import { noteTools } from './notes.ts'
 import { workflowTools } from './workflows.ts'
 import { reportTools } from './reports.ts'
+import { outreachTools } from './outreach.ts'
 
 export const TOOLS: ToolDef[] = [
   ...prospectTools,
@@ -13,4 +14,5 @@ export const TOOLS: ToolDef[] = [
   ...noteTools,
   ...workflowTools,
   ...reportTools,
+  ...outreachTools,
 ]
