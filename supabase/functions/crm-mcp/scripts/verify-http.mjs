@@ -131,6 +131,19 @@ async function main() {
     throw new Error('activate_campaign without confirm appears to have activated something')
   }
 
+  console.log('=== tools/list (expect 15 tools: 4 prospect + 4 deal + 5 campaign + 2 note) ===')
+  const list5 = await rpc('tools/list', {}, 9)
+  const names4 = list5.body.result.tools.map((t) => t.name)
+  console.log(names4)
+  for (const expected of ['list_notes', 'add_note']) {
+    if (!names4.includes(expected)) throw new Error(`missing tool: ${expected}`)
+  }
+
+  console.log('=== tools/call: list_notes (expect isError, placeholder credentials) ===')
+  const notesCall = await rpc('tools/call', { name: 'list_notes', arguments: { prospect_id: 1 } }, 10)
+  console.log(JSON.stringify(notesCall.body, null, 2))
+  if (notesCall.body?.result?.isError !== true) throw new Error('expected isError:true from list_notes')
+
   console.log('ALL CHECKS PASSED')
   proc.kill()
   process.exit(0)
