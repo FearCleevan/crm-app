@@ -1,4 +1,4 @@
-async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const encoder = new TextEncoder()
   const [hashA, hashB] = await Promise.all([
     crypto.subtle.digest('SHA-256', encoder.encode(a)),

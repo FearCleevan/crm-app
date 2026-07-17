@@ -192,6 +192,24 @@ async function main() {
     throw new Error('send_outreach_email without confirm appears to have sent something')
   }
 
+  console.log('=== OAuth: GET /.well-known/oauth-authorization-server ===')
+  const metaRes = await fetch(`${BASE_URL}/.well-known/oauth-authorization-server`)
+  const meta = await metaRes.json()
+  console.log(JSON.stringify(meta, null, 2))
+  if (!meta.authorization_endpoint || !meta.token_endpoint || !meta.registration_endpoint) {
+    throw new Error('metadata missing required endpoints')
+  }
+
+  console.log('=== OAuth: POST /register ===')
+  const regRes = await fetch(`${BASE_URL}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ redirect_uris: ['https://claude.ai/api/mcp/auth_callback'] }),
+  })
+  const reg = await regRes.json()
+  console.log(JSON.stringify(reg, null, 2))
+  if (!reg.client_id) throw new Error('register did not return a client_id')
+
   console.log('ALL CHECKS PASSED')
   proc.kill()
   process.exit(0)

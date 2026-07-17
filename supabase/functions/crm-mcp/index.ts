@@ -1,12 +1,22 @@
 import { z } from 'npm:zod@4'
 import { CORS, jsonRpcResult, jsonRpcError } from './jsonRpc.ts'
 import { checkAuth } from './auth.ts'
+import { handleMetadata, handleRegister } from './oauth.ts'
 import { TOOLS } from './tools/registry.ts'
 
 const SERVER_INFO = { name: 'crm-mcp', version: '0.1.0' }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const pathname = new URL(req.url).pathname
+
+  if (req.method === 'GET' && pathname.endsWith('/.well-known/oauth-authorization-server')) {
+    return handleMetadata(req)
+  }
+  if (req.method === 'POST' && pathname.endsWith('/register')) {
+    return handleRegister(req)
+  }
+
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: CORS })
 
   if (!(await checkAuth(req))) {
