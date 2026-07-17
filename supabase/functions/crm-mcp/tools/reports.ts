@@ -66,6 +66,8 @@ export const reportTools: ToolDef[] = [
           if (error) return errorResult(error.message)
           return jsonResult(data)
         }
+        default:
+          return errorResult(`Unknown report type: ${type}`)
       }
     },
   },
