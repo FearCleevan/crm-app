@@ -12,6 +12,7 @@ import { apiKeysService, type ApiKeyRow } from '@/services/apiKeys.service'
 import { integrationsService, type IntegrationRow, type IntegrationProvider } from '@/services/integrations.service'
 import { webhooksService, type WebhookRow, WEBHOOK_EVENTS } from '@/services/webhooks.service'
 import { supabase } from '@/lib/supabase'
+import { McpConnectorCard } from './McpConnectorCard'
 
 // ── helpers ────────────────────────────────────────────────────
 function fmt(iso: string | null) {
@@ -19,7 +20,7 @@ function fmt(iso: string | null) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function CopyButton({ text, size = 'sm' }: { text: string; size?: 'sm' | 'lg' }) {
+export function CopyButton({ text, size = 'sm' }: { text: string; size?: 'sm' | 'lg' }) {
   const [copied, setCopied] = useState(false)
   function copy() {
     navigator.clipboard.writeText(text).then(() => {
@@ -599,6 +600,9 @@ export function ApiTab() {
           </div>
         )}
       </div>
+
+      {/* ── MCP Connector ──────────────────────────────────── */}
+      <McpConnectorCard />
 
       {/* ── Modals ─────────────────────────────────────────── */}
       {showGenKey && (
