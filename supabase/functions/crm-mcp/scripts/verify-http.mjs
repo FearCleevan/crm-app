@@ -205,6 +205,9 @@ async function main() {
   if (!prm.resource || !Array.isArray(prm.authorization_servers) || prm.authorization_servers.length === 0) {
     throw new Error('protected resource metadata missing resource or authorization_servers')
   }
+  if (prm.resource !== 'https://placeholder.supabase.co/functions/v1/crm-mcp') {
+    throw new Error(`expected resource to fall back to the Supabase URL shape when MCP_PUBLIC_URL is unset, got ${prm.resource}`)
+  }
 
   console.log('=== OAuth: GET /.well-known/oauth-authorization-server ===')
   const metaRes = await fetch(`${BASE_URL}/.well-known/oauth-authorization-server`)
@@ -212,6 +215,9 @@ async function main() {
   console.log(JSON.stringify(meta, null, 2))
   if (!meta.authorization_endpoint || !meta.token_endpoint || !meta.registration_endpoint) {
     throw new Error('metadata missing required endpoints')
+  }
+  if (meta.issuer !== 'https://placeholder.supabase.co/functions/v1/crm-mcp') {
+    throw new Error(`expected issuer to fall back to the Supabase URL shape when MCP_PUBLIC_URL is unset, got ${meta.issuer}`)
   }
 
   console.log('=== OAuth: POST /register ===')
