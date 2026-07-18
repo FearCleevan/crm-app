@@ -76,3 +76,93 @@ export async function handleRegister(req: Request): Promise<Response> {
     { status: 201, headers: { ...CORS, 'Content-Type': 'application/json' } },
   )
 }
+
+function renderAuthorizeForm(params: {
+  redirectUri: string
+  clientId: string
+  codeChallenge: string
+  state: string
+  error?: string
+}): Response {
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Authorize Brisk CRM connector</title></head>
+<body style="font-family: sans-serif; max-width: 420px; margin: 60px auto;">
+  <h2>Authorize Brisk CRM connector</h2>
+  <p>Enter your CRM_MCP_TOKEN to allow this connector to access your CRM.</p>
+  ${params.error ? `<p style="color:#c00">${params.error}</p>` : ''}
+  <form method="POST">
+    <input type="hidden" name="redirect_uri" value="${params.redirectUri}" />
+    <input type="hidden" name="client_id" value="${params.clientId}" />
+    <input type="hidden" name="code_challenge" value="${params.codeChallenge}" />
+    <input type="hidden" name="state" value="${params.state}" />
+    <input type="password" name="token" placeholder="CRM_MCP_TOKEN"
+      style="width:100%;padding:8px;margin:12px 0;box-sizing:border-box;" autofocus />
+    <button type="submit" style="padding:8px 16px;">Authorize</button>
+  </form>
+</body>
+</html>`
+  return new Response(html, {
+    status: 200,
+    headers: { ...CORS, 'Content-Type': 'text/html; charset=utf-8' },
+  })
+}
+
+export async function handleAuthorizeGet(req: Request): Promise<Response> {
+  const url = new URL(req.url)
+  const redirectUri = url.searchParams.get('redirect_uri') ?? ''
+  const clientId = url.searchParams.get('client_id') ?? ''
+  const codeChallenge = url.searchParams.get('code_challenge') ?? ''
+  const codeChallengeMethod = url.searchParams.get('code_challenge_method') ?? ''
+  const state = url.searchParams.get('state') ?? ''
+
+  if (!ALLOWED_REDIRECT_URIS.includes(redirectUri)) {
+    return new Response('Invalid redirect_uri', { status: 400, headers: CORS })
+  }
+  if (codeChallengeMethod !== 'S256' || !codeChallenge) {
+    return new Response('PKCE code_challenge (S256) is required', { status: 400, headers: CORS })
+  }
+
+  return renderAuthorizeForm({ redirectUri, clientId, codeChallenge, state })
+}
+
+export async function signAuthCode(
+  payload: { redirect_uri: string; code_challenge: string; exp: number },
+  secret: string,
+): Promise<string> {
+  const payloadB64 = base64urlEncodeString(JSON.stringify(payload))
+  const signature = await hmacSign(payloadB64, secret)
+  return `${payloadB64}.${signature}`
+}
+
+export async function handleAuthorizePost(req: Request): Promise<Response> {
+  const form = await req.formData()
+  const redirectUri = String(form.get('redirect_uri') ?? '')
+  const clientId = String(form.get('client_id') ?? '')
+  const codeChallenge = String(form.get('code_challenge') ?? '')
+  const state = String(form.get('state') ?? '')
+  const token = String(form.get('token') ?? '')
+
+  if (!ALLOWED_REDIRECT_URIS.includes(redirectUri)) {
+    return new Response('Invalid redirect_uri', { status: 400, headers: CORS })
+  }
+
+  const expected = Deno.env.get('CRM_MCP_TOKEN')
+  if (!expected || !(await timingSafeEqual(token, expected))) {
+    return renderAuthorizeForm({
+      redirectUri, clientId, codeChallenge, state,
+      error: 'Incorrect token — try again.',
+    })
+  }
+
+  const code = await signAuthCode(
+    { redirect_uri: redirectUri, code_challenge: codeChallenge, exp: Date.now() + 5 * 60_000 },
+    expected,
+  )
+
+  const redirectUrl = new URL(redirectUri)
+  redirectUrl.searchParams.set('code', code)
+  if (state) redirectUrl.searchParams.set('state', state)
+
+  return new Response(null, { status: 302, headers: { ...CORS, Location: redirectUrl.toString() } })
+}

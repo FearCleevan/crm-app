@@ -210,6 +210,52 @@ async function main() {
   console.log(JSON.stringify(reg, null, 2))
   if (!reg.client_id) throw new Error('register did not return a client_id')
 
+  console.log('=== OAuth: GET /authorize with bad redirect_uri (expect 400) ===')
+  const badRedirect = await fetch(
+    `${BASE_URL}/authorize?redirect_uri=https://evil.example.com/cb&code_challenge=x&code_challenge_method=S256`,
+  )
+  console.log('status:', badRedirect.status)
+  if (badRedirect.status !== 400) throw new Error('expected 400 for bad redirect_uri')
+
+  const REAL_REDIRECT = 'https://claude.ai/api/mcp/auth_callback'
+  const CODE_CHALLENGE = 'test-challenge-value'
+
+  console.log('=== OAuth: POST /authorize with WRONG token (expect no redirect) ===')
+  const wrongTokenRes = await fetch(`${BASE_URL}/authorize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      redirect_uri: REAL_REDIRECT,
+      client_id: 'test-client',
+      code_challenge: CODE_CHALLENGE,
+      state: 'test-state',
+      token: 'wrong-token-value',
+    }),
+    redirect: 'manual',
+  })
+  console.log('status:', wrongTokenRes.status)
+  if (wrongTokenRes.status === 302) throw new Error('wrong token should not produce a redirect')
+
+  console.log('=== OAuth: POST /authorize with CORRECT token (expect 302 redirect with code) ===')
+  const rightTokenRes = await fetch(`${BASE_URL}/authorize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      redirect_uri: REAL_REDIRECT,
+      client_id: 'test-client',
+      code_challenge: CODE_CHALLENGE,
+      state: 'test-state',
+      token: TEST_TOKEN,
+    }),
+    redirect: 'manual',
+  })
+  console.log('status:', rightTokenRes.status)
+  const location = rightTokenRes.headers.get('location')
+  console.log('location:', location)
+  if (rightTokenRes.status !== 302 || !location || !location.includes('code=')) {
+    throw new Error('expected a 302 redirect containing a code')
+  }
+
   console.log('ALL CHECKS PASSED')
   proc.kill()
   process.exit(0)
