@@ -41,23 +41,28 @@ in that one shared secret; there's no separate identity system behind it.
 
 ## Register in claude.ai
 
-1. Redeploy `crm-mcp` with the new files (`oauth.ts`, updated `index.ts`, `auth.ts`, `jsonRpc.ts`) via
-   the Supabase Dashboard — same process as before (see "Deploy" above), just with the additional
-   OAuth files included.
-2. claude.ai → Settings → Connectors → **Add custom connector**.
-3. Paste the function URL from the "Deploy" section above: `https://<project-ref>.supabase.co/functions/v1/crm-mcp`.
-4. Leave the OAuth Client ID / Client Secret fields blank — claude.ai will discover the OAuth
+Registration goes through a Vercel Edge Middleware proxy (`crm-app/middleware.ts`) that fronts
+this function at the bare root of the CRM app's own domain — required because RFC 8414/9728's
+well-known-URI discovery algorithm inserts the well-known segment between host and path for any
+issuer/resource URL that has a path component, and Supabase's platform routing only ever forwards
+requests under `/functions/v1/crm-mcp/...` to this function. A bare-root URL sidesteps that
+ambiguity entirely.
+
+1. Redeploy `crm-mcp` via the Supabase Dashboard as usual (see "Deploy" above), and set the new
+   `MCP_PUBLIC_URL` secret (Edge Functions → Secrets) to the CRM app's own domain, e.g.
+   `https://brisk-crm.vercel.app`.
+2. In the Vercel project's environment variables, set `SUPABASE_CRM_MCP_URL` to this function's
+   real address, e.g. `https://<project-ref>.supabase.co/functions/v1/crm-mcp`, and redeploy the
+   `crm-app` Vercel project so `middleware.ts` picks it up.
+3. claude.ai → Settings → Connectors → **Add custom connector**.
+4. Paste the CRM app's own bare-root URL (shown in Settings → API Integration → MCP Connector in
+   the app itself), e.g. `https://brisk-crm.vercel.app` — not the Supabase function URL.
+5. Leave the OAuth Client ID / Client Secret fields blank — claude.ai will discover the OAuth
    endpoints automatically and register itself.
-5. Click Add. A browser tab/popup should open asking for your `CRM_MCP_TOKEN` — enter it there
+6. Click Add. A browser tab/popup should open asking for your `CRM_MCP_TOKEN` — enter it there
    (not in claude.ai's own UI). On success you'll be redirected back and the connector will show
    as connected.
-6. Ask Claude to search for a real prospect to confirm the connection works end to end.
-
-**If this still fails at the "couldn't register" / discovery step:** Supabase Edge Functions
-cannot serve anything at the bare domain root, only under `/functions/v1/crm-mcp/...` — if
-claude.ai's discovery specifically requires the metadata at the domain root, this is a real
-platform limitation requiring a different hosting approach (e.g. a custom domain), not a
-prompt/config fix. Report back what specifically fails rather than assuming it's a code bug.
+7. Ask Claude to search for a real prospect to confirm the connection works end to end.
 
 ## Guardrails
 

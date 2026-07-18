@@ -7,7 +7,7 @@ type TestStatus = 'idle' | 'checking' | 'ok' | 'fail'
 export function McpConnectorCard() {
   const [status, setStatus] = useState<TestStatus>('idle')
 
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crm-mcp`
+  const url = import.meta.env.VITE_MCP_PUBLIC_URL ?? window.location.origin
 
   async function testConnection() {
     setStatus('checking')
@@ -62,7 +62,7 @@ export function McpConnectorCard() {
           )}
           {status === 'fail' && (
             <span className="flex items-center gap-1 text-xs font-medium text-destructive" role="status">
-              <X className="h-3.5 w-3.5" /> Unreachable — is crm-mcp deployed yet?
+              <X className="h-3.5 w-3.5" /> Unreachable — is the connector proxy deployed yet?
             </span>
           )}
         </div>
@@ -70,10 +70,12 @@ export function McpConnectorCard() {
 
       <div className="px-5 py-3 border-t border-border bg-muted/20">
         <p className="text-[11px] text-muted-foreground">
-          Register this URL as a Custom Connector in claude.ai (Settings → Connectors), with an{' '}
-          <code className="font-mono bg-muted px-1 rounded">Authorization: Bearer &lt;CRM_MCP_TOKEN&gt;</code>{' '}
-          request header. Find or rotate the token in Supabase Dashboard → Edge Functions → Secrets
-          — it can't be shown here since Supabase doesn't expose secret values back through any API.
+          Register this URL as a Custom Connector in claude.ai (Settings → Connectors). Leave the
+          OAuth Client ID / Secret fields blank — claude.ai discovers the OAuth endpoints
+          automatically and will prompt you for the <code className="font-mono bg-muted px-1 rounded">CRM_MCP_TOKEN</code>{' '}
+          in a browser tab. Find or rotate that token in Supabase Dashboard → Edge Functions →
+          Secrets — it can't be shown here since Supabase doesn't expose secret values back through
+          any API.
         </p>
       </div>
     </div>
