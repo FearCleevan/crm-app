@@ -6,8 +6,10 @@ be registered as a Custom Connector against it. This is the "v2" companion to th
 Claude Code MCP server in `crm-app/mcp-server/` — see
 `docs/superpowers/specs/2026-07-17-mcp-connector-v2-design.md` for the full design.
 
-Single-user scope: one shared secret authenticates every request. No OAuth, no per-user login —
-this connector is meant for one person, not the whole CRM team.
+Single-user scope: one shared secret (`CRM_MCP_TOKEN`) is the only credential that matters — the
+OAuth 2.1 layer below exists solely because claude.ai's connector flow requires OAuth, not because
+this supports per-user login or a multi-tenant team. Authorizing the connector still means typing
+in that one shared secret; there's no separate identity system behind it.
 
 ## Deploy (Supabase Dashboard — no CLI)
 
