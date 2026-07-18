@@ -37,15 +37,23 @@ this connector is meant for one person, not the whole CRM team.
 
 ## Register in claude.ai
 
-1. claude.ai → Settings → Connectors → **Add custom connector**.
-2. Paste the function URL from step 5 above.
-3. Under **Advanced settings / Request headers**, add a header named `Authorization` with value
-   `Bearer <your CRM_MCP_TOKEN value>`.
-   - This "Request headers" option is in beta rollout as of mid-2026. If it isn't available in
-     your account's connector UI, that's a real scope change (a minimal OAuth flow would be
-     needed instead) — don't try to work around its absence silently, treat it as blocking and
-     revisit the design.
-4. Save, then ask Claude to search for a real prospect to confirm the connection works end to end.
+1. Redeploy `crm-mcp` with the new files (`oauth.ts`, updated `index.ts`, `auth.ts`, `jsonRpc.ts`) via
+   the Supabase Dashboard — same process as before (see "Deploy" above), just with the additional
+   OAuth files included.
+2. claude.ai → Settings → Connectors → **Add custom connector**.
+3. Paste the function URL: `https://<project-ref>.functions.supabase.co/functions/v1/crm-mcp`.
+4. Leave the OAuth Client ID / Client Secret fields blank — claude.ai will discover the OAuth
+   endpoints automatically and register itself.
+5. Click Add. A browser tab/popup should open asking for your `CRM_MCP_TOKEN` — enter it there
+   (not in claude.ai's own UI). On success you'll be redirected back and the connector will show
+   as connected.
+6. Ask Claude to search for a real prospect to confirm the connection works end to end.
+
+**If this still fails at the "couldn't register" / discovery step:** Supabase Edge Functions
+cannot serve anything at the bare domain root, only under `/functions/v1/crm-mcp/...` — if
+claude.ai's discovery specifically requires the metadata at the domain root, this is a real
+platform limitation requiring a different hosting approach (e.g. a custom domain), not a
+prompt/config fix. Report back what specifically fails rather than assuming it's a code bug.
 
 ## Guardrails
 
