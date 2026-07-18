@@ -112,8 +112,12 @@ function crmMcpBaseUrl(): string {
   return `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-mcp`
 }
 
+function publicBaseUrl(): string {
+  return Deno.env.get('MCP_PUBLIC_URL') ?? crmMcpBaseUrl()
+}
+
 function protectedResourceMetadataUrl(): string {
-  return `${crmMcpBaseUrl()}/.well-known/oauth-protected-resource`
+  return `${publicBaseUrl()}/.well-known/oauth-protected-resource`
 }
 
 function base64urlEncode(bytes: Uint8Array): string {
@@ -153,7 +157,7 @@ async function sha256Base64url(input: string): Promise<string> {
 }
 
 async function handleMetadata(_req: Request): Promise<Response> {
-  const base = crmMcpBaseUrl()
+  const base = publicBaseUrl()
   const body = {
     issuer: base,
     authorization_endpoint: `${base}/authorize`,
@@ -171,7 +175,7 @@ async function handleMetadata(_req: Request): Promise<Response> {
 }
 
 async function handleProtectedResourceMetadata(_req: Request): Promise<Response> {
-  const base = crmMcpBaseUrl()
+  const base = publicBaseUrl()
   const body = {
     resource: base,
     authorization_servers: [base],
