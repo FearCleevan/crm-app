@@ -1,7 +1,15 @@
 import { z } from 'npm:zod@4'
 import { CORS, jsonRpcResult, jsonRpcError } from './jsonRpc.ts'
 import { checkAuth } from './auth.ts'
-import { handleMetadata, handleRegister, handleAuthorizeGet, handleAuthorizePost, handleToken } from './oauth.ts'
+import {
+  handleMetadata,
+  handleProtectedResourceMetadata,
+  handleRegister,
+  handleAuthorizeGet,
+  handleAuthorizePost,
+  handleToken,
+  protectedResourceMetadataUrl,
+} from './oauth.ts'
 import { TOOLS } from './tools/registry.ts'
 
 const SERVER_INFO = { name: 'crm-mcp', version: '0.1.0' }
@@ -12,6 +20,9 @@ Deno.serve(async (req) => {
 
   if (req.method === 'GET' && pathname.endsWith('/.well-known/oauth-authorization-server')) {
     return handleMetadata(req)
+  }
+  if (req.method === 'GET' && pathname.endsWith('/.well-known/oauth-protected-resource')) {
+    return handleProtectedResourceMetadata(req)
   }
   if (req.method === 'POST' && pathname.endsWith('/register')) {
     return handleRegister(req)
@@ -31,7 +42,11 @@ Deno.serve(async (req) => {
   if (!(await checkAuth(req))) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json',
+        'WWW-Authenticate': `Bearer resource_metadata="${protectedResourceMetadataUrl()}"`,
+      },
     })
   }
 

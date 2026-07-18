@@ -3,8 +3,12 @@ import { timingSafeEqual } from './auth.ts'
 
 export const ALLOWED_REDIRECT_URIS = ['https://claude.ai/api/mcp/auth_callback']
 
-function crmMcpBaseUrl(): string {
+export function crmMcpBaseUrl(): string {
   return `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-mcp`
+}
+
+export function protectedResourceMetadataUrl(): string {
+  return `${crmMcpBaseUrl()}/.well-known/oauth-protected-resource`
 }
 
 export function base64urlEncode(bytes: Uint8Array): string {
@@ -54,6 +58,18 @@ export async function handleMetadata(_req: Request): Promise<Response> {
     grant_types_supported: ['authorization_code'],
     code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['none'],
+  }
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  })
+}
+
+export async function handleProtectedResourceMetadata(_req: Request): Promise<Response> {
+  const base = crmMcpBaseUrl()
+  const body = {
+    resource: base,
+    authorization_servers: [base],
   }
   return new Response(JSON.stringify(body), {
     status: 200,

@@ -61,6 +61,11 @@ async function main() {
   })
   console.log('status:', noAuthRes.status)
   if (noAuthRes.status !== 401) throw new Error('expected 401 with no auth header')
+  const wwwAuth = noAuthRes.headers.get('www-authenticate')
+  console.log('WWW-Authenticate:', wwwAuth)
+  if (!wwwAuth || !wwwAuth.includes('resource_metadata=')) {
+    throw new Error('expected WWW-Authenticate header with resource_metadata on 401')
+  }
 
   console.log('=== Wrong token (expect 401) ===')
   const wrongRes = await fetch(BASE_URL, {
@@ -191,6 +196,14 @@ async function main() {
   }
   if (JSON.stringify(noConfirmEmail.body).includes('"sent":true')) {
     throw new Error('send_outreach_email without confirm appears to have sent something')
+  }
+
+  console.log('=== OAuth: GET /.well-known/oauth-protected-resource ===')
+  const prmRes = await fetch(`${BASE_URL}/.well-known/oauth-protected-resource`)
+  const prm = await prmRes.json()
+  console.log(JSON.stringify(prm, null, 2))
+  if (!prm.resource || !Array.isArray(prm.authorization_servers) || prm.authorization_servers.length === 0) {
+    throw new Error('protected resource metadata missing resource or authorization_servers')
   }
 
   console.log('=== OAuth: GET /.well-known/oauth-authorization-server ===')

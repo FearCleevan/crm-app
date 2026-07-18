@@ -112,6 +112,10 @@ function crmMcpBaseUrl(): string {
   return `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-mcp`
 }
 
+function protectedResourceMetadataUrl(): string {
+  return `${crmMcpBaseUrl()}/.well-known/oauth-protected-resource`
+}
+
 function base64urlEncode(bytes: Uint8Array): string {
   let str = ''
   for (const b of bytes) str += String.fromCharCode(b)
@@ -159,6 +163,18 @@ async function handleMetadata(_req: Request): Promise<Response> {
     grant_types_supported: ['authorization_code'],
     code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['none'],
+  }
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  })
+}
+
+async function handleProtectedResourceMetadata(_req: Request): Promise<Response> {
+  const base = crmMcpBaseUrl()
+  const body = {
+    resource: base,
+    authorization_servers: [base],
   }
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -890,6 +906,9 @@ Deno.serve(async (req) => {
   if (req.method === 'GET' && pathname.endsWith('/.well-known/oauth-authorization-server')) {
     return handleMetadata(req)
   }
+  if (req.method === 'GET' && pathname.endsWith('/.well-known/oauth-protected-resource')) {
+    return handleProtectedResourceMetadata(req)
+  }
   if (req.method === 'POST' && pathname.endsWith('/register')) {
     return handleRegister(req)
   }
@@ -908,7 +927,11 @@ Deno.serve(async (req) => {
   if (!(await checkAuth(req))) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json',
+        'WWW-Authenticate': `Bearer resource_metadata="${protectedResourceMetadataUrl()}"`,
+      },
     })
   }
 
