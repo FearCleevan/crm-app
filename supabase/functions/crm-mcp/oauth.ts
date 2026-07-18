@@ -144,6 +144,69 @@ export async function signAuthCode(
   return `${payloadB64}.${signature}`
 }
 
+async function verifyAuthCode(
+  code: string,
+  secret: string,
+): Promise<{ redirect_uri: string; code_challenge: string; exp: number } | null> {
+  const parts = code.split('.')
+  if (parts.length !== 2) return null
+  const [payloadB64, signature] = parts
+
+  const expectedSig = await hmacSign(payloadB64, secret)
+  if (!(await timingSafeEqual(signature, expectedSig))) return null
+
+  try {
+    const payload = JSON.parse(base64urlDecodeToString(payloadB64))
+    if (typeof payload.exp !== 'number' || Date.now() > payload.exp) return null
+    if (typeof payload.redirect_uri !== 'string' || typeof payload.code_challenge !== 'string') return null
+    return payload
+  } catch {
+    return null
+  }
+}
+
+function oauthError(error: string, status: number): Response {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  })
+}
+
+export async function handleToken(req: Request): Promise<Response> {
+  const contentType = req.headers.get('Content-Type') ?? ''
+  let params: URLSearchParams
+  if (contentType.includes('application/json')) {
+    const body = await req.json().catch(() => ({}))
+    params = new URLSearchParams(body)
+  } else {
+    params = new URLSearchParams(await req.text())
+  }
+
+  const grantType = params.get('grant_type')
+  const code = params.get('code') ?? ''
+  const codeVerifier = params.get('code_verifier') ?? ''
+
+  if (grantType !== 'authorization_code') {
+    return oauthError('unsupported_grant_type', 400)
+  }
+
+  const secret = Deno.env.get('CRM_MCP_TOKEN')
+  if (!secret) return oauthError('server_error', 500)
+
+  const payload = await verifyAuthCode(code, secret)
+  if (!payload) return oauthError('invalid_grant', 400)
+
+  const computedChallenge = await sha256Base64url(codeVerifier)
+  if (!(await timingSafeEqual(computedChallenge, payload.code_challenge))) {
+    return oauthError('invalid_grant', 400)
+  }
+
+  return new Response(
+    JSON.stringify({ access_token: secret, token_type: 'Bearer', expires_in: 31536000 }),
+    { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } },
+  )
+}
+
 export async function handleAuthorizePost(req: Request): Promise<Response> {
   const form = await req.formData()
   const redirectUri = String(form.get('redirect_uri') ?? '')

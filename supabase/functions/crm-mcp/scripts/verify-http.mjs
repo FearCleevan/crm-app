@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { createHash, randomBytes } from 'node:crypto'
 
 const FUNCTION_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASE_URL = 'http://localhost:8000'
@@ -254,6 +255,63 @@ async function main() {
   console.log('location:', location)
   if (rightTokenRes.status !== 302 || !location || !location.includes('code=')) {
     throw new Error('expected a 302 redirect containing a code')
+  }
+
+  console.log('=== OAuth: full loop — authorize with real PKCE, then exchange at /token ===')
+  const codeVerifier = randomBytes(32).toString('base64url')
+  const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url')
+
+  const fullAuthRes = await fetch(`${BASE_URL}/authorize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      redirect_uri: REAL_REDIRECT,
+      client_id: 'test-client',
+      code_challenge: codeChallenge,
+      state: 'test-state',
+      token: TEST_TOKEN,
+    }),
+    redirect: 'manual',
+  })
+  const fullAuthLocation = fullAuthRes.headers.get('location')
+  const issuedCode = new URL(fullAuthLocation).searchParams.get('code')
+  console.log('issued code (truncated):', issuedCode.slice(0, 20) + '...')
+
+  const tokenRes = await fetch(`${BASE_URL}/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: issuedCode,
+      code_verifier: codeVerifier,
+    }),
+  })
+  const tokenBody = await tokenRes.json()
+  console.log(JSON.stringify(tokenBody, null, 2))
+  if (tokenBody.access_token !== TEST_TOKEN) {
+    throw new Error(`expected access_token to equal TEST_TOKEN, got ${tokenBody.access_token}`)
+  }
+
+  console.log('=== OAuth: use the returned access_token against the real / JSON-RPC endpoint ===')
+  const finalListRes = await rpc('tools/list', {}, 999, tokenBody.access_token)
+  const finalNames = finalListRes.body.result.tools.map((t) => t.name)
+  console.log('tools/list via OAuth-issued token, count:', finalNames.length)
+  if (finalNames.length !== 19) throw new Error(`expected 19 tools, got ${finalNames.length}`)
+
+  console.log('=== OAuth: /token with WRONG code_verifier (expect invalid_grant) ===')
+  const wrongVerifierRes = await fetch(`${BASE_URL}/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: issuedCode,
+      code_verifier: 'totally-wrong-verifier',
+    }),
+  })
+  const wrongVerifierBody = await wrongVerifierRes.json()
+  console.log('status:', wrongVerifierRes.status, JSON.stringify(wrongVerifierBody))
+  if (wrongVerifierRes.status !== 400 || wrongVerifierBody.error !== 'invalid_grant') {
+    throw new Error('expected 400 invalid_grant for wrong code_verifier')
   }
 
   console.log('ALL CHECKS PASSED')
