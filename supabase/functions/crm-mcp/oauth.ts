@@ -77,6 +77,15 @@ export async function handleRegister(req: Request): Promise<Response> {
   )
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function renderAuthorizeForm(params: {
   redirectUri: string
   clientId: string
@@ -90,12 +99,12 @@ function renderAuthorizeForm(params: {
 <body style="font-family: sans-serif; max-width: 420px; margin: 60px auto;">
   <h2>Authorize Brisk CRM connector</h2>
   <p>Enter your CRM_MCP_TOKEN to allow this connector to access your CRM.</p>
-  ${params.error ? `<p style="color:#c00">${params.error}</p>` : ''}
+  ${params.error ? `<p style="color:#c00">${escapeHtml(params.error)}</p>` : ''}
   <form method="POST">
-    <input type="hidden" name="redirect_uri" value="${params.redirectUri}" />
-    <input type="hidden" name="client_id" value="${params.clientId}" />
-    <input type="hidden" name="code_challenge" value="${params.codeChallenge}" />
-    <input type="hidden" name="state" value="${params.state}" />
+    <input type="hidden" name="redirect_uri" value="${escapeHtml(params.redirectUri)}" />
+    <input type="hidden" name="client_id" value="${escapeHtml(params.clientId)}" />
+    <input type="hidden" name="code_challenge" value="${escapeHtml(params.codeChallenge)}" />
+    <input type="hidden" name="state" value="${escapeHtml(params.state)}" />
     <input type="password" name="token" placeholder="CRM_MCP_TOKEN"
       style="width:100%;padding:8px;margin:12px 0;box-sizing:border-box;" autofocus />
     <button type="submit" style="padding:8px 16px;">Authorize</button>
@@ -145,6 +154,9 @@ export async function handleAuthorizePost(req: Request): Promise<Response> {
 
   if (!ALLOWED_REDIRECT_URIS.includes(redirectUri)) {
     return new Response('Invalid redirect_uri', { status: 400, headers: CORS })
+  }
+  if (!codeChallenge) {
+    return new Response('PKCE code_challenge (S256) is required', { status: 400, headers: CORS })
   }
 
   const expected = Deno.env.get('CRM_MCP_TOKEN')
