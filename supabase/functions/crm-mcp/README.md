@@ -33,7 +33,9 @@ this connector is meant for one person, not the whole CRM team.
      `send-campaign-batch` functions; confirm they're present, don't need to re-add them.
    - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` — do **not** add these manually, Supabase
      injects them into every edge function automatically.
-5. Note the function's URL: `https://<project-ref>.functions.supabase.co/crm-mcp`.
+5. Note the function's URL: `https://<project-ref>.supabase.co/functions/v1/crm-mcp` (this is
+   `SUPABASE_URL` + `/functions/v1/crm-mcp` — the same base URL `oauth.ts`'s `crmMcpBaseUrl()`
+   computes internally, so it must match exactly).
 
 ## Register in claude.ai
 
@@ -41,7 +43,7 @@ this connector is meant for one person, not the whole CRM team.
    the Supabase Dashboard — same process as before (see "Deploy" above), just with the additional
    OAuth files included.
 2. claude.ai → Settings → Connectors → **Add custom connector**.
-3. Paste the function URL: `https://<project-ref>.functions.supabase.co/functions/v1/crm-mcp`.
+3. Paste the function URL from the "Deploy" section above: `https://<project-ref>.supabase.co/functions/v1/crm-mcp`.
 4. Leave the OAuth Client ID / Client Secret fields blank — claude.ai will discover the OAuth
    endpoints automatically and register itself.
 5. Click Add. A browser tab/popup should open asking for your `CRM_MCP_TOKEN` — enter it there
