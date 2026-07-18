@@ -14,6 +14,7 @@ const env = {
   SUPABASE_SERVICE_ROLE_KEY: 'placeholder-key',
   MCP_CRM_USER_ID: '00000000-0000-0000-0000-000000000000',
 }
+delete env.MCP_PUBLIC_URL
 
 const proc = spawn('npx', ['deno', 'run', '--allow-net', '--allow-env', 'index.ts'], {
   cwd: FUNCTION_DIR,

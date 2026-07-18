@@ -430,7 +430,7 @@ main().catch((err) => {
 Run:
 
 ```bash
-npx tsc --noEmit --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler middleware.ts
+npx tsc --noEmit --ignoreConfig --types node --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler middleware.ts
 ```
 
 Expected: no output, exit code 0 (`--lib dom` provides `Request`/`Response`/`Headers`/`fetch`, which Vercel's Edge Runtime also implements).
