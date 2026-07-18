@@ -113,7 +113,12 @@ function renderAuthorizeForm(params: {
 </html>`
   return new Response(html, {
     status: 200,
-    headers: { ...CORS, 'Content-Type': 'text/html; charset=utf-8' },
+    headers: {
+      ...CORS,
+      'Content-Type': 'text/html; charset=utf-8',
+      'X-Frame-Options': 'DENY',
+      'Content-Security-Policy': "frame-ancestors 'none'",
+    },
   })
 }
 
@@ -203,7 +208,10 @@ export async function handleToken(req: Request): Promise<Response> {
 
   return new Response(
     JSON.stringify({ access_token: secret, token_type: 'Bearer', expires_in: 31536000 }),
-    { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } },
+    {
+      status: 200,
+      headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    },
   )
 }
 
