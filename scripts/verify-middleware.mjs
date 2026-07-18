@@ -55,6 +55,9 @@ async function main() {
   if (authRes.status !== 302 || !authRes.headers.get('location')?.includes('claude.ai')) {
     throw new Error('expected the upstream 302 redirect to pass through untouched')
   }
+  if (calls[calls.length - 1].init.redirect !== 'manual') {
+    throw new Error(`expected redirect: 'manual' on /authorize fetch call, but got redirect: '${calls[calls.length - 1].init.redirect}'`)
+  }
 
   console.log('=== Missing SUPABASE_CRM_MCP_URL returns 502 ===')
   delete process.env.SUPABASE_CRM_MCP_URL
