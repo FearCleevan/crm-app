@@ -15,6 +15,14 @@ globalThis.fetch = async (url, init) => {
   })
 }
 
+function authorizeUrl(params) {
+  const u = new URL('https://brisk-crm.vercel.app/authorize')
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined) u.searchParams.set(k, v)
+  }
+  return u.toString()
+}
+
 const { default: middleware } = await import('../middleware.ts')
 
 async function main() {
@@ -57,6 +65,78 @@ async function main() {
   }
   if (calls[calls.length - 1].init.redirect !== 'manual') {
     throw new Error(`expected redirect: 'manual' on /authorize fetch call, but got redirect: '${calls[calls.length - 1].init.redirect}'`)
+  }
+
+  console.log('=== GET /authorize with valid params renders the form locally (200, HTML) ===')
+  const callsBeforeValidAuthorize = calls.length
+  const validAuthorizeRes = await middleware(new Request(
+    authorizeUrl({
+      redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+      client_id: 'test-client',
+      code_challenge: 'abc123',
+      code_challenge_method: 'S256',
+      state: 'xyz',
+    }),
+    { method: 'GET' },
+  ))
+  if (validAuthorizeRes.status !== 200) {
+    throw new Error(`expected 200 for valid GET /authorize, got ${validAuthorizeRes.status}`)
+  }
+  const validAuthorizeHtml = await validAuthorizeRes.text()
+  if (!validAuthorizeHtml.includes('name="token"')) {
+    throw new Error('expected rendered form to contain the token input field')
+  }
+  if (calls.length !== callsBeforeValidAuthorize) {
+    throw new Error('expected GET /authorize to be rendered locally, not proxied to Supabase')
+  }
+
+  console.log('=== GET /authorize with invalid redirect_uri returns 400 ===')
+  const badRedirectRes = await middleware(new Request(
+    authorizeUrl({
+      redirect_uri: 'https://evil.example.com/cb',
+      client_id: 'test-client',
+      code_challenge: 'abc123',
+      code_challenge_method: 'S256',
+      state: 'xyz',
+    }),
+    { method: 'GET' },
+  ))
+  if (badRedirectRes.status !== 400) {
+    throw new Error(`expected 400 for invalid redirect_uri, got ${badRedirectRes.status}`)
+  }
+
+  console.log('=== GET /authorize with missing code_challenge_method returns 400 ===')
+  const missingPkceRes = await middleware(new Request(
+    authorizeUrl({
+      redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+      client_id: 'test-client',
+      code_challenge: 'abc123',
+      state: 'xyz',
+    }),
+    { method: 'GET' },
+  ))
+  if (missingPkceRes.status !== 400) {
+    throw new Error(`expected 400 for missing code_challenge_method, got ${missingPkceRes.status}`)
+  }
+
+  console.log('=== GET /authorize with error=invalid_token shows the error message ===')
+  const errorRes = await middleware(new Request(
+    authorizeUrl({
+      redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+      client_id: 'test-client',
+      code_challenge: 'abc123',
+      code_challenge_method: 'S256',
+      state: 'xyz',
+      error: 'invalid_token',
+    }),
+    { method: 'GET' },
+  ))
+  if (errorRes.status !== 200) {
+    throw new Error(`expected 200 for GET /authorize with error param, got ${errorRes.status}`)
+  }
+  const errorHtml = await errorRes.text()
+  if (!errorHtml.includes('Incorrect token')) {
+    throw new Error('expected rendered form to include the error message when error=invalid_token')
   }
 
   console.log('=== Missing SUPABASE_CRM_MCP_URL returns 502 ===')

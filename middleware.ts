@@ -1,4 +1,5 @@
 import { next } from '@vercel/functions'
+import { ALLOWED_REDIRECT_URIS, renderAuthorizeForm } from './authorize-form.ts'
 
 export const config = {
   matcher: [
@@ -18,6 +19,30 @@ export default async function middleware(request: Request): Promise<Response> {
   // OPTIONS preflight) at the same path.
   if (url.pathname === '/' && request.method === 'GET') {
     return next()
+  }
+
+  if (url.pathname === '/authorize' && request.method === 'GET') {
+    const redirectUri = url.searchParams.get('redirect_uri') ?? ''
+    const clientId = url.searchParams.get('client_id') ?? ''
+    const codeChallenge = url.searchParams.get('code_challenge') ?? ''
+    const codeChallengeMethod = url.searchParams.get('code_challenge_method') ?? ''
+    const state = url.searchParams.get('state') ?? ''
+    const errorParam = url.searchParams.get('error') ?? ''
+
+    if (!ALLOWED_REDIRECT_URIS.includes(redirectUri)) {
+      return new Response('Invalid redirect_uri', { status: 400 })
+    }
+    if (codeChallengeMethod !== 'S256' || !codeChallenge) {
+      return new Response('PKCE code_challenge (S256) is required', { status: 400 })
+    }
+
+    return renderAuthorizeForm({
+      redirectUri,
+      clientId,
+      codeChallenge,
+      state,
+      error: errorParam === 'invalid_token' ? 'Incorrect token — try again.' : undefined,
+    })
   }
 
   const target = process.env.SUPABASE_CRM_MCP_URL
