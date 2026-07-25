@@ -72,7 +72,7 @@ export function ForcePasswordModal() {
       <div className="relative z-10 w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
 
         {/* Coloured header */}
-        <div className="bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-5">
+        <div className="bg-gradient-to-r from-brand-600 to-brand-600 px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
               <KeyRound className="h-5 w-5 text-white" />

@@ -57,7 +57,7 @@ export function AcceptInvitePage() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left branding panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 via-brand-500 to-violet-500 relative overflow-hidden flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 via-brand-500 to-brand-500 relative overflow-hidden flex-col justify-between p-12">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-white/5" />
           <div className="absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-white/5" />

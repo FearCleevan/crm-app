@@ -61,7 +61,7 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* ── Left panel — branding ── */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 via-brand-500 to-violet-500 relative overflow-hidden flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 via-brand-500 to-brand-500 relative overflow-hidden flex-col justify-between p-12">
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-white/5" />
