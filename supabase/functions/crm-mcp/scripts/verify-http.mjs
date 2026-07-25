@@ -241,7 +241,7 @@ async function main() {
   const REAL_REDIRECT = 'https://claude.ai/api/mcp/auth_callback'
   const CODE_CHALLENGE = 'test-challenge-value'
 
-  console.log('=== OAuth: POST /authorize with WRONG token (expect no redirect) ===')
+  console.log('=== OAuth: POST /authorize with WRONG token (expect 302 back to /authorize with error) ===')
   const wrongTokenRes = await fetch(`${BASE_URL}/authorize`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -255,7 +255,23 @@ async function main() {
     redirect: 'manual',
   })
   console.log('status:', wrongTokenRes.status)
-  if (wrongTokenRes.status === 302) throw new Error('wrong token should not produce a redirect')
+  const wrongTokenLocation = wrongTokenRes.headers.get('location')
+  console.log('location:', wrongTokenLocation)
+  if (wrongTokenRes.status !== 302) {
+    throw new Error(`expected 302 for wrong token, got ${wrongTokenRes.status}`)
+  }
+  if (!wrongTokenLocation || !wrongTokenLocation.startsWith('/authorize')) {
+    throw new Error(`expected redirect Location to start with /authorize (relative), got ${wrongTokenLocation}`)
+  }
+  if (!wrongTokenLocation.includes('error=invalid_token')) {
+    throw new Error(`expected redirect Location to include error=invalid_token, got ${wrongTokenLocation}`)
+  }
+  if (!wrongTokenLocation.includes(`code_challenge=${encodeURIComponent(CODE_CHALLENGE)}`)) {
+    throw new Error(`expected redirect Location to preserve code_challenge, got ${wrongTokenLocation}`)
+  }
+  if (!wrongTokenLocation.includes('code_challenge_method=S256')) {
+    throw new Error(`expected redirect Location to include code_challenge_method=S256, got ${wrongTokenLocation}`)
+  }
 
   console.log('=== OAuth: POST /authorize with CORRECT token (expect 302 redirect with code) ===')
   const rightTokenRes = await fetch(`${BASE_URL}/authorize`, {

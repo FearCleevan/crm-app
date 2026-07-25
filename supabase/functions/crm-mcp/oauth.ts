@@ -252,9 +252,16 @@ export async function handleAuthorizePost(req: Request): Promise<Response> {
 
   const expected = Deno.env.get('CRM_MCP_TOKEN')
   if (!expected || !(await timingSafeEqual(token, expected))) {
-    return renderAuthorizeForm({
-      redirectUri, clientId, codeChallenge, state,
-      error: 'Incorrect token — try again.',
+    const retry = new URL('/authorize', 'https://placeholder.invalid')
+    retry.searchParams.set('redirect_uri', redirectUri)
+    retry.searchParams.set('client_id', clientId)
+    retry.searchParams.set('code_challenge', codeChallenge)
+    retry.searchParams.set('code_challenge_method', 'S256')
+    retry.searchParams.set('state', state)
+    retry.searchParams.set('error', 'invalid_token')
+    return new Response(null, {
+      status: 302,
+      headers: { ...CORS, Location: `${retry.pathname}${retry.search}` },
     })
   }
 
