@@ -70,7 +70,6 @@ export function LocationsCard({ countries = [] }: Props) {
           zoomControl={false}
         >
           <TileLayer
-            key={theme}
             url={theme === 'dark' ? DARK_TILES : LIGHT_TILES}
             attribution={ATTRIBUTION}
           />
