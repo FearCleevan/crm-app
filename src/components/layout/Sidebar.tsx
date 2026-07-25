@@ -370,11 +370,11 @@ export function Sidebar({ user, mobileOpen = false, onMobileClose }: SidebarProp
         {/* ── Logo ── */}
         <div className={cn('flex items-center h-14 px-4 border-b border-sidebar-border gap-2.5', collapsed && 'justify-center px-2')}>
           <div className="h-7 w-7 rounded-lg bg-brand-500 flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-xs">B</span>
+            <span className="text-white font-bold text-xs">P</span>
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-sidebar-foreground leading-tight">Brisk</p>
+              <p className="text-sm font-bold text-sidebar-foreground leading-tight">Paul</p>
               <p className="text-[10px] text-muted-foreground leading-tight">CR Management</p>
             </div>
           )}

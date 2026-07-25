@@ -45,7 +45,7 @@ export function Breadcrumbs() {
   if (crumbs.length <= 1) {
     return (
       <h1 className="text-base font-semibold text-foreground mr-auto">
-        {crumbs[0]?.label ?? 'Brisk CRM'}
+        {crumbs[0]?.label ?? 'Paul CRM'}
       </h1>
     )
   }

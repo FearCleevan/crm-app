@@ -25,9 +25,9 @@ export function PageLoader({ message }: PageLoaderProps = {}) {
           />
         </svg>
 
-        {/* Brisk "B" logo mark */}
+        {/* Paul "P" logo mark */}
         <div className="h-12 w-12 rounded-xl bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
-          <span className="text-white font-bold text-[22px] leading-none select-none">B</span>
+          <span className="text-white font-bold text-[22px] leading-none select-none">P</span>
         </div>
       </div>
 

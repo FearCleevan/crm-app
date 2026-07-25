@@ -412,7 +412,7 @@ export function ApiTab() {
             </div>
             <div>
               <h3 className={sectionHd}>API Keys</h3>
-              <p className={sectionSub}>Allow external scripts to read Brisk CRM data</p>
+              <p className={sectionSub}>Allow external scripts to read Paul CRM data</p>
             </div>
           </div>
           <button type="button" onClick={() => setShowGenKey(true)}
@@ -538,7 +538,7 @@ export function ApiTab() {
             </div>
             <div>
               <h3 className={sectionHd}>Third-Party Integrations</h3>
-              <p className={sectionSub}>Connect Brisk CRM to your existing tools</p>
+              <p className={sectionSub}>Connect Paul CRM to your existing tools</p>
             </div>
           </div>
         </div>
@@ -640,7 +640,7 @@ export function ApiTab() {
         <RevealModal
           title="Webhook signing secret"
           value={revealSecret}
-          note="Store this secret securely. Use it to verify the X-Brisk-Signature header on incoming events."
+          note="Store this secret securely. Use it to verify the X-Paul-Signature header on incoming events."
           onClose={() => setRevealSecret(null)}
         />
       )}

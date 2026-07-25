@@ -72,10 +72,10 @@ export function LoginPage() {
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <span className="text-white font-bold text-lg">B</span>
+              <span className="text-white font-bold text-lg">P</span>
             </div>
             <div>
-              <p className="text-white font-bold text-xl leading-tight">Brisk CRM</p>
+              <p className="text-white font-bold text-xl leading-tight">Paul CRM</p>
               <p className="text-white/70 text-xs">CR Management Platform</p>
             </div>
           </div>
@@ -107,7 +107,7 @@ export function LoginPage() {
         </div>
 
         <p className="relative z-10 text-white/40 text-xs">
-          © {new Date().getFullYear()} Brisk CRM. Internal use only.
+          © {new Date().getFullYear()} Paul CRM. Internal use only.
         </p>
       </div>
 
@@ -116,9 +116,9 @@ export function LoginPage() {
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2 mb-8">
           <div className="h-8 w-8 rounded-lg bg-brand-500 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">B</span>
+            <span className="text-white font-bold text-sm">P</span>
           </div>
-          <span className="font-bold text-lg text-foreground">Brisk CRM</span>
+          <span className="font-bold text-lg text-foreground">Paul CRM</span>
         </div>
 
         <div className="w-full max-w-sm space-y-6">

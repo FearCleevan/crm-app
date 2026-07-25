@@ -53,7 +53,7 @@ export function ForcePasswordModal() {
         data: { needs_password_setup: false },
       })
       if (error) throw error
-      toast.success('Password created! Welcome to Brisk CRM.')
+      toast.success('Password created! Welcome to Paul CRM.')
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Failed to set password. Please try again.')
     }
@@ -78,7 +78,7 @@ export function ForcePasswordModal() {
               <KeyRound className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Welcome to Brisk CRM!</h2>
+              <h2 className="text-lg font-bold text-white">Welcome to Paul CRM!</h2>
               <p className="text-white/70 text-xs mt-0.5">Create a password to continue to your dashboard</p>
             </div>
           </div>

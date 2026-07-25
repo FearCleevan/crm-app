@@ -64,7 +64,7 @@ export function IPBlockedPage({ ip, reason }: IPBlockedPageProps) {
         </div>
 
         <p className="text-[11px] text-muted-foreground">
-          Brisk CRM · Access restricted by network policy
+          Paul CRM · Access restricted by network policy
         </p>
       </div>
     </div>

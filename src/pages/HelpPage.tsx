@@ -18,8 +18,8 @@ const FAQ_SECTIONS = [
     bg: 'bg-brand-50 dark:bg-brand-900/20',
     items: [
       {
-        q: 'What is Brisk CRM?',
-        a: 'Brisk CRM is an internal customer relationship management tool for managing prospects, deals, email outreach, and team workflows — all in one place.',
+        q: 'What is Paul CRM?',
+        a: 'Paul CRM is an internal customer relationship management tool for managing prospects, deals, email outreach, and team workflows — all in one place.',
       },
       {
         q: 'How do I log in?',
@@ -247,7 +247,7 @@ export function HelpPage() {
             <HelpCircle className="h-7 w-7 text-brand-500" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Help Center</h1>
-          <p className="text-sm text-muted-foreground mt-2">Find answers, shortcuts, and quick links to every part of Brisk CRM.</p>
+          <p className="text-sm text-muted-foreground mt-2">Find answers, shortcuts, and quick links to every part of Paul CRM.</p>
 
           {/* Search */}
           <div className="relative max-w-md mx-auto mt-5">

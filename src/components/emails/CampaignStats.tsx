@@ -57,7 +57,7 @@ export function CampaignStats() {
         <div className="divide-y divide-border">
           {[
             { subject: 'Quick question about {{company}}',       sent: 284, openRate: '52%', clickRate: '18%' },
-            { subject: 'Your custom Brisk CRM proposal is ready', sent: 196, openRate: '48%', clickRate: '24%' },
+            { subject: 'Your custom Paul CRM proposal is ready', sent: 196, openRate: '48%', clickRate: '24%' },
             { subject: 'Following up — did you get a chance to…', sent: 341, openRate: '41%', clickRate: '12%' },
             { subject: 'Re: {{company}} — next steps',           sent: 178, openRate: '39%', clickRate: '15%' },
           ].map(row => (
