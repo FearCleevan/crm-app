@@ -1,3 +1,10 @@
+// This file is a deliberate near-verbatim port of the escapeHtml/ALLOWED_REDIRECT_URIS/
+// renderAuthorizeForm logic in supabase/functions/crm-mcp/oauth.ts (also mirrored again
+// in DEPLOY_BUNDLE.ts) — Vercel Edge Middleware and the Supabase Deno function are
+// separate deployments that cannot share a module. If you change ALLOWED_REDIRECT_URIS,
+// the HTML template, or the security headers here, make the same change in oauth.ts and
+// DEPLOY_BUNDLE.ts.
+
 export const ALLOWED_REDIRECT_URIS = ['https://claude.ai/api/mcp/auth_callback']
 
 export function escapeHtml(s: string): string {

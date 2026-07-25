@@ -48,6 +48,13 @@ issuer/resource URL that has a path component, and Supabase's platform routing o
 requests under `/functions/v1/crm-mcp/...` to this function. A bare-root URL sidesteps that
 ambiguity entirely.
 
+As of the `/authorize` HTML rendering fix, `GET /authorize` is served directly by
+`middleware.ts` on Vercel and never reaches this Supabase function — only
+`POST /authorize` (token submission) is still proxied through to `crm-mcp`. This is why
+the token-entry page renders as an actual interactive form instead of raw HTML text
+(Supabase downgrades `text/html` Edge Function responses to `text/plain` under its shared
+domain; Vercel has no such restriction).
+
 1. Redeploy `crm-mcp` via the Supabase Dashboard as usual (see "Deploy" above), and set the new
    `MCP_PUBLIC_URL` secret (Edge Functions → Secrets) to the CRM app's own domain, e.g.
    `https://brisk-crm.vercel.app`.

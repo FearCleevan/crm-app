@@ -1,6 +1,8 @@
 import { CORS } from './jsonRpc.ts'
 import { timingSafeEqual } from './auth.ts'
 
+// Mirrored in ../../../authorize-form.ts (Vercel, renders GET /authorize) and DEPLOY_BUNDLE.ts
+// (Supabase paste-deploy bundle) — keep all three in sync.
 export const ALLOWED_REDIRECT_URIS = ['https://claude.ai/api/mcp/auth_callback']
 
 export function crmMcpBaseUrl(): string {
@@ -106,6 +108,7 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;')
 }
 
+// Mirrored in ../../../authorize-form.ts and DEPLOY_BUNDLE.ts — keep all three in sync.
 function renderAuthorizeForm(params: {
   redirectUri: string
   clientId: string
@@ -252,6 +255,11 @@ export async function handleAuthorizePost(req: Request): Promise<Response> {
 
   const expected = Deno.env.get('CRM_MCP_TOKEN')
   if (!expected || !(await timingSafeEqual(token, expected))) {
+    // Relative path only (no scheme/host) — the browser resolves it against whatever
+    // origin it's currently on. This assumes /authorize is reached via the Vercel proxy;
+    // hitting this Supabase URL directly would 404 on this redirect (handleAuthorizeGet
+    // above remains a fallback for direct GET hits, but this POST retry path depends on
+    // the Vercel origin).
     const retry = new URL('/authorize', 'https://placeholder.invalid')
     retry.searchParams.set('redirect_uri', redirectUri)
     retry.searchParams.set('client_id', clientId)
