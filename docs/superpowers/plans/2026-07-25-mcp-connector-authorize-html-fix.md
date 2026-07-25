@@ -187,7 +187,7 @@ Modify `middleware.ts`. Add the import at the top:
 
 ```typescript
 import { next } from '@vercel/functions'
-import { ALLOWED_REDIRECT_URIS, renderAuthorizeForm } from './authorize-form.ts'
+import { ALLOWED_REDIRECT_URIS, renderAuthorizeForm } from './authorize-form'
 ```
 
 Then insert a new branch immediately after the existing `GET /` passthrough block (after line 21, before the `const target = process.env.SUPABASE_CRM_MCP_URL` line):
@@ -227,10 +227,10 @@ Every other matched path — including `POST /authorize` — falls through to th
 Run:
 
 ```bash
-npx tsc --noEmit --ignoreConfig --types node --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --allowImportingTsExtensions middleware.ts authorize-form.ts
+npx tsc --noEmit --ignoreConfig --types node --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler middleware.ts authorize-form.ts
 ```
 
-`--allowImportingTsExtensions` is required because `middleware.ts` imports `authorize-form.ts` with an explicit `.ts` extension (TS5097 otherwise) — this project's Deno-side files use the same explicit-extension import style, so `middleware.ts` now needs the equivalent TypeScript flag to check cleanly standalone.
+**Correction (post-merge):** an earlier version of this step imported `authorize-form.ts` with an explicit `.ts` extension and added `--allowImportingTsExtensions` here to satisfy `tsc`. That masked a real problem instead of fixing it: Vercel's Edge Function bundler rejects modules referenced with an explicit `.ts` extension outright (`The Edge Function "middleware" is referencing unsupported modules: ./authorize-form.ts`), so the deploy failed even though this local type-check passed. The fix is to import without the extension (`from './authorize-form'`) — this project's `--moduleResolution bundler` setting resolves that exactly the way Vercel's own bundler does, and the extra flag is no longer needed.
 
 Expected: no output, exit code 0.
 

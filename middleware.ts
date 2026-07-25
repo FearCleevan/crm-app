@@ -1,5 +1,5 @@
 import { next } from '@vercel/functions'
-import { ALLOWED_REDIRECT_URIS, renderAuthorizeForm } from './authorize-form.ts'
+import { ALLOWED_REDIRECT_URIS, renderAuthorizeForm } from './authorize-form'
 
 export const config = {
   matcher: [
