@@ -9,5 +9,7 @@ export const TEMPLATE_VARIABLE_TOKENS = [
 ]
 
 export function extractTemplateVariables(body: string): string[] {
-  return TEMPLATE_VARIABLE_TOKENS.filter((token) => body.includes(token))
+  return TEMPLATE_VARIABLE_TOKENS
+    .filter((token) => body.includes(token))
+    .map((token) => token.slice(2, -2))
 }

@@ -575,7 +575,9 @@ const TEMPLATE_VARIABLE_TOKENS = [
 ]
 
 function extractTemplateVariables(body: string): string[] {
-  return TEMPLATE_VARIABLE_TOKENS.filter((token) => body.includes(token))
+  return TEMPLATE_VARIABLE_TOKENS
+    .filter((token) => body.includes(token))
+    .map((token) => token.slice(2, -2))
 }
 
 // ── Campaign tools ─────────────────────────────────────────────

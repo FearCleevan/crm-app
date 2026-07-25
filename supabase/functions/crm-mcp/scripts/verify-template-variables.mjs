@@ -9,7 +9,7 @@ function assertEqual(actual, expected, label) {
 
 assertEqual(
   extractTemplateVariables('Hi {{first_name}}, following up from {{company}}.'),
-  ['{{first_name}}', '{{company}}'],
+  ['first_name', 'company'],
   'known tokens extracted in fixed order',
 )
 
@@ -30,8 +30,8 @@ assertEqual(
     '{{my_portfolio}} {{my_name}} {{website}} {{job_title}} {{company}} {{last_name}} {{first_name}}',
   ),
   [
-    '{{first_name}}', '{{last_name}}', '{{company}}',
-    '{{job_title}}', '{{website}}', '{{my_name}}', '{{my_portfolio}}',
+    'first_name', 'last_name', 'company',
+    'job_title', 'website', 'my_name', 'my_portfolio',
   ],
   'all 7 tokens in reverse body-order returned in fixed list order',
 )

@@ -164,7 +164,7 @@ async function main() {
     throw new Error('expected isError:true from list_email_templates')
   }
 
-  console.log('=== tools/list (expect 15 tools: 4 prospect + 4 deal + 5 campaign + 2 note) ===')
+  console.log('=== tools/list (expect 17 tools: 4 prospect + 4 deal + 5 campaign + 2 template + 2 note) ===')
   const list5 = await rpc('tools/list', {}, 9)
   const names4 = list5.body.result.tools.map((t) => t.name)
   console.log(names4)
@@ -177,7 +177,7 @@ async function main() {
   console.log(JSON.stringify(notesCall.body, null, 2))
   if (notesCall.body?.result?.isError !== true) throw new Error('expected isError:true from list_notes')
 
-  console.log('=== tools/list (expect 17 tools: 4 prospect + 4 deal + 5 campaign + 2 note + 2 workflow) ===')
+  console.log('=== tools/list (expect 19 tools: 4 prospect + 4 deal + 5 campaign + 2 template + 2 note + 2 workflow) ===')
   const list6 = await rpc('tools/list', {}, 11)
   const names5 = list6.body.result.tools.map((t) => t.name)
   console.log(names5)
@@ -190,7 +190,7 @@ async function main() {
   console.log(JSON.stringify(workflowsCall.body, null, 2))
   if (workflowsCall.body?.result?.isError !== true) throw new Error('expected isError:true from list_workflows')
 
-  console.log('=== tools/list (expect 18 tools: 4 prospect + 4 deal + 5 campaign + 2 note + 2 workflow + 1 report) ===')
+  console.log('=== tools/list (expect 20 tools: 4 prospect + 4 deal + 5 campaign + 2 template + 2 note + 2 workflow + 1 report) ===')
   const list7 = await rpc('tools/list', {}, 13)
   const names6 = list7.body.result.tools.map((t) => t.name)
   console.log(names6)
@@ -205,7 +205,7 @@ async function main() {
   console.log(JSON.stringify(reportCall.body, null, 2))
   if (reportCall.body?.result?.isError !== true) throw new Error('expected isError:true from get_report')
 
-  console.log('=== tools/list (expect 19 tools: 4 prospect + 4 deal + 5 campaign + 2 note + 2 workflow + 1 report + 1 outreach) ===')
+  console.log('=== tools/list (expect 21 tools: 4 prospect + 4 deal + 5 campaign + 2 template + 2 note + 2 workflow + 1 report + 1 outreach) ===')
   const list8 = await rpc('tools/list', {}, 15)
   const names7 = list8.body.result.tools.map((t) => t.name)
   console.log(names7)
