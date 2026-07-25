@@ -2,6 +2,7 @@ import { z } from 'npm:zod@4'
 import { supabase } from '../supabaseClient.ts'
 import { MCP_CRM_USER_ID } from '../config.ts'
 import type { ToolDef } from './types.ts'
+import { extractTemplateVariables } from './templateVariables.ts'
 
 function errorResult(message: string) {
   return { content: [{ type: 'text' as const, text: `Error: ${message}` }], isError: true }
@@ -132,6 +133,63 @@ export const campaignTools: ToolDef[] = [
         .from('campaign_recipients')
         .select('id, prospect_id, status, sent_at, opened_at, clicked_at, replied_at, bounced_at')
         .eq('campaign_id', campaign_id)
+      if (error) return errorResult(error.message)
+      return jsonResult(data)
+    },
+  },
+  {
+    name: 'create_email_template',
+    description:
+      'Create a reusable email template. Merge-field placeholders like {{first_name}} and {{company}} in the body are detected automatically.',
+    schema: {
+      name: z.string().min(1),
+      category: z.enum([
+        'general', 'follow_up', 'introduction', 'proposal', 'closing',
+        're_engagement', 'newsletter', 'cold_outreach', 'no_website', 'outdated_website',
+      ]).default('general'),
+      subject: z.string().min(1),
+      body: z.string().min(1),
+    },
+    handler: async ({ name, category, subject, body }) => {
+      if (!MCP_CRM_USER_ID) {
+        return errorResult(
+          'MCP_CRM_USER_ID is not set in Supabase Edge Function Secrets — set it to a real crm_users.id before creating templates.',
+        )
+      }
+      const { data, error } = await supabase
+        .from('email_templates')
+        .insert({
+          name,
+          category,
+          subject,
+          body,
+          created_by: MCP_CRM_USER_ID,
+          is_active: true,
+          variables: extractTemplateVariables(body),
+        })
+        .select('id, name, category, subject, variables, created_at')
+        .single()
+      if (error) return errorResult(error.message)
+      return jsonResult(data)
+    },
+  },
+  {
+    name: 'list_email_templates',
+    description: 'List active email templates, optionally filtered by category',
+    schema: {
+      category: z.enum([
+        'general', 'follow_up', 'introduction', 'proposal', 'closing',
+        're_engagement', 'newsletter', 'cold_outreach', 'no_website', 'outdated_website',
+      ]).optional(),
+    },
+    handler: async ({ category }) => {
+      let q = supabase
+        .from('email_templates')
+        .select('id, name, category, subject, variables, created_at')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+      if (category) q = q.eq('category', category)
+      const { data, error } = await q
       if (error) return errorResult(error.message)
       return jsonResult(data)
     },

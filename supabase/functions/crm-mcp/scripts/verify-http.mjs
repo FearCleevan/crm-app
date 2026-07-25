@@ -116,12 +116,13 @@ async function main() {
   console.log(JSON.stringify(dealsCall.body, null, 2))
   if (dealsCall.body?.result?.isError !== true) throw new Error('expected isError:true from list_deals')
 
-  console.log('=== tools/list (expect 13 tools: 4 prospect + 4 deal + 5 campaign) ===')
+  console.log('=== tools/list (expect 15 tools: 4 prospect + 4 deal + 5 campaign + 2 template) ===')
   const list4 = await rpc('tools/list', {}, 7)
   const names3 = list4.body.result.tools.map((t) => t.name)
   console.log(names3)
   for (const expected of [
     'list_campaigns', 'get_campaign', 'create_campaign', 'activate_campaign', 'list_campaign_recipients',
+    'create_email_template', 'list_email_templates',
   ]) {
     if (!names3.includes(expected)) throw new Error(`missing tool: ${expected}`)
   }
@@ -136,6 +137,31 @@ async function main() {
   if (noConfirm.body?.result?.isError !== true) throw new Error('activate_campaign without confirm did not return isError:true')
   if (JSON.stringify(noConfirm.body).includes('"status":"active"')) {
     throw new Error('activate_campaign without confirm appears to have activated something')
+  }
+
+  console.log('=== tools/call: create_email_template (expect isError, placeholder credentials) ===')
+  const templateCall = await rpc(
+    'tools/call',
+    {
+      name: 'create_email_template',
+      arguments: {
+        name: 'Cold Outreach Intro',
+        subject: 'Quick question, {{first_name}}',
+        body: 'Hi {{first_name}}, I noticed {{company}} might benefit from...',
+      },
+    },
+    17,
+  )
+  console.log(JSON.stringify(templateCall.body, null, 2))
+  if (templateCall.body?.result?.isError !== true) {
+    throw new Error('expected isError:true from create_email_template')
+  }
+
+  console.log('=== tools/call: list_email_templates (expect isError, placeholder credentials) ===')
+  const templatesListCall = await rpc('tools/call', { name: 'list_email_templates', arguments: {} }, 18)
+  console.log(JSON.stringify(templatesListCall.body, null, 2))
+  if (templatesListCall.body?.result?.isError !== true) {
+    throw new Error('expected isError:true from list_email_templates')
   }
 
   console.log('=== tools/list (expect 15 tools: 4 prospect + 4 deal + 5 campaign + 2 note) ===')
@@ -332,7 +358,7 @@ async function main() {
   const finalListRes = await rpc('tools/list', {}, 999, tokenBody.access_token)
   const finalNames = finalListRes.body.result.tools.map((t) => t.name)
   console.log('tools/list via OAuth-issued token, count:', finalNames.length)
-  if (finalNames.length !== 19) throw new Error(`expected 19 tools, got ${finalNames.length}`)
+  if (finalNames.length !== 21) throw new Error(`expected 21 tools, got ${finalNames.length}`)
 
   console.log('=== OAuth: /token with WRONG code_verifier (expect invalid_grant) ===')
   const wrongVerifierRes = await fetch(`${BASE_URL}/token`, {
