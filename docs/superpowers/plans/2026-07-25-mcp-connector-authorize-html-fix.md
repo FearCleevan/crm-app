@@ -227,8 +227,10 @@ Every other matched path — including `POST /authorize` — falls through to th
 Run:
 
 ```bash
-npx tsc --noEmit --ignoreConfig --types node --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler middleware.ts authorize-form.ts
+npx tsc --noEmit --ignoreConfig --types node --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --allowImportingTsExtensions middleware.ts authorize-form.ts
 ```
+
+`--allowImportingTsExtensions` is required because `middleware.ts` imports `authorize-form.ts` with an explicit `.ts` extension (TS5097 otherwise) — this project's Deno-side files use the same explicit-extension import style, so `middleware.ts` now needs the equivalent TypeScript flag to check cleanly standalone.
 
 Expected: no output, exit code 0.
 
