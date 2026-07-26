@@ -44,7 +44,7 @@ export function CampaignStats() {
               contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
               cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
             />
-            <Bar dataKey="rate" name="Open Rate" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="rate" name="Open Rate" fill="#0c7c8d" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

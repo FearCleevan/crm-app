@@ -140,8 +140,8 @@ export function RevenueOverTime({ dateRange }: Props) {
           <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
             <defs>
               <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
+                <stop offset="5%"  stopColor="#0c7c8d" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#0c7c8d" stopOpacity={0.02} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -151,7 +151,7 @@ export function RevenueOverTime({ dateRange }: Props) {
               formatter={v => [fmt(v as number), 'Revenue']}
               contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
             />
-            <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} fill="url(#revGrad)" dot={false} activeDot={{ r: 4 }} />
+            <Area type="monotone" dataKey="value" stroke="#0c7c8d" strokeWidth={2} fill="url(#revGrad)" dot={false} activeDot={{ r: 4 }} />
           </AreaChart>
         </ResponsiveContainer>
       )}

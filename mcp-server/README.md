@@ -1,6 +1,6 @@
 # CRM MCP Server (local dev connector)
 
-A local, stdio-based MCP server exposing the Brisk CRM's core data
+A local, stdio-based MCP server exposing Paul CRM's core data
 (prospects, deals, campaigns, notes, workflows, reports) as tools for
 Claude Code. Local-only — uses the Supabase `service_role` key, bypasses
 RLS, and is meant to be run by one developer on their own machine.

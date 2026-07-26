@@ -1,10 +1,11 @@
 # CRM MCP Connector (remote, for claude.ai)
 
-A Supabase Edge Function exposing the Brisk CRM's data (prospects, deals, campaigns, notes,
+A Supabase Edge Function exposing Paul CRM's data (prospects, deals, campaigns, notes,
 workflows, reports) plus a `send_outreach_email` tool as a remote MCP server, so claude.ai can
 be registered as a Custom Connector against it. This is the "v2" companion to the local
 Claude Code MCP server in `crm-app/mcp-server/` — see
-`docs/superpowers/specs/2026-07-17-mcp-connector-v2-design.md` for the full design.
+`docs/superpowers/specs/2026-07-17-mcp-connector-v2-design.md` for the full design. 21 tools
+total, spread across `tools/*.ts`.
 
 Single-user scope: one shared secret (`CRM_MCP_TOKEN`) is the only credential that matters — the
 OAuth 2.1 layer below exists solely because claude.ai's connector flow requires OAuth, not because
@@ -14,14 +15,12 @@ in that one shared secret; there's no separate identity system behind it.
 ## Deploy (Supabase Dashboard — no CLI)
 
 1. Dashboard → Edge Functions → **Deploy a new function**, name it `crm-mcp`.
-2. Paste in the contents of every file under `crm-app/supabase/functions/crm-mcp/` (excluding
-   `scripts/` and this README — only `index.ts`, `auth.ts`, `jsonRpc.ts`, `supabaseClient.ts`,
-   `config.ts`, and `tools/*.ts` are part of the deployed function). Preserve the `tools/`
-   subdirectory structure when uploading through the Dashboard editor — those files must stay
-   under a `tools/` folder relative to `index.ts`, not be flattened alongside it. Also include
-   `deno.json`: it pins the exact dependency versions matching `deno.lock` (the ones this was
-   actually tested against). Omitting it still works, since the runtime falls back to resolving
-   unpinned versions from the bare `npm:` specifiers, but including it is safer.
+2. Paste in the entire contents of `crm-app/supabase/functions/crm-mcp/DEPLOY_BUNDLE.ts` as the
+   function's single `index.ts` file. This is a pre-bundled single-file build of everything under
+   `index.ts`, `auth.ts`, `jsonRpc.ts`, `supabaseClient.ts`, `config.ts`, and `tools/*.ts` — the
+   Dashboard editor does not need (and should not receive) the individual modular files or the
+   `tools/` folder structure; deploying the modular files separately is not how this function is
+   actually built or tested.
 3. **Disable JWT verification for this function specifically** (Dashboard → Edge Functions →
    `crm-mcp` → toggle off "Verify JWT"). This function does its own auth check — Supabase's
    default JWT check would otherwise reject claude.ai's requests, since claude.ai sends our own
