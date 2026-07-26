@@ -1,3 +1,9 @@
+// Canonical merge-field list for the FRONTEND only.
+// Deliberately NOT shared across the Deno/MCP runtime boundary — these copies
+// must be updated by hand if this list changes:
+//   supabase/functions/send-campaign-batch/index.ts       (resolveVars, 8 tokens, currently correct)
+//   supabase/functions/crm-mcp/tools/templateVariables.ts (7 tokens — missing full_name, known gap)
+//   supabase/functions/crm-mcp/DEPLOY_BUNDLE.ts            (mirror of the file above)
 export const MERGE_FIELDS = [
   { key: 'first_name',   label: 'First Name'   },
   { key: 'last_name',    label: 'Last Name'    },

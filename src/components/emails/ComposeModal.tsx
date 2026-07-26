@@ -294,7 +294,13 @@ export function ComposeModal({
   }
 
   function getFinalHtml() {
-    return sigEnabled ? body + signature : body
+    // Always resolve merge fields at send-time, regardless of whether `body`
+    // originated from a preset (unresolved), a template (already resolved by
+    // handleTemplateSelect), or hand-typed text. resolveMergeFields is plain
+    // string substitution, so re-running it on an already-resolved body is a
+    // safe no-op — there are no `{{...}}` tokens left to substitute.
+    const resolvedBody = resolveVars(body, linkedProspect)
+    return sigEnabled ? resolvedBody + signature : resolvedBody
   }
 
   async function handleSend() {
