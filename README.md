@@ -1,4 +1,4 @@
-# Brisk CRM
+# Paul CRM
 
 A modern, full-featured internal CRM platform built to manage leads, automate follow-ups, and close deals faster.
 
@@ -12,7 +12,7 @@ A modern, full-featured internal CRM platform built to manage leads, automate fo
 
 ## Overview
 
-Brisk CRM is an internal sales platform that centralises prospect management, deal tracking, email communication, and team workflows in one place. Designed for sales teams who need fast, reliable tooling without the overhead of a generic CRM.
+Paul CRM is an internal sales platform that centralises prospect management, deal tracking, email communication, and team workflows in one place. Designed for sales teams who need fast, reliable tooling without the overhead of a generic CRM.
 
 ---
 

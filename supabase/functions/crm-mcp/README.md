@@ -17,7 +17,8 @@ in that one shared secret; there's no separate identity system behind it.
 1. Dashboard → Edge Functions → **Deploy a new function**, name it `crm-mcp`.
 2. Paste in the entire contents of `crm-app/supabase/functions/crm-mcp/DEPLOY_BUNDLE.ts` as the
    function's single `index.ts` file. This is a pre-bundled single-file build of everything under
-   `index.ts`, `auth.ts`, `jsonRpc.ts`, `supabaseClient.ts`, `config.ts`, and `tools/*.ts` — the
+   `index.ts`, `auth.ts`, `oauth.ts`, `jsonRpc.ts`, `supabaseClient.ts`, `config.ts`, and
+   `tools/*.ts` (7 source modules) — the
    Dashboard editor does not need (and should not receive) the individual modular files or the
    `tools/` folder structure; deploying the modular files separately is not how this function is
    actually built or tested.
@@ -56,13 +57,13 @@ domain; Vercel has no such restriction).
 
 1. Redeploy `crm-mcp` via the Supabase Dashboard as usual (see "Deploy" above), and set the new
    `MCP_PUBLIC_URL` secret (Edge Functions → Secrets) to the CRM app's own domain, e.g.
-   `https://brisk-crm.vercel.app`.
+   `https://crm.peterpaullazan.com`.
 2. In the Vercel project's environment variables, set `SUPABASE_CRM_MCP_URL` to this function's
    real address, e.g. `https://<project-ref>.supabase.co/functions/v1/crm-mcp`, and redeploy the
    `crm-app` Vercel project so `middleware.ts` picks it up.
 3. claude.ai → Settings → Connectors → **Add custom connector**.
 4. Paste the CRM app's own bare-root URL (shown in Settings → API Integration → MCP Connector in
-   the app itself), e.g. `https://brisk-crm.vercel.app` — not the Supabase function URL.
+   the app itself), e.g. `https://crm.peterpaullazan.com` — not the Supabase function URL.
 5. Leave the OAuth Client ID / Client Secret fields blank — claude.ai will discover the OAuth
    endpoints automatically and register itself.
 6. Click Add. A browser tab/popup should open asking for your `CRM_MCP_TOKEN` — enter it there
@@ -81,3 +82,6 @@ go out) instead of silently proceeding.
 `node scripts/verify-http.mjs` — spawns the function locally via `npx deno run` and exercises
 the full JSON-RPC surface with placeholder credentials, confirming the protocol, auth, and every
 tool's structured-error behavior without touching a real database or sending a real email.
+
+`deno.json` pins exact dependency versions matching `deno.lock` — keep both in sync if bumping
+any import.

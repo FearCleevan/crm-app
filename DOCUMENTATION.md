@@ -1,8 +1,8 @@
-# Brisk CRM — Project Documentation
+# Paul CRM — Project Documentation
 
 ## Overview
 
-**Brisk CRM** is an internal sales platform built with React + TypeScript + Supabase. It centralises prospect management, deal tracking, email communication, team workflows, and reporting for sales teams.
+**Paul CRM** is an internal sales platform built with React + TypeScript + Supabase. It centralises prospect management, deal tracking, email communication, team workflows, and reporting for sales teams.
 
 ---
 
