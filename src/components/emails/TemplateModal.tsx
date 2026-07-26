@@ -7,18 +7,16 @@ import { X } from 'lucide-react'
 import { VariableChips } from './VariableChips'
 import { TEMPLATE_CATEGORIES } from '@/constants/mockEmails'
 import type { RichTemplateDB } from '@/types/campaigns'
+import { resolveMergeFields } from '@/lib/mergeFields'
 
-const SAMPLE = { first_name: 'John', company: 'Acme Corp', job_title: 'CEO', website: 'acmecorp.com', last_name: 'Smith', my_name: 'Peter Lazan', my_portfolio: 'lazandev.vercel.app' }
+const SAMPLE = {
+  first_name: 'John', last_name: 'Smith', full_name: 'John Smith',
+  company: 'Acme Corp', job_title: 'CEO', website: 'acmecorp.com',
+  my_name: 'Peter Lazan', my_portfolio: 'lazandev.vercel.app',
+}
 
 function resolvePreview(text: string): string {
-  return text
-    .replace(/{{first_name}}/g, SAMPLE.first_name)
-    .replace(/{{last_name}}/g,  SAMPLE.last_name)
-    .replace(/{{company}}/g,    SAMPLE.company)
-    .replace(/{{job_title}}/g,  SAMPLE.job_title)
-    .replace(/{{website}}/g,    SAMPLE.website)
-    .replace(/{{my_name}}/g,    SAMPLE.my_name)
-    .replace(/{{my_portfolio}}/g, SAMPLE.my_portfolio)
+  return resolveMergeFields(text, SAMPLE)
 }
 
 function highlightUnresolved(text: string): string {

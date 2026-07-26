@@ -8,18 +8,30 @@ import { emailService } from '@/services/email.service'
 import { useAuth } from '@/context/AuthContext'
 import { EmailEditor } from './EmailEditor'
 import type { RichTemplateDB } from '@/types/campaigns'
+import { resolveMergeFields } from '@/lib/mergeFields'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // ── Variable resolver ─────────────────────────────────────────
-function resolveVars(text: string, prospect: { firstname?: string | null; fullname?: string | null; company?: string | null } | null): string {
+function resolveVars(text: string, prospect: {
+  firstname?: string | null
+  lastname?: string | null
+  fullname?: string | null
+  company?: string | null
+  jobtitle?: string | null
+  website?: string | null
+} | null): string {
   if (!text) return text
-  return text
-    .replace(/{{first_name}}/g,   prospect?.firstname   ?? '')
-    .replace(/{{full_name}}/g,    prospect?.fullname    ?? '')
-    .replace(/{{company}}/g,      prospect?.company     ?? 'your company')
-    .replace(/{{my_name}}/g,      'Peter Lazan')
-    .replace(/{{my_portfolio}}/g, 'lazandev.vercel.app')
+  return resolveMergeFields(text, {
+    first_name:   prospect?.firstname ?? '',
+    last_name:    prospect?.lastname  ?? '',
+    full_name:    prospect?.fullname  ?? '',
+    company:      prospect?.company   ?? 'your company',
+    job_title:    prospect?.jobtitle  ?? '',
+    website:      prospect?.website   ?? '',
+    my_name:      'Peter Lazan',
+    my_portfolio: 'lazandev.vercel.app',
+  })
 }
 
 // ── Email chip input ──────────────────────────────────────────
@@ -176,7 +188,15 @@ export function ComposeModal({
   const [selectedTemplate, setSelectedTemplate] = useState<RichTemplateDB | null>(null)
 
   // ── New state: prospect linker ────────────────────────────
-  const [linkedProspect,   setLinkedProspect]   = useState<{ fullname: string; email: string; firstname?: string; company?: string } | null>(null)
+  const [linkedProspect,   setLinkedProspect]   = useState<{
+    fullname: string
+    email: string
+    firstname?: string
+    lastname?: string
+    company?: string
+    jobtitle?: string
+    website?: string
+  } | null>(null)
   const [prospectSearch,   setProspectSearch]   = useState('')
   const [prospectQuery,    setProspectQuery]    = useState('')
   const { results: suggestions,     clear: clearToSuggestions }   = useProspectSearch(toSearchQuery)
@@ -239,7 +259,15 @@ export function ComposeModal({
   }
 
   function handleProspectPick(prospect: ProspectSuggestion) {
-    const linked = { fullname: prospect.fullname ?? '', email: prospect.email ?? '', firstname: prospect.firstname ?? undefined, company: prospect.company ?? undefined }
+    const linked = {
+      fullname:  prospect.fullname  ?? '',
+      email:     prospect.email     ?? '',
+      firstname: prospect.firstname ?? undefined,
+      lastname:  prospect.lastname  ?? undefined,
+      company:   prospect.company   ?? undefined,
+      jobtitle:  prospect.jobtitle  ?? undefined,
+      website:   prospect.website   ?? undefined,
+    }
     setLinkedProspect(linked)
     setProspectSearch('')
     setProspectQuery('')

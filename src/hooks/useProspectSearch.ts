@@ -8,6 +8,8 @@ export interface ProspectSuggestion {
   lastname: string | null
   email: string | null
   company: string | null
+  jobtitle: string | null
+  website: string | null
 }
 
 export function useProspectSearch(query: string, minChars = 2) {
@@ -34,7 +36,7 @@ export function useProspectSearch(query: string, minChars = 2) {
       setLoading(true)
       const { data, error: sbError } = await supabase
         .from('prospects')
-        .select('id, fullname, firstname, lastname, email, company')
+        .select('id, fullname, firstname, lastname, email, company, jobtitle, website')
         .or(`fullname.ilike.%${safe}%,email.ilike.%${safe}%,company.ilike.%${safe}%`)
         .eq('isactive', true)
         .not('email', 'is', null)

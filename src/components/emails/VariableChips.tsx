@@ -1,15 +1,8 @@
 import { useRef } from 'react'
 import { Plus } from 'lucide-react'
+import { MERGE_FIELDS } from '@/lib/mergeFields'
 
-export const TEMPLATE_VARIABLES = [
-  { label: 'First Name',    variable: '{{first_name}}'   },
-  { label: 'Last Name',     variable: '{{last_name}}'    },
-  { label: 'Company',       variable: '{{company}}'      },
-  { label: 'Job Title',     variable: '{{job_title}}'    },
-  { label: 'Website',       variable: '{{website}}'      },
-  { label: 'My Name',       variable: '{{my_name}}'      },
-  { label: 'My Portfolio',  variable: '{{my_portfolio}}' },
-]
+export const TEMPLATE_VARIABLES = MERGE_FIELDS.map(f => ({ label: f.label, variable: `{{${f.key}}}` }))
 
 interface Props { onInsert: (variable: string) => void }
 
