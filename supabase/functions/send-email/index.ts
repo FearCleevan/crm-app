@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from:    `Brisk CRM <${fromEmail}>`,
+        from:    `Peter Paul Lazan <${fromEmail}>`,
         to:      Array.isArray(to) ? to : [to],
         subject,
         html,

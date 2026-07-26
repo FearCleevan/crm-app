@@ -6,6 +6,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 const resend = new Resend(Deno.env.get('RESEND_API_KEY')!)
+const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev'
 
 function resolveVars(template: string, prospect: Record<string, string | null>): string {
   return template
@@ -15,9 +16,11 @@ function resolveVars(template: string, prospect: Record<string, string | null>):
     .replace(/{{company}}/g,      prospect.company     ?? 'your company')
     .replace(/{{job_title}}/g,    prospect.jobtitle    ?? '')
     .replace(/{{website}}/g,      prospect.website     ?? '')
-    .replace(/{{my_name}}/g,      'Peter Lazan')
+    .replace(/{{my_name}}/g,      'Peter Paul Lazan')
     .replace(/{{my_portfolio}}/g, 'lazandev.vercel.app')
 }
+
+const SIGNATURE = '\n\nBest regards,\nPeter Paul Lazan\nWhatsApp: 09515379127\nhttps://www.peterpaullazan.com/\nhttps://github.com/FearCleevan/'
 
 Deno.serve(async () => {
   const { data: campaigns, error: campaignError } = await supabase
@@ -72,10 +75,10 @@ Deno.serve(async () => {
       const senderName = `${campaign.crm_users?.first_name ?? ''} ${campaign.crm_users?.last_name ?? ''}`.trim()
 
       const { data: sent, error: sendError } = await resend.emails.send({
-        from: `${senderName} <peter@lazandev.dev>`,
+        from: `${senderName} <${fromEmail}>`,
         to:   prospect.email,
         subject,
-        text: body,
+        text: body + SIGNATURE,
       })
 
       if (!sendError && sent?.id) {
