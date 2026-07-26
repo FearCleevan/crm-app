@@ -7,7 +7,7 @@ import { X } from 'lucide-react'
 import { VariableChips } from './VariableChips'
 import { TEMPLATE_CATEGORIES } from '@/constants/mockEmails'
 import type { RichTemplateDB } from '@/types/campaigns'
-import { resolveMergeFields } from '@/lib/mergeFields'
+import { MERGE_FIELDS, resolveMergeFields } from '@/lib/mergeFields'
 
 const SAMPLE = {
   first_name: 'John', last_name: 'Smith', full_name: 'John Smith',
@@ -78,7 +78,9 @@ export function TemplateModal({ open, initial, existingNames, onClose, onSave }:
       .filter(n => !initial || n !== initial.name)
       .includes(values.name.trim())
     if (isDupe) { alert('A template with this name already exists.'); return }
-    onSave({ name: values.name.trim(), category: values.category, subject: values.subject, body: values.body, variables: [] })
+    const haystack = `${values.subject} ${values.body}`
+    const variables = MERGE_FIELDS.filter(f => haystack.includes(`{{${f.key}}}`)).map(f => f.key)
+    onSave({ name: values.name.trim(), category: values.category, subject: values.subject, body: values.body, variables })
     setDirty(false)
   }
 
