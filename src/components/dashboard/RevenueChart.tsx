@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo } from 'react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
@@ -112,8 +112,8 @@ export function RevenueChart({ data: allData = [] }: Props) {
             <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"   stopColor="hsl(245,58%,51%)" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="hsl(245,58%,51%)" stopOpacity={0}   />
+                  <stop offset="0%"   stopColor="#0c7c8d" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#0c7c8d" stopOpacity={0}   />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" strokeOpacity={0.6} vertical={false} />
@@ -131,15 +131,15 @@ export function RevenueChart({ data: allData = [] }: Props) {
                 tickFormatter={v => `$${(v / 1000).toFixed(0)}k`}
                 width={40}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'hsl(245,58%,51%)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#0c7c8d', strokeWidth: 1, strokeDasharray: '4 4' }} />
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="hsl(245,58%,51%)"
+                stroke="#0c7c8d"
                 strokeWidth={2.5}
                 fill="url(#revenueGradient)"
                 dot={false}
-                activeDot={{ r: 5, fill: 'hsl(245,58%,51%)', stroke: '#fff', strokeWidth: 2 }}
+                activeDot={{ r: 5, fill: '#0c7c8d', stroke: '#fff', strokeWidth: 2 }}
               />
             </AreaChart>
           </ResponsiveContainer>

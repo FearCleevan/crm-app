@@ -5,7 +5,7 @@ import {
 import type { SegmentPoint } from '@/services/analytics.service'
 
 const COLORS = {
-  smes:       'hsl(245,58%,51%)',
+  smes:       '#0c7c8d',
   midmarket:  'hsl(160,84%,39%)',
   enterprise: 'hsl(215,16%,47%)',
 }

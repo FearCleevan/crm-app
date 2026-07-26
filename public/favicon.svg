@@ -9,11 +9,9 @@
   <!-- Rounded square background -->
   <rect width="32" height="32" rx="7" fill="url(#bg)"/>
 
-  <!-- Bold B — stem + two lobes as bezier D-shapes -->
+  <!-- Bold P — stem + single bezier D-shape lobe -->
   <!-- Left stem -->
   <rect x="7.5" y="7" width="5" height="18" fill="white"/>
   <!-- Upper lobe (D shape) -->
-  <path d="M 12 7 H 18 C 25 7 25 16 18 16 H 12 Z" fill="white"/>
-  <!-- Lower lobe (D shape, slightly wider) -->
-  <path d="M 12 15.5 H 19 C 27 15.5 27 25 19 25 H 12 Z" fill="white"/>
+  <path d="M 12 7 H 19 C 27 7 27 17 19 17 H 12 Z" fill="white"/>
 </svg>
