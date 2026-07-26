@@ -9,8 +9,8 @@ export interface ListItem {
   label: string
 }
 
-const LS_FAV  = 'brisk_favorites'
-const LS_PROJ = 'brisk_projects'
+const LS_FAV  = 'paul_favorites'
+const LS_PROJ = 'paul_projects'
 
 function drainLocalStorage(key: string): ListItem[] {
   try {

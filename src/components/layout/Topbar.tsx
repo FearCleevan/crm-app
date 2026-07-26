@@ -210,7 +210,7 @@ export function Topbar({
           <div className="absolute right-0 top-11 z-50 w-52 rounded-xl border border-border bg-card shadow-lg py-1 animate-in fade-in-0 slide-in-from-top-2 duration-150">
             <div className="px-3 py-2 border-b border-border">
               <p className="text-sm font-semibold text-foreground truncate">{user?.name ?? 'Janson Williams'}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email ?? 'janson@briskcrm.com'}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email ?? 'janson@paulcrm.com'}</p>
             </div>
             <div className="py-1">
               <button type="button" onClick={() => goTo(ROUTES.SETTINGS + '?tab=profile')}

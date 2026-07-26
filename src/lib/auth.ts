@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
-const LS_REMEMBER = 'brisk_remember_me'
-const SS_SESSION  = 'brisk_session_active'
+const LS_REMEMBER = 'paul_remember_me'
+const SS_SESSION  = 'paul_session_active'
 
 export async function signIn(email: string, password: string, rememberMe = true) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })

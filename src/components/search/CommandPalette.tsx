@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { MOCK_PROSPECTS, MOCK_DEALS, MOCK_USERS } from '@/constants/mockData'
 import { ROUTES } from '@/constants/routes'
 
-const RECENT_KEY = 'brisk_recent_searches'
+const RECENT_KEY = 'paul_recent_searches'
 const MAX_RECENT = 5
 
 interface SearchResult {

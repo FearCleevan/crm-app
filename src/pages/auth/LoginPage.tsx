@@ -20,9 +20,9 @@ type LoginForm = z.infer<typeof loginSchema>
 
 // Demo credential hints shown on the page
 const DEMO_ACCOUNTS = [
-  { role: 'Super Admin',  email: 'janson.williams@briskcrm.com', password: 'admin123'   },
-  { role: 'Data Analyst', email: 'sarah.chen@briskcrm.com',      password: 'analyst123' },
-  { role: 'Agent',        email: 'marcus.torres@briskcrm.com',   password: 'agent123'   },
+  { role: 'Super Admin',  email: 'janson.williams@paulcrm.com', password: 'admin123'   },
+  { role: 'Data Analyst', email: 'sarah.chen@paulcrm.com',      password: 'analyst123' },
+  { role: 'Agent',        email: 'marcus.torres@paulcrm.com',   password: 'agent123'   },
 ]
 
 export function LoginPage() {

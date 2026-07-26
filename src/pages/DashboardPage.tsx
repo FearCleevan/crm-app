@@ -13,7 +13,7 @@ import { LocationsCard } from '@/components/dashboard/LocationsCard'
 import { WidgetCustomizerPanel, type WidgetConfig } from '@/components/dashboard/WidgetCustomizerPanel'
 import { useDashboardData } from '@/hooks/useDashboardData'
 
-const STORAGE_KEY = 'brisk_dashboard_widgets'
+const STORAGE_KEY = 'paul_dashboard_widgets'
 
 const DEFAULT_WIDGETS: WidgetConfig[] = [
   { id: 'metrics',   label: 'Metric Cards',    description: 'Leads, Revenue, Avg Deal Size',  visible: true },
