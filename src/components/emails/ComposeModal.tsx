@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, type KeyboardEvent } from 'react'
-import { X, Minus, Maximize2, Paperclip, Send, Clock, ChevronDown, PenSquare, Eye, Edit2 } from 'lucide-react'
+import { X, Minus, Maximize2, Minimize2, Paperclip, Send, Clock, ChevronDown, PenSquare, Eye, Edit2 } from 'lucide-react'
 import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
 import { cn } from '@/lib/utils'
@@ -159,6 +159,16 @@ interface ComposeModalProps {
   initialBody?: string
 }
 
+// ── Template body -> editor content ───────────────────────────
+// Rich HTML templates (table-based visual templates, same pattern as the
+// Newsletter/Promotional presets below) are used as-is. Only legacy
+// plain-text template bodies — no HTML tags — get wrapped into <p>
+// paragraphs so line breaks still render inside the rich-text editor.
+function templateBodyToHtml(resolved: string): string {
+  if (/^\s*</.test(resolved)) return resolved
+  return resolved.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('')
+}
+
 // ── Highlight unresolved vars in preview ─────────────────────
 function highlightUnresolved(html: string): string {
   return html.replace(/{{[^}]+}}/g, match =>
@@ -172,6 +182,7 @@ export function ComposeModal({
 }: ComposeModalProps) {
   const { user } = useAuth()
   const [minimized,        setMinimized]        = useState(false)
+  const [maximized,        setMaximized]        = useState(false)
   const [toChips,          setToChips]          = useState<string[]>(initialTo ? [initialTo] : [])
   const [ccChips,          setCcChips]          = useState<string[]>([])
   const [bccChips,         setBccChips]         = useState<string[]>([])
@@ -244,9 +255,7 @@ export function ComposeModal({
     setSelectedTemplate(tpl)
     setSubject(resolveVars(tpl.subject, linkedProspect))
     const resolved = resolveVars(tpl.body, linkedProspect)
-    // Convert plain text body to HTML paragraphs
-    const htmlBody = resolved.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('')
-    setBody(htmlBody)
+    setBody(templateBodyToHtml(resolved))
     setPresetKey(k => k + 1)
     setPreviewMode(false)
     toast.success('Template applied')
@@ -280,8 +289,7 @@ export function ComposeModal({
     if (selectedTemplate) {
       setSubject(resolveVars(selectedTemplate.subject, linked))
       const resolved = resolveVars(selectedTemplate.body, linked)
-      const htmlBody = resolved.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('')
-      setBody(htmlBody)
+      setBody(templateBodyToHtml(resolved))
       setPresetKey(k => k + 1)
     }
   }
@@ -374,19 +382,21 @@ export function ComposeModal({
       'fixed z-50 bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200',
       minimized
         ? 'bottom-14 lg:bottom-0 right-6 w-72 h-12'
-        : 'bottom-16 lg:bottom-4 right-4 w-[640px] max-w-[calc(100vw-2rem)] h-[680px] max-h-[calc(100vh-5rem)]',
+        : maximized
+          ? 'inset-4 lg:inset-8 w-auto h-auto'
+          : 'bottom-16 lg:bottom-4 right-4 w-[640px] max-w-[calc(100vw-2rem)] h-[680px] max-h-[calc(100vh-5rem)]',
     )}>
       {/* Title bar */}
       <div className="flex items-center gap-2 px-4 py-3 bg-foreground/5 border-b border-border shrink-0 cursor-default">
         <PenSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         <span className="text-sm font-semibold text-foreground flex-1 truncate">{subject || 'New Message'}</span>
-        <button type="button" aria-label="Minimize" onClick={() => setMinimized(v => !v)}
+        <button type="button" aria-label="Minimize" onClick={() => { setMaximized(false); setMinimized(v => !v) }}
           className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors">
           <Minus className="h-3.5 w-3.5" />
         </button>
-        <button type="button" aria-label="Maximize"
+        <button type="button" aria-label={maximized ? 'Restore' : 'Maximize'} onClick={() => { setMinimized(false); setMaximized(v => !v) }}
           className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors">
-          <Maximize2 className="h-3.5 w-3.5" />
+          {maximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
         </button>
         <button type="button" aria-label="Close compose" onClick={onClose}
           className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-950/30 transition-colors">
