@@ -11,8 +11,6 @@ function jsonResult(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] }
 }
 
-const SIGNATURE = '<br/><br/>Best regards,<br/>Peter Paul Lazan<br/>WhatsApp: 09515379127<br/><a href="https://www.peterpaullazan.com/">https://www.peterpaullazan.com/</a><br/><a href="https://github.com/FearCleevan/">https://github.com/FearCleevan/</a>'
-
 export const outreachTools: ToolDef[] = [
   {
     name: 'send_outreach_email',
@@ -57,7 +55,7 @@ export const outreachTools: ToolDef[] = [
           from: `Peter Paul Lazan <${fromEmail}>`,
           to: [prospect.email],
           subject,
-          html: body + SIGNATURE,
+          html: body,
         }),
       })
 

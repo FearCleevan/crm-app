@@ -152,8 +152,8 @@ export function TemplateModal({ open, initial, existingNames, onClose, onSave }:
                 <p className="text-sm text-foreground bg-muted/30 rounded-lg px-3 py-2"
                   dangerouslySetInnerHTML={{ __html: highlightUnresolved(watch('subject')) }} />
                 <p className="text-xs font-semibold text-foreground mt-3">Body preview</p>
-                <div className="text-sm text-foreground bg-muted/30 rounded-lg px-3 py-3 whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{ __html: highlightUnresolved(bodyValue).replace(/\n/g, '<br/>') }} />
+                <div className="text-sm text-foreground bg-muted/30 rounded-lg px-3 py-3"
+                  dangerouslySetInnerHTML={{ __html: highlightUnresolved(bodyValue) }} />
               </div>
             )}
           </div>
