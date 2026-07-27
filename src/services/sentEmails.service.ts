@@ -30,7 +30,7 @@ export const sentEmailsService = {
   async listSent(limit: number, offset: number): Promise<SentEmailsPage> {
     const { data, error } = await supabase
       .from('activities')
-      .select('id, title, description, email_to, email_body, created_at, crm_users(first_name, last_name, email)')
+      .select('id, title, description, email_to, email_body, created_at, crm_users!created_by(first_name, last_name, email)')
       .eq('type', 'email')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit)

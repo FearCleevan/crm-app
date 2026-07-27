@@ -75,10 +75,11 @@ Deno.serve(async () => {
       const senderName = `${campaign.crm_users?.first_name ?? ''} ${campaign.crm_users?.last_name ?? ''}`.trim()
 
       const { data: sent, error: sendError } = await resend.emails.send({
-        from: `${senderName} <${fromEmail}>`,
-        to:   prospect.email,
+        from:    `${senderName} <${fromEmail}>`,
+        to:      prospect.email,
         subject,
-        text: body + SIGNATURE,
+        text:    body + SIGNATURE,
+        replyTo: 'jonathan.mauring17@gmail.com',
       })
 
       if (!sendError && sent?.id) {

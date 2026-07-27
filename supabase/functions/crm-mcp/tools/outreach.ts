@@ -56,6 +56,10 @@ export const outreachTools: ToolDef[] = [
           to: [prospect.email],
           subject,
           html: body,
+          // Stopgap: fromEmail's sending subdomain has no MX record, so replies
+          // bounce. Route replies to a real inbox until a proper receiving
+          // mailbox is set up for the sending domain (deferred, see memory).
+          reply_to: 'jonathan.mauring17@gmail.com',
         }),
       })
 
