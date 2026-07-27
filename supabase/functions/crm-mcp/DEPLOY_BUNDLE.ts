@@ -928,7 +928,7 @@ const outreachTools: ToolDef[] = [
 
       const { data: prospect, error: prospectErr } = await supabase
         .from('prospects')
-        .select('id, email, fullname')
+        .select('id, email, fullname, status')
         .eq('id', prospect_id)
         .maybeSingle()
       if (prospectErr) return errorResult(prospectErr.message)
@@ -972,7 +972,25 @@ const outreachTools: ToolDef[] = [
       })
       if (actErr) console.warn('[send_outreach_email] activity log failed:', actErr.message)
 
-      return jsonResult({ sent: true, to: prospect.email, resend_id: resendData?.id ?? null })
+      // Upgrade-only, same pattern as resend-webhook's stage bump: a fresh outreach send is a
+      // weak signal the prospect has been reached out to, but should never downgrade an already
+      // further-along status (Qualified/Closed) back to Contacted.
+      let statusUpdated = false
+      if (prospect.status === 'New') {
+        const { error: statusErr } = await supabase
+          .from('prospects')
+          .update({ status: 'Contacted', updated_on: new Date().toISOString() })
+          .eq('id', prospect_id)
+        if (statusErr) console.warn('[send_outreach_email] status update failed:', statusErr.message)
+        else statusUpdated = true
+      }
+
+      return jsonResult({
+        sent: true,
+        to: prospect.email,
+        resend_id: resendData?.id ?? null,
+        status_updated: statusUpdated ? 'New -> Contacted' : null,
+      })
     },
   },
 ]
