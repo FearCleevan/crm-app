@@ -105,6 +105,8 @@ Deno.serve(async () => {
           description:  subject,
           status:       'completed',
           prospect_id:  prospect.id,
+          email_to:     prospect.email,
+          email_body:   body,
           completed_at: new Date().toISOString(),
         })
 

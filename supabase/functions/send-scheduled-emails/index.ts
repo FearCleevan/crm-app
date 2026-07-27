@@ -88,6 +88,8 @@ Deno.serve(async () => {
         type:        'email',
         title:       row.subject,
         description: `Scheduled send to: ${row.to_addresses.join(', ')}`,
+        email_to:    row.to_addresses.join(', '),
+        email_body:  row.html,
         created_by:  row.created_by,
       })
 

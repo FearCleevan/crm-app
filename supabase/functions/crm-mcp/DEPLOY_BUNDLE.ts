@@ -966,6 +966,8 @@ const outreachTools: ToolDef[] = [
         title: subject,
         description: `Outreach sent to: ${prospect.email}`,
         prospect_id,
+        email_to: prospect.email,
+        email_body: body,
         created_by: MCP_CRM_USER_ID,
       })
       if (actErr) console.warn('[send_outreach_email] activity log failed:', actErr.message)

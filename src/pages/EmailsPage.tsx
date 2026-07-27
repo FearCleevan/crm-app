@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PenSquare, FileText, BarChart2 } from 'lucide-react'
+import { PenSquare, FileText, BarChart2, Inbox as InboxIcon, Send as SendIcon, Edit3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { TopbarSlot } from '@/context/TopbarContext'
 import { PageWrapper } from '@/components/layout/PageWrapper'
@@ -8,6 +8,10 @@ import { CampaignListView } from '@/components/emails/CampaignListView'
 import { CampaignDetailView } from '@/components/emails/CampaignDetailView'
 import { TemplateManager } from '@/components/emails/TemplateManager'
 import { CreateCampaignWizard } from '@/components/emails/CreateCampaignWizard'
+import { EmailList } from '@/components/emails/EmailList'
+import { EmailDetail } from '@/components/emails/EmailDetail'
+import { MOCK_EMAILS, type EmailFolder, type EmailMessage } from '@/constants/mockEmails'
+import { useSentEmails } from '@/hooks/useSentEmails'
 import type { CampaignFormData } from '@/components/emails/CreateCampaignWizard'
 import type { TemplateFormData } from '@/components/emails/TemplateModal'
 import { useCampaigns } from '@/hooks/useCampaigns'
@@ -17,12 +21,22 @@ import { useCurrentUser } from '@/hooks/useCurrentUser'
 import type { Campaign } from '@/types/campaigns'
 import { cn } from '@/lib/utils'
 
-type View = 'templates' | 'campaigns'
+// NOTE: 'inbox' | 'sent' | 'drafts' are wired to MOCK_EMAILS for now (Phase 1
+// of EMAIL_INBOX_SENT_DRAFTS_FRONTEND_IMPLEMENTATION.md — nav + layout only).
+// Real data source swap happens in later phases per that plan; Inbox
+// specifically is blocked on the backend decision in
+// EMAIL_INBOX_SENT_DRAFTS_BACKEND_IMPLEMENTATION.md Phase 0.
+type View = 'templates' | 'campaigns' | EmailFolder
 
 const NAV: { id: View; label: string; icon: React.ElementType }[] = [
+  { id: 'inbox',     label: 'Inbox',     icon: InboxIcon },
+  { id: 'sent',      label: 'Sent',      icon: SendIcon  },
+  { id: 'drafts',    label: 'Drafts',    icon: Edit3     },
   { id: 'campaigns', label: 'Campaigns', icon: BarChart2 },
   { id: 'templates', label: 'Templates', icon: FileText  },
 ]
+
+const MAIL_FOLDERS: EmailFolder[] = ['inbox', 'sent', 'drafts']
 
 export function EmailsPage() {
   const { user } = useCurrentUser()
@@ -51,6 +65,33 @@ export function EmailsPage() {
   const [wizardOpen,        setWizardOpen]        = useState(false)
   const [editingCampaign,   setEditingCampaign]   = useState<Campaign | null>(null)
   const [composeOpen,       setComposeOpen]       = useState(false)
+
+  // Phase 1 (nav + layout) state — Inbox/Drafts still mock, see note above NAV.
+  // Sent is real data (Phase 2) via useSentEmails below.
+  const [mailMessages,    setMailMessages]    = useState<EmailMessage[]>(MOCK_EMAILS)
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null)
+  const [replyDraft,      setReplyDraft]      = useState<{ to: string; subject: string; body: string } | null>(null)
+
+  const { emails: sentEmails, loading: sentLoading, error: sentError } = useSentEmails()
+
+  function handleToggleStar(id: string) {
+    setMailMessages(prev => prev.map(e => e.id === id ? { ...e, starred: !e.starred } : e))
+  }
+
+  function handleDeleteEmail(id: string) {
+    setMailMessages(prev => prev.filter(e => e.id !== id))
+    setSelectedEmailId(current => current === id ? null : current)
+    toast.success('Email deleted')
+  }
+
+  function handleReplyToEmail(email: EmailMessage) {
+    setReplyDraft({
+      to:      email.from.email,
+      subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
+      body:    `<p></p><p>—</p>${email.body}`,
+    })
+    setComposeOpen(true)
+  }
 
   async function handleTogglePause(id: string) {
     const c = campaigns.find(x => x.id === id)
@@ -243,6 +284,47 @@ export function EmailsPage() {
             ))}
           </aside>
 
+          {/* Mail folders: Inbox / Sent / Drafts */}
+          {MAIL_FOLDERS.includes(view as EmailFolder) && (() => {
+            const isSent       = view === 'sent'
+            const folderEmails = isSent ? sentEmails : mailMessages.filter(e => e.folder === view)
+            const selected     = folderEmails.find(e => e.id === selectedEmailId) ?? null
+
+            if (isSent && sentLoading) {
+              return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading sent emails…</div>
+            }
+            if (isSent && sentError) {
+              return <div className="flex-1 flex items-center justify-center text-sm text-destructive">Failed to load sent emails: {sentError}</div>
+            }
+
+            return (
+              <div className="flex flex-1 min-w-0 min-h-0">
+                <div className="w-80 shrink-0 border-r border-border overflow-y-auto">
+                  <EmailList
+                    emails={folderEmails}
+                    selectedId={selectedEmailId}
+                    onSelect={e => setSelectedEmailId(e.id)}
+                    onToggleStar={isSent ? () => toast.info('Starring sent emails isn\'t supported yet') : handleToggleStar}
+                  />
+                </div>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  {selected ? (
+                    <EmailDetail
+                      email={selected}
+                      onReply={handleReplyToEmail}
+                      onDelete={isSent ? () => toast.info('Deleting sent emails isn\'t supported yet') : handleDeleteEmail}
+                      onToggleStar={isSent ? () => toast.info('Starring sent emails isn\'t supported yet') : handleToggleStar}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                      Select an email to view
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Templates view */}
           {view === 'templates' && (
             <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
@@ -293,7 +375,10 @@ export function EmailsPage() {
       <ComposeModal
         open={composeOpen}
         templates={templates}
-        onClose={() => setComposeOpen(false)}
+        initialTo={replyDraft?.to}
+        initialSubject={replyDraft?.subject}
+        initialBody={replyDraft?.body}
+        onClose={() => { setComposeOpen(false); setReplyDraft(null) }}
         onSend={() => {}}
         onSaveDraft={() => {}}
       />
