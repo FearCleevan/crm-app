@@ -1,4 +1,4 @@
-import { Star, Paperclip } from 'lucide-react'
+import { Star, Paperclip, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { EmailMessage } from '@/constants/mockEmails'
 
@@ -24,9 +24,10 @@ interface EmailListProps {
   selectedId: string | null
   onSelect: (email: EmailMessage) => void
   onToggleStar: (id: string) => void
+  onDelete?: (id: string) => void
 }
 
-export function EmailList({ emails, selectedId, onSelect, onToggleStar }: EmailListProps) {
+export function EmailList({ emails, selectedId, onSelect, onToggleStar, onDelete }: EmailListProps) {
   if (emails.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
@@ -80,15 +81,27 @@ export function EmailList({ emails, selectedId, onSelect, onToggleStar }: EmailL
             </div>
           </div>
 
-          {/* Star */}
-          <button
-            type="button"
-            aria-label={email.starred ? 'Unstar' : 'Star'}
-            onClick={e => { e.stopPropagation(); onToggleStar(email.id) }}
-            className="mt-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <Star className={cn('h-4 w-4', email.starred ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40 hover:text-amber-400')} />
-          </button>
+          {/* Row actions */}
+          <div className="flex items-center gap-1 mt-1 shrink-0">
+            {onDelete && (
+              <button
+                type="button"
+                aria-label="Delete"
+                onClick={e => { e.stopPropagation(); onDelete(email.id) }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Trash2 className="h-4 w-4 text-muted-foreground/40 hover:text-rose-500" />
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label={email.starred ? 'Unstar' : 'Star'}
+              onClick={e => { e.stopPropagation(); onToggleStar(email.id) }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <Star className={cn('h-4 w-4', email.starred ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40 hover:text-amber-400')} />
+            </button>
+          </div>
         </div>
       ))}
     </div>

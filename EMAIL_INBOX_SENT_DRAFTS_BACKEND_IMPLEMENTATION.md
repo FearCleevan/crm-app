@@ -35,31 +35,17 @@ These aren't mutually exclusive — B or C can ship now while A is decided/built
 - `src/services/sentEmails.service.ts` — single query against `activities` where `type = 'email'`, normalized into the existing `EmailMessage` shape.
 - Known limitation: any `activities` row inserted *before* this migration/redeploy (e.g. the earlier Ontario test send) has no `email_to`/`email_body` — the service falls back to showing the old `description` text instead of a real body. Expected, not a bug — only affects historical rows.
 
-## Phase 2 — Drafts (real persistence)
+## Phase 2 — Drafts (real persistence) — DONE
 
-**Goal:** Make "Save Draft" actually save something, and let a saved draft be resumed or deleted.
+**Correction while implementing:** the actual template table is `email_templates`, not `rich_templates` (confirmed via `templateService.ts`) — used the real name in the migration.
 
-- New migration `021_email_drafts.sql`:
-  ```sql
-  create table email_drafts (
-    id          bigint generated always as identity primary key,
-    user_id     uuid not null references auth.users(id),
-    to_emails   text[] not null default '{}',
-    cc_emails   text[] not null default '{}',
-    bcc_emails  text[] not null default '{}',
-    subject     text,
-    body        text,
-    template_id uuid references rich_templates(id) on delete set null,
-    prospect_id bigint references prospects(id) on delete set null,
-    created_at  timestamptz not null default now(),
-    updated_at  timestamptz not null default now()
-  );
-  alter table email_drafts enable row level security;
-  create policy "own drafts" on email_drafts for all using (user_id = auth.uid());
-  ```
-- New `src/services/drafts.service.ts`: `createDraft`, `updateDraft`, `listDrafts`, `deleteDraft`
-- Wire `EmailsPage.tsx`'s real `onSaveDraft` (replacing the current `() => {}`) to actually call `createDraft`/`updateDraft` with the Compose modal's current `to`/`cc`/`bcc`/`subject`/`body`/`selectedTemplate`/`linkedProspect` state
-- Verify: save a draft, refresh the page, confirm it's still there; delete it, confirm it's gone
+**Second gap found:** `ComposeModal`'s `onSaveDraft` prop was `() => void` — the parent page had zero access to the modal's actual to/cc/bcc/subject/body/template/prospect state when Save Draft was clicked. Also, `linkedProspect` never stored the prospect's `id` at all, only display fields. Both fixed: `onSaveDraft` now takes a `DraftPayload` argument built from real internal state, and `linkedProspect` carries `id`.
+
+- Migration `022_email_drafts.sql` — `email_drafts` table (`to_emails`/`cc_emails`/`bcc_emails` as `text[]`, `template_id` → `email_templates`, `prospect_id` → `prospects`), RLS scoped to `auth.uid() = user_id`, reuses the existing `update_updated_at_column()` trigger function from `005_campaign_tables.sql`. **Needs to be run manually in the Supabase Dashboard SQL Editor.**
+- `src/services/drafts.service.ts`: `createDraft`, `updateDraft`, `listDrafts`, `deleteDraft`
+- `src/hooks/useDrafts.ts`
+- `EmailsPage.tsx`'s real `onSaveDraft` now creates a new draft, or updates the one being edited (tracked via `editingDraftId`) if resuming an existing one
+- Known simplification: resuming a draft only restores `to` (first recipient only)/`subject`/`body` via `ComposeModal`'s existing `initialTo`/`initialSubject`/`initialBody` props — `cc`/`bcc`/linked template/linked prospect are saved correctly in the database but not yet re-populated into the compose UI on resume. Flagging as a known gap, not silently dropped.
 
 ## Phase 3 — Inbox (depends on Phase 0 decision)
 

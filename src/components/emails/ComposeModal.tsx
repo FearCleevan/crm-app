@@ -148,11 +148,21 @@ function buildSignature(user: { first_name?: string; last_name?: string; role?: 
 }
 
 
+export interface DraftPayload {
+  to: string[]
+  cc: string[]
+  bcc: string[]
+  subject: string
+  body: string
+  templateId: string | null
+  prospectId: number | null
+}
+
 interface ComposeModalProps {
   open: boolean
   onClose: () => void
   onSend: () => void
-  onSaveDraft: () => void
+  onSaveDraft: (draft: DraftPayload) => void
   templates?: RichTemplateDB[]
   initialTo?: string
   initialSubject?: string
@@ -200,6 +210,7 @@ export function ComposeModal({
 
   // ── New state: prospect linker ────────────────────────────
   const [linkedProspect,   setLinkedProspect]   = useState<{
+    id: number
     fullname: string
     email: string
     firstname?: string
@@ -269,6 +280,7 @@ export function ComposeModal({
 
   function handleProspectPick(prospect: ProspectSuggestion) {
     const linked = {
+      id:        prospect.id,
       fullname:  prospect.fullname  ?? '',
       email:     prospect.email     ?? '',
       firstname: prospect.firstname ?? undefined,
@@ -366,7 +378,15 @@ export function ComposeModal({
   }
 
   function handleSaveDraft() {
-    onSaveDraft()
+    onSaveDraft({
+      to:         toChips,
+      cc:         ccChips,
+      bcc:        bccChips,
+      subject,
+      body,
+      templateId: selectedTemplate?.id ?? null,
+      prospectId: linkedProspect?.id ?? null,
+    })
     toast.success('Draft saved')
     onClose()
   }

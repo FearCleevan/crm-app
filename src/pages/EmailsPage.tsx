@@ -12,6 +12,9 @@ import { EmailList } from '@/components/emails/EmailList'
 import { EmailDetail } from '@/components/emails/EmailDetail'
 import { MOCK_EMAILS, type EmailFolder, type EmailMessage } from '@/constants/mockEmails'
 import { useSentEmails } from '@/hooks/useSentEmails'
+import { useDrafts } from '@/hooks/useDrafts'
+import type { EmailDraft } from '@/services/drafts.service'
+import type { DraftPayload } from '@/components/emails/ComposeModal'
 import type { CampaignFormData } from '@/components/emails/CreateCampaignWizard'
 import type { TemplateFormData } from '@/components/emails/TemplateModal'
 import { useCampaigns } from '@/hooks/useCampaigns'
@@ -66,13 +69,22 @@ export function EmailsPage() {
   const [editingCampaign,   setEditingCampaign]   = useState<Campaign | null>(null)
   const [composeOpen,       setComposeOpen]       = useState(false)
 
-  // Phase 1 (nav + layout) state — Inbox/Drafts still mock, see note above NAV.
-  // Sent is real data (Phase 2) via useSentEmails below.
+  // Phase 1 (nav + layout) state — Inbox still mock, see note above NAV.
+  // Sent (Phase 2) and Drafts (Phase 3) are real data.
   const [mailMessages,    setMailMessages]    = useState<EmailMessage[]>(MOCK_EMAILS)
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null)
-  const [replyDraft,      setReplyDraft]      = useState<{ to: string; subject: string; body: string } | null>(null)
+  const [composePrefill,  setComposePrefill]  = useState<{ to: string; subject: string; body: string } | null>(null)
+  const [editingDraftId,  setEditingDraftId]  = useState<number | null>(null)
 
   const { emails: sentEmails, loading: sentLoading, error: sentError } = useSentEmails()
+  const {
+    drafts,
+    loading: draftsLoading,
+    error: draftsError,
+    saveDraft,
+    updateDraft,
+    removeDraft,
+  } = useDrafts(userId)
 
   function handleToggleStar(id: string) {
     setMailMessages(prev => prev.map(e => e.id === id ? { ...e, starred: !e.starred } : e))
@@ -85,12 +97,63 @@ export function EmailsPage() {
   }
 
   function handleReplyToEmail(email: EmailMessage) {
-    setReplyDraft({
+    setEditingDraftId(null)
+    setComposePrefill({
       to:      email.from.email,
       subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
       body:    `<p></p><p>—</p>${email.body}`,
     })
     setComposeOpen(true)
+  }
+
+  function draftToEmailMessage(d: EmailDraft): EmailMessage {
+    return {
+      id:       String(d.id),
+      folder:   'drafts',
+      from:     { name: `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || 'Me', email: user?.email ?? '' },
+      to:       d.to_emails.length > 0 ? d.to_emails.map(email => ({ name: '', email })) : [{ name: '', email: '(no recipient)' }],
+      subject:  d.subject || '(no subject)',
+      preview:  (d.body ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140),
+      body:     d.body ?? '',
+      date:     d.updated_at,
+      read:     true,
+      starred:  false,
+      hasAttachment: false,
+    }
+  }
+
+  function handleEditDraft(emailMessage: EmailMessage) {
+    const raw = drafts.find(d => String(d.id) === emailMessage.id)
+    if (!raw) return
+    setEditingDraftId(raw.id)
+    setComposePrefill({
+      to:      raw.to_emails[0] ?? '',
+      subject: raw.subject ?? '',
+      body:    raw.body ?? '',
+    })
+    setComposeOpen(true)
+  }
+
+  function handleDeleteDraft(id: string) {
+    removeDraft(Number(id))
+    toast.success('Draft deleted')
+  }
+
+  function handleSaveDraft(payload: DraftPayload) {
+    const input = {
+      to_emails:   payload.to,
+      cc_emails:   payload.cc,
+      bcc_emails:  payload.bcc,
+      subject:     payload.subject,
+      body:        payload.body,
+      template_id: payload.templateId,
+      prospect_id: payload.prospectId,
+    }
+    if (editingDraftId != null) {
+      updateDraft(editingDraftId, input)
+    } else {
+      saveDraft(input)
+    }
   }
 
   async function handleTogglePause(id: string) {
@@ -286,16 +349,19 @@ export function EmailsPage() {
 
           {/* Mail folders: Inbox / Sent / Drafts */}
           {MAIL_FOLDERS.includes(view as EmailFolder) && (() => {
-            const isSent       = view === 'sent'
-            const folderEmails = isSent ? sentEmails : mailMessages.filter(e => e.folder === view)
-            const selected     = folderEmails.find(e => e.id === selectedEmailId) ?? null
+            const isSent   = view === 'sent'
+            const isDrafts = view === 'drafts'
+            const folderEmails = isSent
+              ? sentEmails
+              : isDrafts
+                ? drafts.map(draftToEmailMessage)
+                : mailMessages.filter(e => e.folder === view)
+            const selected = folderEmails.find(e => e.id === selectedEmailId) ?? null
 
-            if (isSent && sentLoading) {
-              return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading sent emails…</div>
-            }
-            if (isSent && sentError) {
-              return <div className="flex-1 flex items-center justify-center text-sm text-destructive">Failed to load sent emails: {sentError}</div>
-            }
+            if (isSent && sentLoading)   return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading sent emails…</div>
+            if (isSent && sentError)     return <div className="flex-1 flex items-center justify-center text-sm text-destructive">Failed to load sent emails: {sentError}</div>
+            if (isDrafts && draftsLoading) return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading drafts…</div>
+            if (isDrafts && draftsError)   return <div className="flex-1 flex items-center justify-center text-sm text-destructive">Failed to load drafts: {draftsError}</div>
 
             return (
               <div className="flex flex-1 min-w-0 min-h-0">
@@ -303,12 +369,17 @@ export function EmailsPage() {
                   <EmailList
                     emails={folderEmails}
                     selectedId={selectedEmailId}
-                    onSelect={e => setSelectedEmailId(e.id)}
-                    onToggleStar={isSent ? () => toast.info('Starring sent emails isn\'t supported yet') : handleToggleStar}
+                    onSelect={isDrafts ? handleEditDraft : e => setSelectedEmailId(e.id)}
+                    onToggleStar={isSent || isDrafts ? () => toast.info('Not supported for this folder yet') : handleToggleStar}
+                    onDelete={isDrafts ? handleDeleteDraft : undefined}
                   />
                 </div>
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  {selected ? (
+                  {isDrafts ? (
+                    <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                      Click a draft to resume editing
+                    </div>
+                  ) : selected ? (
                     <EmailDetail
                       email={selected}
                       onReply={handleReplyToEmail}
@@ -375,12 +446,12 @@ export function EmailsPage() {
       <ComposeModal
         open={composeOpen}
         templates={templates}
-        initialTo={replyDraft?.to}
-        initialSubject={replyDraft?.subject}
-        initialBody={replyDraft?.body}
-        onClose={() => { setComposeOpen(false); setReplyDraft(null) }}
+        initialTo={composePrefill?.to}
+        initialSubject={composePrefill?.subject}
+        initialBody={composePrefill?.body}
+        onClose={() => { setComposeOpen(false); setComposePrefill(null); setEditingDraftId(null) }}
         onSend={() => {}}
-        onSaveDraft={() => {}}
+        onSaveDraft={handleSaveDraft}
       />
     </>
   )
