@@ -302,37 +302,3 @@ export const MOCK_DEALS: Deal[] = MOCK_PROSPECTS.slice(0, 20).map((p, i) => ({
   sourceCampaignName: null,
 }))
 
-// ── Dashboard mock metrics ─────────────────────────────────────
-export const MOCK_REVENUE_DATA = [
-  { month: 'Mar 25', value: 18200 },
-  { month: 'Apr 25', value: 22400 },
-  { month: 'May 25', value: 19800 },
-  { month: 'Jun 25', value: 27600 },
-  { month: 'Jul 25', value: 24100 },
-  { month: 'Aug 25', value: 31200 },
-  { month: 'Sep 25', value: 28900 },
-  { month: 'Oct 25', value: 33500 },
-  { month: 'Nov 25', value: 29700 },
-  { month: 'Dec 25', value: 38400 },
-  { month: 'Jan 26', value: 32209 },
-  { month: 'Feb 26', value: 35800 },
-  { month: 'Mar 26', value: 41200 },
-]
-
-export const MOCK_RETENTION_DATA = [
-  { month: 'Jan', SMEs: 82, Startups: 74, Enterprises: 91 },
-  { month: 'Feb', SMEs: 85, Startups: 78, Enterprises: 93 },
-  { month: 'Mar', SMEs: 79, Startups: 71, Enterprises: 90 },
-  { month: 'Apr', SMEs: 88, Startups: 80, Enterprises: 95 },
-  { month: 'May', SMEs: 86, Startups: 82, Enterprises: 94 },
-  { month: 'Jun', SMEs: 90, Startups: 85, Enterprises: 96 },
-  { month: 'Jul', SMEs: 87, Startups: 83, Enterprises: 95 },
-]
-
-export const MOCK_NOTIFICATIONS = [
-  { id: 'n1', type: 'import',     message: 'New lead import completed — 484 records added', time: '2m ago',  read: false, link: '/prospects' },
-  { id: 'n2', type: 'deal',       message: 'Deal won: Acme Corp — $45,000',                  time: '1h ago',  read: false, link: '/deals' },
-  { id: 'n3', type: 'task',       message: 'Task overdue: Follow up with Sarah Chen',        time: '3h ago',  read: true,  link: '/prospects' },
-  { id: 'n4', type: 'system',     message: 'System maintenance scheduled for Saturday 2am',  time: '5h ago',  read: true,  link: '/settings' },
-  { id: 'n5', type: 'mention',    message: 'Marcus Torres mentioned you in a note',          time: '1d ago',  read: true,  link: '/prospects' },
-]

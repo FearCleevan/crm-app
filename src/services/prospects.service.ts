@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { ProspectRow, ProspectInsert, ProspectUpdate } from '@/types/database'
+import type { ProspectRow, ProspectInsert, ProspectUpdate, ProspectActivityRow, ProspectActivityInsert } from '@/types/database'
 
 export interface ProspectFilters {
   status?: string[]
@@ -199,6 +199,35 @@ export const prospectsService = {
       .from('prospects')
       .upsert(merges, { onConflict: 'id' })
     if (error) throw new Error(error.message)
+  },
+
+  // ── Activities (Activity + Calls tabs) ─────────────────────
+
+  async getActivities(prospectId: number): Promise<ProspectActivityRow[]> {
+    const { data, error } = await supabase
+      .from('activities')
+      .select('id, prospect_id, type, title, description, status, created_by, created_at, updated_at')
+      .eq('prospect_id', prospectId)
+      .order('created_at', { ascending: false })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as ProspectActivityRow[]
+  },
+
+  async addActivity(payload: ProspectActivityInsert): Promise<ProspectActivityRow> {
+    const { data, error } = await supabase
+      .from('activities')
+      .insert({
+        prospect_id: payload.prospect_id,
+        type:        payload.type,
+        title:       payload.title,
+        description: payload.description ?? null,
+        created_by:  payload.created_by ?? null,
+        status:      'completed',
+      })
+      .select('id, prospect_id, type, title, description, status, created_by, created_at, updated_at')
+      .single()
+    if (error) throw new Error(error.message)
+    return data as ProspectActivityRow
   },
 
   // Streams the export in chunks of `chunkSize` rows.

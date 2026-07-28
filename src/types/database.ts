@@ -155,6 +155,23 @@ export interface DealActivityRow {
 
 export type DealActivityInsert = Pick<DealActivityRow, 'deal_id' | 'type' | 'title' | 'description' | 'created_by'>
 
+// Maps to the existing `activities` table (prospect_id scoped)
+export type ProspectActivityType = DealActivityType
+
+export interface ProspectActivityRow {
+  id: string                      // uuid
+  prospect_id: number | null      // bigint → prospects.id
+  type: ProspectActivityType
+  title: string                   // main display text
+  description: string | null
+  status: 'pending' | 'completed' | 'cancelled'
+  created_by: string | null       // uuid → crm_users.id
+  created_at: string              // timestamptz
+  updated_at: string              // timestamptz
+}
+
+export type ProspectActivityInsert = Pick<ProspectActivityRow, 'prospect_id' | 'type' | 'title' | 'description' | 'created_by'>
+
 // Lookup table rows
 export interface DispositionRow  { disposition_code: string; disposition_name: string }
 export interface EmailStatusRow  { email_code: string;        email_name: string        }

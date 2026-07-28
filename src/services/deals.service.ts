@@ -17,15 +17,20 @@ class DealsService {
   async getDeals(params: {
     page?: number
     limit?: number
+    search?: string
     filters?: DealFilters
     sort?: DealSort
   } = {}): Promise<{ data: DealRow[]; count: number }> {
-    const { page = 1, limit = 100, filters, sort } = params
+    const { page = 1, limit = 100, search, filters, sort } = params
     const from = (page - 1) * limit
     const to   = from + limit - 1
 
     let q = supabase.from('deals').select('*', { count: 'exact' })
 
+    if (search?.trim()) {
+      const term = search.trim().replace(/[%,]/g, '')
+      q = q.or(`name.ilike.%${term}%,company.ilike.%${term}%,prospect_name.ilike.%${term}%`)
+    }
     if (filters?.stage?.length)  q = q.in('stage', filters.stage)
     if (filters?.assignedTo)     q = q.eq('assigned_to', filters.assignedTo)
 

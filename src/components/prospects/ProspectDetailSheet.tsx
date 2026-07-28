@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   X, Pencil, Trash2, Phone, Mail, ExternalLink, Globe,
   Building2, MapPin, User, Calendar, Tag, Briefcase,
-  Clock, PhoneCall, Send,
+  Clock, PhoneCall, Send, FileText, RefreshCw,
   ChevronRight, Save, XCircle,
 } from 'lucide-react'
 import { format } from 'date-fns'
@@ -11,16 +11,22 @@ import { cn } from '@/lib/utils'
 import { StatusBadge } from './ProspectBadges'
 import { ProspectForm, type ProspectFormValues } from './ProspectForm'
 import type { Prospect } from '@/constants/mockData'
-import { MOCK_USERS, DISPOSITION_CODES, EMAIL_STATUSES, PROVIDERS } from '@/constants/mockData'
+import { DISPOSITION_CODES, EMAIL_STATUSES, PROVIDERS } from '@/constants/mockData'
 import { CampaignActivityFeed } from './CampaignActivityFeed'
 import { getProspectCampaignEvents, type ProspectCampaignEvent } from '@/services/campaignService'
+import { notesService, type NoteRow } from '@/services/notes.service'
+import { usersService } from '@/services/users.service'
+import { prospectsService } from '@/services/prospects.service'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
+import type { CRMUserRow, ProspectActivityRow, ProspectActivityType } from '@/types/database'
 
-
-interface MockNote {
-  id: string
-  text: string
-  authorId: string
-  createdAt: string
+const ACTIVITY_ICONS: Record<ProspectActivityType, React.ElementType> = {
+  call: PhoneCall,
+  email: Mail,
+  meeting: Calendar,
+  task: Tag,
+  note: FileText,
+  status: RefreshCw,
 }
 
 // ── Helper sub-components ─────────────────────────────────────
@@ -101,16 +107,20 @@ interface ProspectDetailSheetProps {
 }
 
 export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: ProspectDetailSheetProps) {
+  const { user: currentUser } = useCurrentUser()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [notes, setNotes] = useState<MockNote[]>([
-    { id: 'n1', text: 'Strong interest in Enterprise plan. Will follow up after internal review.', authorId: 'usr-001', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-    { id: 'n2', text: 'Left voicemail — no response yet. Try again Friday.', authorId: 'usr-003', createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString() },
-  ])
+  const [notes, setNotes] = useState<NoteRow[]>([])
   const [noteInput, setNoteInput] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [users, setUsers] = useState<CRMUserRow[]>([])
   const [campaignEvents, setCampaignEvents] = useState<ProspectCampaignEvent[]>([])
+  const [activities, setActivities] = useState<ProspectActivityRow[]>([])
+  const [callTitle, setCallTitle] = useState('')
+  const [callDescription, setCallDescription] = useState('')
+  const [savingCall, setSavingCall] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -120,10 +130,47 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
     return () => { cancelled = true }
   }, [prospect.id])
 
+  useEffect(() => {
+    let cancelled = false
+    notesService.getNotesForProspect(Number(prospect.id))
+      .then(rows => { if (!cancelled) setNotes(rows) })
+      .catch(() => { if (!cancelled) setNotes([]) })
+    usersService.getUsers()
+      .then(rows => { if (!cancelled) setUsers(rows) })
+      .catch(() => { if (!cancelled) setUsers([]) })
+    prospectsService.getActivities(Number(prospect.id))
+      .then(rows => { if (!cancelled) setActivities(rows) })
+      .catch(() => { if (!cancelled) setActivities([]) })
+    return () => { cancelled = true }
+  }, [prospect.id])
+
+  async function logCall() {
+    const title = callTitle.trim()
+    if (!title || !currentUser) return
+    setSavingCall(true)
+    try {
+      const created = await prospectsService.addActivity({
+        prospect_id: Number(prospect.id),
+        type:        'call',
+        title,
+        description: callDescription.trim() || null,
+        created_by:  currentUser.id,
+      })
+      setActivities(prev => [created, ...prev])
+      setCallTitle('')
+      setCallDescription('')
+      toast.success('Call logged')
+    } catch {
+      toast.error('Failed to log call')
+    } finally {
+      setSavingCall(false)
+    }
+  }
+
   const dispositionLabel = DISPOSITION_CODES.find(d => d.code === prospect.dispositioncode)?.name ?? prospect.dispositioncode
   const emailStatusLabel = EMAIL_STATUSES.find(e => e.code === prospect.emailcode)?.name ?? prospect.emailcode
   const providerLabel    = PROVIDERS.find(p => p.code === prospect.providercode)?.name ?? prospect.providercode
-  const createdByUser    = MOCK_USERS.find(u => u.id === prospect.createdby)
+  const createdByUser    = users.find(u => u.id === prospect.createdby)
 
   async function handleSave(data: ProspectFormValues) {
     setIsSaving(true)
@@ -147,16 +194,25 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
     }
   }
 
-  function addNote() {
-    if (!noteInput.trim()) return
-    setNotes(prev => [{
-      id: `n-${Date.now()}`,
-      text: noteInput.trim(),
-      authorId: 'usr-001',
-      createdAt: new Date().toISOString(),
-    }, ...prev])
-    setNoteInput('')
-    toast.success('Note added')
+  async function addNote() {
+    const text = noteInput.trim()
+    if (!text || !currentUser) return
+    setSavingNote(true)
+    try {
+      const created = await notesService.createNote({
+        title:       text.length > 60 ? `${text.slice(0, 60)}…` : text,
+        description: text,
+        prospect_id: Number(prospect.id),
+        created_by:  currentUser.id,
+      })
+      setNotes(prev => [created, ...prev])
+      setNoteInput('')
+      toast.success('Note added')
+    } catch {
+      toast.error('Failed to add note')
+    } finally {
+      setSavingNote(false)
+    }
   }
 
   const TABS: { id: Tab; label: string }[] = [
@@ -327,7 +383,7 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
                 <InfoRow icon={Tag}      label="Provider"     value={providerLabel} />
                 <InfoRow icon={User}     label="Seniority"    value={prospect.seniority} />
                 <InfoRow icon={Briefcase}label="Department"   value={prospect.department} />
-                <InfoRow icon={User}     label="Created By"   value={createdByUser ? `${createdByUser.first_name} ${createdByUser.last_name}` : prospect.createdby} />
+                <InfoRow icon={User}     label="Created By"   value={createdByUser ? `${createdByUser.first_name ?? ''} ${createdByUser.last_name ?? ''}`.trim() : prospect.createdby} />
                 <InfoRow icon={Calendar} label="Created On"   value={format(new Date(prospect.createdon), 'PPP')} />
               </SectionCard>
 
@@ -363,12 +419,36 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
 
           {/* ── Activity Tab ── */}
           {!editing && activeTab === 'activity' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
-                <Clock className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="font-semibold text-foreground">Activity Timeline</p>
-              <p className="text-sm text-muted-foreground">Calls, emails, and status changes for this prospect will appear here after backend integration.</p>
+            <div className="space-y-3">
+              {activities.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                  <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
+                    <Clock className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="font-semibold text-foreground">No activity yet</p>
+                  <p className="text-sm text-muted-foreground">Notes, calls, and other activity for this prospect will appear here.</p>
+                </div>
+              )}
+              {activities.map(a => {
+                const Icon = ACTIVITY_ICONS[a.type]
+                const author = users.find(u => u.id === a.created_by)
+                return (
+                  <div key={a.id} className="rounded-xl border border-border bg-card p-4 flex gap-3">
+                    <div className="mt-0.5 h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <p className="text-sm font-medium text-foreground">{a.title}</p>
+                      {a.description && <p className="text-sm text-muted-foreground">{a.description}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        {author ? `${author.first_name ?? ''} ${author.last_name ?? ''}`.trim() : 'Unknown user'}
+                        <span className="text-muted-foreground/40 mx-1.5">·</span>
+                        {format(new Date(a.created_at), 'MMM d, yyyy · h:mm a')}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
 
@@ -385,27 +465,30 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
                   className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-colors"
                 />
                 <div className="flex justify-end">
-                  <button type="button" onClick={addNote} disabled={!noteInput.trim()}
+                  <button type="button" onClick={addNote} disabled={!noteInput.trim() || savingNote}
                     className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                    <Save className="h-3.5 w-3.5" /> Save Note
+                    <Save className="h-3.5 w-3.5" /> {savingNote ? 'Saving…' : 'Save Note'}
                   </button>
                 </div>
               </div>
 
               {/* Notes list */}
               <div className="space-y-3">
+                {notes.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-6">No notes yet.</p>
+                )}
                 {notes.map(n => {
-                  const author = MOCK_USERS.find(u => u.id === n.authorId)
+                  const author = users.find(u => u.id === n.created_by)
                   return (
                     <div key={n.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
-                      <p className="text-sm text-foreground">{n.text}</p>
+                      <p className="text-sm text-foreground">{n.description}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <div className="h-5 w-5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[9px] font-bold text-brand-700 dark:text-brand-300">
-                          {author?.first_name[0]}{author?.last_name[0]}
+                          {author?.first_name?.[0]}{author?.last_name?.[0]}
                         </div>
-                        {author ? `${author.first_name} ${author.last_name}` : n.authorId}
+                        {author ? `${author.first_name} ${author.last_name}` : 'Unknown user'}
                         <span className="text-muted-foreground/40">·</span>
-                        {format(new Date(n.createdAt), 'MMM d, yyyy · h:mm a')}
+                        {format(new Date(n.created_at), 'MMM d, yyyy · h:mm a')}
                       </div>
                     </div>
                   )
@@ -430,19 +513,65 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
           )}
 
           {/* ── Calls Tab ── */}
-          {!editing && activeTab === 'calls' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
-                <PhoneCall className="h-6 w-6 text-muted-foreground" />
+          {!editing && activeTab === 'calls' && (() => {
+            const calls = activities.filter(a => a.type === 'call')
+            return (
+              <div className="space-y-4">
+                <a href={`tel:${prospect.companyphonenumber}`}
+                  className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors w-fit">
+                  <Phone className="h-4 w-4" /> Call Now
+                </a>
+
+                {/* Log a call */}
+                <div className="space-y-2 rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Log a Call</p>
+                  <input
+                    value={callTitle}
+                    onChange={e => setCallTitle(e.target.value)}
+                    placeholder="e.g. Follow-up call, left voicemail…"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  />
+                  <textarea
+                    value={callDescription}
+                    onChange={e => setCallDescription(e.target.value)}
+                    placeholder="Notes about the call (optional)…"
+                    rows={2}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-colors"
+                  />
+                  <div className="flex justify-end">
+                    <button type="button" onClick={logCall} disabled={!callTitle.trim() || savingCall}
+                      className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                      <PhoneCall className="h-3.5 w-3.5" /> {savingCall ? 'Saving…' : 'Log Call'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Call log */}
+                <div className="space-y-3">
+                  {calls.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-6">No calls logged yet.</p>
+                  )}
+                  {calls.map(c => {
+                    const author = users.find(u => u.id === c.created_by)
+                    return (
+                      <div key={c.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                        <p className="text-sm font-medium text-foreground">{c.title}</p>
+                        {c.description && <p className="text-sm text-muted-foreground">{c.description}</p>}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="h-5 w-5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-[9px] font-bold text-brand-700 dark:text-brand-300">
+                            {author?.first_name?.[0]}{author?.last_name?.[0]}
+                          </div>
+                          {author ? `${author.first_name} ${author.last_name}` : 'Unknown user'}
+                          <span className="text-muted-foreground/40">·</span>
+                          {format(new Date(c.created_at), 'MMM d, yyyy · h:mm a')}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-              <p className="font-semibold text-foreground">Call Log</p>
-              <p className="text-sm text-muted-foreground">Logged calls will appear here after backend integration.</p>
-              <a href={`tel:${prospect.companyphonenumber}`}
-                className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-                <Phone className="h-4 w-4" /> Call Now
-              </a>
-            </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* ── Footer breadcrumb ── */}

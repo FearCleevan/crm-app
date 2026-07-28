@@ -17,14 +17,6 @@ export interface EmailMessage {
   labels?: string[]
 }
 
-export interface EmailTemplate {
-  id: string
-  name: string
-  subject: string
-  body: string
-  category: string
-}
-
 const now = Date.now()
 const d = (daysAgo: number) => new Date(now - daysAgo * 86400000).toISOString()
 
@@ -121,34 +113,6 @@ export const MOCK_EMAILS: EmailMessage[] = [
   },
 ]
 
-export const MOCK_TEMPLATES: EmailTemplate[] = [
-  {
-    id: 'tpl-001', name: 'Introduction Email', category: 'Outreach',
-    subject: 'Introducing Paul CRM — Built for Modern Sales Teams',
-    body: `<p>Hi {{first_name}},</p><p>I'm reaching out because I noticed {{company}} is growing rapidly and wanted to introduce Paul CRM — a modern sales platform used by 500+ teams to manage leads, automate follow-ups, and close deals faster.</p><p>Would you be open to a 15-minute call to explore if it could be a fit for your team?</p><p>Best regards,<br>{{sender_name}}</p>`,
-  },
-  {
-    id: 'tpl-002', name: 'Follow-up After Demo', category: 'Follow-up',
-    subject: 'Great talking with you — next steps for {{company}}',
-    body: `<p>Hi {{first_name}},</p><p>Thanks for taking the time to see a demo of Paul CRM. Based on our conversation, I believe we can help {{company}} with {{pain_point}}.</p><p>I've attached a summary of everything we covered along with custom pricing for your team size.</p><p>Happy to answer any questions or set up a follow-up call. What does your calendar look like this week?</p><p>Best,<br>{{sender_name}}</p>`,
-  },
-  {
-    id: 'tpl-003', name: 'Re-engagement', category: 'Follow-up',
-    subject: 'Still thinking about Paul CRM?',
-    body: `<p>Hi {{first_name}},</p><p>I wanted to circle back after our earlier conversation. A lot has changed since we last spoke — we've launched several new features including {{feature}}.</p><p>Is now a better time to revisit? I'd love to reconnect and show you what's new.</p><p>Best,<br>{{sender_name}}</p>`,
-  },
-  {
-    id: 'tpl-004', name: 'Proposal Sent', category: 'Sales',
-    subject: 'Your Custom Paul CRM Proposal — {{company}}',
-    body: `<p>Hi {{first_name}},</p><p>As discussed, please find attached a tailored proposal for {{company}} based on your team size, workflows, and goals.</p><p>The proposal includes:<br>• Custom pricing for {{seats}} seats<br>• Onboarding and migration plan<br>• Enterprise support SLA details</p><p>I'll follow up in a few days, but please don't hesitate to reach out if you have any questions.</p><p>Best regards,<br>{{sender_name}}</p>`,
-  },
-  {
-    id: 'tpl-005', name: 'Welcome — New Customer', category: 'Onboarding',
-    subject: 'Welcome to Paul CRM, {{first_name}}! 🎉',
-    body: `<p>Hi {{first_name}},</p><p>Welcome aboard! We're thrilled to have {{company}} join the Paul CRM family.</p><p>Here's how to get started:<br>1. Log in and complete your profile setup<br>2. Import your existing contacts<br>3. Invite your team members<br>4. Book your onboarding call: [link]</p><p>Your dedicated success manager {{csm_name}} will be in touch within 24 hours.</p><p>Best,<br>{{sender_name}}</p>`,
-  },
-]
-
 export const TEMPLATE_CATEGORIES = [
   { value: 'general',          label: 'General'          },
   { value: 'follow_up',        label: 'Follow-up'        },
@@ -160,63 +124,4 @@ export const TEMPLATE_CATEGORIES = [
   { value: 'cold_outreach',    label: 'Cold Outreach'    },
   { value: 'no_website',       label: 'No Website'       },
   { value: 'outdated_website', label: 'Outdated Website' },
-]
-
-// Replaces the existing EmailTemplate type for richer mock data
-export interface RichTemplate {
-  id: string
-  name: string
-  category: string
-  subject: string
-  body: string
-  variables: string[]
-  updatedAt: string
-}
-
-export const MOCK_RICH_TEMPLATES: RichTemplate[] = [
-  {
-    id: '1',
-    name: 'No Website — Cold Outreach',
-    category: 'cold_outreach',
-    subject: 'Quick question about {{company}}',
-    body: `Hi {{first_name}},\n\nI was looking up {{company}} and couldn't find a website — are you currently looking to get one built?\n\nI specialize in fast, modern websites for businesses like yours.\n\nPortfolio: {{my_portfolio}}\n\nWorth a quick chat?\n\n— {{my_name}}`,
-    variables: ['first_name', 'company', 'my_portfolio', 'my_name'],
-    updatedAt: '2026-06-15',
-  },
-  {
-    id: '2',
-    name: 'Outdated Website — Refresh Pitch',
-    category: 'outdated_website',
-    subject: `{{company}}'s website`,
-    body: `Hi {{first_name}},\n\nI came across {{company}} and noticed your site could use a modern refresh — especially on mobile.\n\nI build clean, fast websites starting at $300 USD.\n\nPortfolio: {{my_portfolio}}\n\nOpen to a quick email exchange?\n\n— {{my_name}}`,
-    variables: ['first_name', 'company', 'my_portfolio', 'my_name'],
-    updatedAt: '2026-06-14',
-  },
-  {
-    id: '3',
-    name: 'First Follow-Up',
-    category: 'follow_up',
-    subject: `Re: {{company}}'s website`,
-    body: `Hi {{first_name}},\n\nJust following up on my last email — still happy to help if the timing is right.\n\n— {{my_name}}`,
-    variables: ['first_name', 'company', 'my_name'],
-    updatedAt: '2026-06-10',
-  },
-  {
-    id: '4',
-    name: 'Second Follow-Up',
-    category: 'follow_up',
-    subject: `Last follow-up — {{company}}`,
-    body: `Hi {{first_name}},\n\nI know inboxes get busy — this will be my last follow-up.\n\nIf you ever need a fast, modern website built, I'm happy to help.\n\n{{my_portfolio}}\n\n— {{my_name}}`,
-    variables: ['first_name', 'company', 'my_portfolio', 'my_name'],
-    updatedAt: '2026-06-08',
-  },
-]
-
-export const CAMPAIGN_STATS = [
-  { label: 'Emails Sent',    value: '2,847', change: '+12%',  positive: true  },
-  { label: 'Open Rate',      value: '38.4%', change: '+3.1%', positive: true  },
-  { label: 'Click Rate',     value: '12.7%', change: '-0.8%', positive: false },
-  { label: 'Reply Rate',     value: '6.2%',  change: '+1.4%', positive: true  },
-  { label: 'Unsubscribes',   value: '0.3%',  change: '-0.1%', positive: true  },
-  { label: 'Bounce Rate',    value: '1.8%',  change: '-0.2%', positive: true  },
 ]

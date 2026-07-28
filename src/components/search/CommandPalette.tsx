@@ -2,8 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, X, User, Briefcase, FileText, LayoutDashboard, ChevronRight, Clock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { MOCK_PROSPECTS, MOCK_DEALS, MOCK_USERS } from '@/constants/mockData'
+import { prospectsService } from '@/services/prospects.service'
+import { dealsService } from '@/services/deals.service'
+import { usersService } from '@/services/users.service'
+import type { CRMUserRow } from '@/types/database'
 import { ROUTES } from '@/constants/routes'
+
+const SEARCH_DEBOUNCE_MS = 250
 
 const RECENT_KEY = 'paul_recent_searches'
 const MAX_RECENT = 5
@@ -29,43 +34,42 @@ const PAGES: SearchResult[] = [
   { id: 'p-settings',   group: 'Pages', label: 'Settings',          icon: FileText,        iconColor: 'text-slate-500',   route: ROUTES.SETTINGS },
 ]
 
-function search(query: string): SearchResult[] {
+async function search(query: string, users: CRMUserRow[]): Promise<SearchResult[]> {
   if (!query.trim()) return []
   const q = query.toLowerCase()
 
-  const prospects: SearchResult[] = MOCK_PROSPECTS
-    .filter(p => p.fullname.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || p.company.toLowerCase().includes(q))
-    .slice(0, 4)
-    .map(p => ({
-      id: `prospect-${p.id}`,
-      group: 'Prospects' as const,
-      label: p.fullname,
-      sublabel: `${p.company} · ${p.email}`,
-      icon: User,
-      iconColor: 'text-emerald-600',
-      route: ROUTES.PROSPECTS,
-    }))
+  const [{ data: prospectRows }, { data: dealRows }] = await Promise.all([
+    prospectsService.getProspects({ search: query, limit: 4 }),
+    dealsService.getDeals({ search: query, limit: 4 }),
+  ])
 
-  const deals: SearchResult[] = MOCK_DEALS
-    .filter(d => d.name.toLowerCase().includes(q) || d.company.toLowerCase().includes(q) || d.stage.toLowerCase().includes(q))
-    .slice(0, 4)
-    .map(d => ({
-      id: `deal-${d.id}`,
-      group: 'Deals' as const,
-      label: d.name,
-      sublabel: `${d.stage} · $${d.value.toLocaleString()}`,
-      icon: Briefcase,
-      iconColor: 'text-amber-600',
-      route: ROUTES.DEALS,
-    }))
+  const prospects: SearchResult[] = prospectRows.map(p => ({
+    id: `prospect-${p.id}`,
+    group: 'Prospects' as const,
+    label: p.fullname ?? 'Unnamed prospect',
+    sublabel: [p.company, p.email].filter(Boolean).join(' · '),
+    icon: User,
+    iconColor: 'text-emerald-600',
+    route: ROUTES.PROSPECTS,
+  }))
 
-  const users: SearchResult[] = MOCK_USERS
+  const deals: SearchResult[] = dealRows.map(d => ({
+    id: `deal-${d.id}`,
+    group: 'Deals' as const,
+    label: d.name,
+    sublabel: `${d.stage} · $${d.value.toLocaleString()}`,
+    icon: Briefcase,
+    iconColor: 'text-amber-600',
+    route: ROUTES.DEALS,
+  }))
+
+  const matchedUsers: SearchResult[] = users
     .filter(u => `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
     .slice(0, 3)
     .map(u => ({
       id: `user-${u.id}`,
       group: 'Users' as const,
-      label: `${u.first_name} ${u.last_name}`,
+      label: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
       sublabel: `${u.role} · ${u.email}`,
       icon: User,
       iconColor: 'text-violet-600',
@@ -74,7 +78,7 @@ function search(query: string): SearchResult[] {
 
   const pages: SearchResult[] = PAGES.filter(p => p.label.toLowerCase().includes(q))
 
-  return [...prospects, ...deals, ...users, ...pages]
+  return [...prospects, ...deals, ...matchedUsers, ...pages]
 }
 
 function loadRecent(): string[] {
@@ -99,6 +103,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [results, setResults] = useState<SearchResult[]>([])
   const [recent, setRecent] = useState<string[]>([])
   const [cursor, setCursor] = useState(0)
+  const [users, setUsers] = useState<CRMUserRow[]>([])
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -110,13 +115,24 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       setCursor(0)
       setRecent(loadRecent())
       setTimeout(() => inputRef.current?.focus(), 50)
+      usersService.getUsers().then(setUsers).catch(() => setUsers([]))
     }
   }, [open])
 
   useEffect(() => {
-    setResults(search(query))
-    setCursor(0)
-  }, [query])
+    if (!query.trim()) {
+      setResults([])
+      setCursor(0)
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      search(query, users)
+        .then(r => { if (!cancelled) { setResults(r); setCursor(0) } })
+        .catch(() => { if (!cancelled) { setResults([]); setCursor(0) } })
+    }, SEARCH_DEBOUNCE_MS)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [query, users])
 
   const allResults = results
   const flatList = GROUP_ORDER.flatMap(g => allResults.filter(r => r.group === g))

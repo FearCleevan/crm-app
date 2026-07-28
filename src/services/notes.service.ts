@@ -51,6 +51,17 @@ export const notesService = {
     return { data: (data as unknown as NoteRow[]) ?? [], count: count ?? 0 }
   },
 
+  async getNotesForProspect(prospectId: number): Promise<NoteRow[]> {
+    const { data, error } = await supabase
+      .from('activities')
+      .select('id, title, description, deal_id, prospect_id, created_by, created_at, updated_at')
+      .eq('type', 'note')
+      .eq('prospect_id', prospectId)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return (data as unknown as NoteRow[]) ?? []
+  },
+
   async createNote(payload: NoteInsert): Promise<NoteRow> {
     const { data, error } = await supabase
       .from('activities')
