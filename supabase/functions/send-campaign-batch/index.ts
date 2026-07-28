@@ -79,7 +79,7 @@ Deno.serve(async () => {
         to:      prospect.email,
         subject,
         text:    body + SIGNATURE,
-        replyTo: 'jonathan.mauring17@gmail.com',
+        replyTo: 'lazanpeterpaul@gmail.com',
       })
 
       if (!sendError && sent?.id) {

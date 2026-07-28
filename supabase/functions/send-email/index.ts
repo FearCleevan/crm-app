@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
         to:      Array.isArray(to) ? to : [to],
         subject,
         html,
-        reply_to: 'jonathan.mauring17@gmail.com',
+        reply_to: 'lazanpeterpaul@gmail.com',
         ...(cc ? { cc: Array.isArray(cc) ? cc : [cc] } : {}),
       }),
     })
