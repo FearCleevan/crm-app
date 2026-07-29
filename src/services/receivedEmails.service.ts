@@ -7,6 +7,7 @@ import type { EmailMessage } from '@/constants/mockEmails'
 
 interface ReceivedEmailRow {
   id: string
+  gmail_thread_id: string | null
   from_email: string
   from_name: string | null
   to_email: string | null
@@ -42,7 +43,7 @@ export const receivedEmailsService = {
   async listInbox(limit: number, offset: number): Promise<InboxPage> {
     const { data, error } = await supabase
       .from('received_emails')
-      .select('id, from_email, from_name, to_email, subject, body_html, body_text, snippet, received_at, is_read, is_starred')
+      .select('id, gmail_thread_id, from_email, from_name, to_email, subject, body_html, body_text, snippet, received_at, is_read, is_starred')
       .order('received_at', { ascending: false })
       .range(offset, offset + limit)
 
@@ -57,6 +58,7 @@ export const receivedEmailsService = {
       return {
         id: row.id,
         folder: 'inbox',
+        threadId: row.gmail_thread_id ?? undefined,
         from: { name: row.from_name || row.from_email, email: row.from_email },
         to: parseAddressList(row.to_email).length > 0 ? parseAddressList(row.to_email) : [{ name: '', email: '(unknown)' }],
         subject: row.subject || '(no subject)',

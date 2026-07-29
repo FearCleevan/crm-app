@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     console.log('[send-email] caller:', caller.id)
 
     // ── 2. Parse body ─────────────────────────────────────────
-    let body: { to?: unknown; cc?: unknown; subject?: unknown; html?: unknown }
+    let body: { to?: unknown; cc?: unknown; subject?: unknown; html?: unknown; threadId?: unknown }
     try {
       body = await req.json()
     } catch (e) {
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Invalid request body' }, 400)
     }
 
-    const { to, cc, subject, html } = body
+    const { to, cc, subject, html, threadId } = body
 
     if (!to || !subject || !html) {
       return json({ error: 'Missing required fields: to, subject, html' }, 400)
@@ -100,12 +100,16 @@ Deno.serve(async (req) => {
 
     // ── 5. Log to activities (best-effort) ────────────────────
     if (crmUser) {
+      const toList = Array.isArray(to) ? to.join(', ') : String(to)
       const { error: actErr } = await admin
         .from('activities')
         .insert({
           type:        'email',
           title:       subject,
-          description: `Sent to: ${Array.isArray(to) ? to.join(', ') : to}`,
+          description: `Sent to: ${toList}`,
+          email_to:    toList,
+          email_body:  html,
+          thread_id:   typeof threadId === 'string' ? threadId : null,
           created_by:  crmUser.id,
           deal_id:     null,
         })

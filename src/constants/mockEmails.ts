@@ -15,6 +15,9 @@ export interface EmailMessage {
   hasAttachment: boolean
   attachments?: { name: string; size: string }[]
   labels?: string[]
+  // CRM-level thread grouping key. Inbox messages carry Gmail's own thread id (gmail-sync);
+  // real sent replies carry whatever thread id they were sent against (see emailThread.service.ts).
+  threadId?: string
 }
 
 const now = Date.now()

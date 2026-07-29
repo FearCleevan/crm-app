@@ -6,6 +6,7 @@ interface SendEmailParams {
   bcc?:     string | string[]
   subject:  string
   html:     string
+  threadId?: string
 }
 
 interface ScheduleSendParams extends SendEmailParams {

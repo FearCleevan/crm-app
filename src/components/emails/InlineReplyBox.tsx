@@ -12,6 +12,7 @@ interface InlineReplyBoxProps {
   toEmail: string
   toName: string
   subject: string
+  threadId?: string
   onSent: () => void
   onCancel: () => void
 }
@@ -19,7 +20,7 @@ interface InlineReplyBoxProps {
 // Docked reply composer shown inline at the bottom of an open thread, matching how Gmail's
 // own inline reply works — separate from ComposeModal's floating popup, which stays reserved
 // for starting a brand new message.
-export function InlineReplyBox({ toEmail, toName, subject, onSent, onCancel }: InlineReplyBoxProps) {
+export function InlineReplyBox({ toEmail, toName, subject, threadId, onSent, onCancel }: InlineReplyBoxProps) {
   const { user } = useAuth()
   const [body,    setBody]    = useState('<p></p>')
   const [sigOn,   setSigOn]   = useState(true)
@@ -34,6 +35,7 @@ export function InlineReplyBox({ toEmail, toName, subject, onSent, onCancel }: I
         to:      toEmail,
         subject,
         html:    sigOn ? body + signature : body,
+        ...(threadId ? { threadId } : {}),
       })
       toast.success('Reply sent')
       onSent()
