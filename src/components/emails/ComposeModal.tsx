@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext'
 import { EmailEditor } from './EmailEditor'
 import type { RichTemplateDB } from '@/types/campaigns'
 import { resolveMergeFields } from '@/lib/mergeFields'
+import { buildSignature } from '@/lib/emailSignature'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -134,19 +135,6 @@ const PRESETS: { label: string; html: string }[] = [
     html: `<table width="600" style="border-collapse:collapse;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><tr><td style="background:#0c7c8d;padding:48px 32px;text-align:center"><h1 style="color:white;margin:0 0 12px;font-size:28px">Special Offer</h1><p style="color:rgba(255,255,255,0.85);margin:0;font-size:16px;line-height:1.5">Don't miss out on this limited-time opportunity</p></td></tr><tr><td style="padding:40px 32px;background:#ffffff;text-align:center"><p style="color:#4b5563;font-size:16px;line-height:1.6;margin:0 0 32px">Add your promotional message here. Highlight the key benefit your recipient will get.</p><a href="#" style="display:inline-block;background:#0c7c8d;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px">Get Started Now</a></td></tr><tr><td style="padding:24px 32px;background:#ffffff"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px"/><p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0">Add any terms, conditions, or additional info here.</p></td></tr><tr><td style="background:#f9fafb;padding:24px;text-align:center"><p style="color:#9ca3af;font-size:12px;margin:0">© 2026 Paul CRM. All rights reserved.</p></td></tr></table>`,
   },
 ]
-
-// ── Signature builder ─────────────────────────────────────────
-function buildSignature(user: { first_name?: string; last_name?: string; role?: string; email?: string; phone_no?: string | null; profile_url?: string | null } | null): string {
-  if (!user) return ''
-  const name     = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
-  const initials = `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`
-  const avatar   = user.profile_url
-    ? `<img src="${user.profile_url}" width="48" height="48" style="width:48px;height:48px;border-radius:50%;object-fit:cover;display:block" />`
-    : `<td width="48" height="48" style="background:#0c7c8d;border-radius:50%;text-align:center;vertical-align:middle;font-size:20px;font-weight:700;color:white;width:48px;height:48px">${initials}</td>`
-
-  return `<br/><table cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><tr><td style="padding-right:14px;vertical-align:middle">${user.profile_url ? `<table><tr>${avatar}</tr></table>` : `<table><tr>${avatar}</tr></table>`}</td><td style="vertical-align:middle"><div style="font-weight:700;font-size:14px;color:#111827;line-height:1.3">${name}</div><div style="font-size:12px;color:#6b7280;margin-top:2px">${user.role ?? ''}</div><div style="font-size:12px;color:#6b7280;margin-top:2px">${user.email ?? ''}</div>${user.phone_no ? `<div style="font-size:12px;color:#6b7280;margin-top:2px">${user.phone_no}</div>` : ''}<div style="font-size:12px;color:#6b7280;margin-top:2px">WhatsApp: 09515379127</div><div style="font-size:12px;color:#6b7280;margin-top:2px"><a href="https://www.peterpaullazan.com/" style="color:#6b7280;text-decoration:none">https://www.peterpaullazan.com/</a></div><div style="font-size:12px;color:#6b7280;margin-top:2px"><a href="https://github.com/FearCleevan/" style="color:#6b7280;text-decoration:none">https://github.com/FearCleevan/</a></div></td></tr></table>`
-}
-
 
 export interface DraftPayload {
   to: string[]

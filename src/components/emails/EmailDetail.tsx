@@ -1,25 +1,33 @@
+import { useState, useEffect } from 'react'
 import { Reply, Forward, Trash2, Archive, Star, Paperclip, MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { EmailMessage } from '@/constants/mockEmails'
+import { InlineReplyBox } from './InlineReplyBox'
 
 interface EmailDetailProps {
   email: EmailMessage
-  onReply: (email: EmailMessage) => void
   onDelete: (id: string) => void
   onToggleStar: (id: string) => void
 }
 
-export function EmailDetail({ email, onReply, onDelete, onToggleStar }: EmailDetailProps) {
+export function EmailDetail({ email, onDelete, onToggleStar }: EmailDetailProps) {
+  const [replying, setReplying] = useState(false)
+
+  // Close any open reply box when switching to a different email
+  useEffect(() => { setReplying(false) }, [email.id])
+
   const dateFormatted = new Date(email.date).toLocaleString('en-AU', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
 
+  const replySubject = email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-6 py-3 border-b border-border shrink-0">
-        <button type="button" onClick={() => onReply(email)}
+        <button type="button" onClick={() => setReplying(true)}
           className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-card hover:bg-accent text-xs font-medium text-foreground transition-colors">
           <Reply className="h-3.5 w-3.5" /> Reply
         </button>
@@ -97,14 +105,24 @@ export function EmailDetail({ email, onReply, onDelete, onToggleStar }: EmailDet
         )}
       </div>
 
-      {/* Quick reply area */}
-      <div className="shrink-0 border-t border-border px-6 py-4">
-        <button type="button" onClick={() => onReply(email)}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-muted/20 hover:bg-accent text-sm text-muted-foreground text-left transition-colors">
-          <Reply className="h-4 w-4 shrink-0" />
-          Reply to {email.from.name}…
-        </button>
-      </div>
+      {/* Reply area — inline composer once active, matching Gmail's own thread reply UX */}
+      {replying ? (
+        <InlineReplyBox
+          toEmail={email.from.email}
+          toName={email.from.name}
+          subject={replySubject}
+          onSent={() => setReplying(false)}
+          onCancel={() => setReplying(false)}
+        />
+      ) : (
+        <div className="shrink-0 border-t border-border px-6 py-4">
+          <button type="button" onClick={() => setReplying(true)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-muted/20 hover:bg-accent text-sm text-muted-foreground text-left transition-colors">
+            <Reply className="h-4 w-4 shrink-0" />
+            Reply to {email.from.name}…
+          </button>
+        </div>
+      )}
     </div>
   )
 }

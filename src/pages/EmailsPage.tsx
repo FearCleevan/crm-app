@@ -101,16 +101,6 @@ export function EmailsPage() {
     }
   }
 
-  function handleReplyToEmail(email: EmailMessage) {
-    setEditingDraftId(null)
-    setComposePrefill({
-      to:      email.from.email,
-      subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
-      body:    `<p></p><p>—</p>${email.body}`,
-    })
-    setComposeOpen(true)
-  }
-
   function draftToEmailMessage(d: EmailDraft): EmailMessage {
     return {
       id:       String(d.id),
@@ -389,7 +379,6 @@ export function EmailsPage() {
                   ) : selected ? (
                     <EmailDetail
                       email={selected}
-                      onReply={handleReplyToEmail}
                       onDelete={isSent ? () => toast.info('Deleting sent emails isn\'t supported yet') : handleDeleteEmail}
                       onToggleStar={isSent ? () => toast.info('Starring sent emails isn\'t supported yet') : handleToggleStar}
                     />
