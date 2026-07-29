@@ -7,10 +7,13 @@
 // not called by the frontend directly.
 // Requires: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Supabase Secrets (same ones
 // gmail-oauth-callback uses).
-// Part of Phase 3b, EMAIL_INBOX_SENT_DRAFTS_BACKEND_IMPLEMENTATION.md.
+// Part of Phase 3b/3c, EMAIL_INBOX_SENT_DRAFTS_BACKEND_IMPLEMENTATION.md.
 //
-// Note: does not yet wire the 'replied' status/auto-deal-creation path (that's a separate
-// phase, 3c/5.3 — see resend-webhook's autoPipelineUpdate for the logic to reuse there).
+// Also wires the previously-dead 'replied' pipeline path: on each NEWLY matched reply (not
+// re-runs over an already-stored message, thanks to the OVERLAP_MS re-check window), logs an
+// `activities` row and runs the same upgrade-only stage progression / auto-deal-creation logic
+// resend-webhook's autoPipelineUpdate already has for other email events — this is the first
+// real trigger for it.
 // ============================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -80,6 +83,60 @@ function parseFromHeader(raw: string): { name: string; email: string } {
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+}
+
+// Stage upgrade-only — never downgrade. Mirrors resend-webhook's STAGE_PRIORITY/autoPipelineUpdate,
+// specialized here to the single 'replied' event this function can ever trigger (a Gmail reply
+// isn't necessarily tied to a specific campaign, unlike the webhook's other events).
+const STAGE_PRIORITY = [
+  'New Lead', 'Contacted', 'Qualified', 'Proposal Sent',
+  'Negotiation', 'Closed Won', 'Closed Lost',
+]
+
+async function applyRepliedPipelineUpdate(prospectId: number) {
+  const { data: existingDeal } = await supabase
+    .from('deals')
+    .select('id, stage')
+    .eq('prospect_id', prospectId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (existingDeal) {
+    const currentIdx = STAGE_PRIORITY.indexOf(existingDeal.stage)
+    const newIdx     = STAGE_PRIORITY.indexOf('Qualified')
+    if (newIdx > currentIdx) {
+      await supabase
+        .from('deals')
+        .update({ stage: 'Qualified', stage_changed_at: new Date().toISOString() })
+        .eq('id', existingDeal.id)
+    }
+    return
+  }
+
+  // Auto-create a deal only on reply (strong buying signal), same as resend-webhook
+  const { data: prospect } = await supabase
+    .from('prospects')
+    .select('fullname, firstname, company')
+    .eq('id', prospectId)
+    .single()
+
+  const closeDate = new Date()
+  closeDate.setDate(closeDate.getDate() + 30)
+
+  await supabase.from('deals').insert({
+    name:                `${prospect?.company ?? 'Unknown'} — Website Project`,
+    prospect_id:         prospectId,
+    prospect_name:       prospect?.fullname ?? prospect?.firstname ?? '',
+    company:             prospect?.company ?? '',
+    stage:               'Qualified',
+    value:               0,
+    probability:         30,
+    expected_close_date: closeDate.toISOString().split('T')[0],
+    stage_changed_at:    new Date().toISOString(),
+    source_campaign_id:   null,
+    source_campaign_name: null,
+  })
 }
 
 Deno.serve(async (req) => {
@@ -176,6 +233,16 @@ Deno.serve(async (req) => {
 
       if (!prospect) { skipped++; continue } // not a match — discard, never stored
 
+      // Only fire the 'replied' side effects (activity log + pipeline update) for messages we
+      // haven't seen before — the OVERLAP_MS window intentionally re-checks recent messages
+      // each run, and we don't want to re-log/re-bump on every re-run of the same reply.
+      const { data: alreadyStored } = await supabase
+        .from('received_emails')
+        .select('id')
+        .eq('gmail_message_id', msg.id)
+        .maybeSingle()
+      const isNewMatch = !alreadyStored
+
       const { text, html } = extractBodies(msg.payload)
       const { error: upsertErr } = await supabase
         .from('received_emails')
@@ -200,6 +267,18 @@ Deno.serve(async (req) => {
         continue
       }
       matched++
+
+      if (isNewMatch) {
+        await supabase.from('activities').insert({
+          type:         'email',
+          title:        'Email replied',
+          description:  getHeader(headers, 'Subject') || null,
+          status:       'completed',
+          prospect_id:  prospect.id,
+          completed_at: new Date().toISOString(),
+        })
+        await applyRepliedPipelineUpdate(prospect.id)
+      }
     } catch (err) {
       console.error('[gmail-sync] error processing message', ref.id, err)
     }
