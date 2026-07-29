@@ -10,8 +10,9 @@ import { TemplateManager } from '@/components/emails/TemplateManager'
 import { CreateCampaignWizard } from '@/components/emails/CreateCampaignWizard'
 import { EmailList } from '@/components/emails/EmailList'
 import { EmailDetail } from '@/components/emails/EmailDetail'
-import { MOCK_EMAILS, type EmailFolder, type EmailMessage } from '@/constants/mockEmails'
+import type { EmailFolder, EmailMessage } from '@/constants/mockEmails'
 import { useSentEmails } from '@/hooks/useSentEmails'
+import { useInboxMessages } from '@/hooks/useInboxMessages'
 import { useDrafts } from '@/hooks/useDrafts'
 import type { EmailDraft } from '@/services/drafts.service'
 import type { DraftPayload } from '@/components/emails/ComposeModal'
@@ -24,11 +25,6 @@ import { useCurrentUser } from '@/hooks/useCurrentUser'
 import type { Campaign } from '@/types/campaigns'
 import { cn } from '@/lib/utils'
 
-// NOTE: 'inbox' | 'sent' | 'drafts' are wired to MOCK_EMAILS for now (Phase 1
-// of EMAIL_INBOX_SENT_DRAFTS_FRONTEND_IMPLEMENTATION.md — nav + layout only).
-// Real data source swap happens in later phases per that plan; Inbox
-// specifically is blocked on the backend decision in
-// EMAIL_INBOX_SENT_DRAFTS_BACKEND_IMPLEMENTATION.md Phase 0.
 type View = 'templates' | 'campaigns' | EmailFolder
 
 const NAV: { id: View; label: string; icon: React.ElementType }[] = [
@@ -69,14 +65,19 @@ export function EmailsPage() {
   const [editingCampaign,   setEditingCampaign]   = useState<Campaign | null>(null)
   const [composeOpen,       setComposeOpen]       = useState(false)
 
-  // Phase 1 (nav + layout) state — Inbox still mock, see note above NAV.
-  // Sent (Phase 2) and Drafts (Phase 3) are real data.
-  const [mailMessages,    setMailMessages]    = useState<EmailMessage[]>(MOCK_EMAILS)
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null)
   const [composePrefill,  setComposePrefill]  = useState<{ to: string; subject: string; body: string } | null>(null)
   const [editingDraftId,  setEditingDraftId]  = useState<number | null>(null)
 
   const { emails: sentEmails, loading: sentLoading, error: sentError } = useSentEmails()
+  const {
+    emails: inboxEmails,
+    loading: inboxLoading,
+    error: inboxError,
+    toggleStar: toggleInboxStar,
+    markRead: markInboxRead,
+    remove: removeInboxEmail,
+  } = useInboxMessages()
   const {
     drafts,
     loading: draftsLoading,
@@ -86,14 +87,18 @@ export function EmailsPage() {
     removeDraft,
   } = useDrafts(userId)
 
-  function handleToggleStar(id: string) {
-    setMailMessages(prev => prev.map(e => e.id === id ? { ...e, starred: !e.starred } : e))
+  async function handleToggleStar(id: string) {
+    await toggleInboxStar(id)
   }
 
-  function handleDeleteEmail(id: string) {
-    setMailMessages(prev => prev.filter(e => e.id !== id))
-    setSelectedEmailId(current => current === id ? null : current)
-    toast.success('Email deleted')
+  async function handleDeleteEmail(id: string) {
+    try {
+      await removeInboxEmail(id)
+      setSelectedEmailId(current => current === id ? null : current)
+      toast.success('Email deleted')
+    } catch {
+      toast.error('Failed to delete email')
+    }
   }
 
   function handleReplyToEmail(email: EmailMessage) {
@@ -355,13 +360,15 @@ export function EmailsPage() {
               ? sentEmails
               : isDrafts
                 ? drafts.map(draftToEmailMessage)
-                : mailMessages.filter(e => e.folder === view)
+                : inboxEmails
             const selected = folderEmails.find(e => e.id === selectedEmailId) ?? null
 
             if (isSent && sentLoading)   return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading sent emails…</div>
             if (isSent && sentError)     return <div className="flex-1 flex items-center justify-center text-sm text-destructive">Failed to load sent emails: {sentError}</div>
             if (isDrafts && draftsLoading) return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading drafts…</div>
             if (isDrafts && draftsError)   return <div className="flex-1 flex items-center justify-center text-sm text-destructive">Failed to load drafts: {draftsError}</div>
+            if (view === 'inbox' && inboxLoading) return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading inbox…</div>
+            if (view === 'inbox' && inboxError)   return <div className="flex-1 flex items-center justify-center text-sm text-destructive">Failed to load inbox: {inboxError}</div>
 
             return (
               <div className="flex flex-1 min-w-0 min-h-0">
@@ -369,7 +376,7 @@ export function EmailsPage() {
                   <EmailList
                     emails={folderEmails}
                     selectedId={selectedEmailId}
-                    onSelect={isDrafts ? handleEditDraft : e => setSelectedEmailId(e.id)}
+                    onSelect={isDrafts ? handleEditDraft : e => { setSelectedEmailId(e.id); if (view === 'inbox' && !e.read) markInboxRead(e.id) }}
                     onToggleStar={isSent || isDrafts ? () => toast.info('Not supported for this folder yet') : handleToggleStar}
                     onDelete={isDrafts ? handleDeleteDraft : undefined}
                   />

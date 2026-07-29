@@ -32,6 +32,10 @@ export const sentEmailsService = {
       .from('activities')
       .select('id, title, description, email_to, email_body, created_at, crm_users!created_by(first_name, last_name, email)')
       .eq('type', 'email')
+      // Real sends always set email_to (Phase 1 fix). Event-log rows sharing type='email' --
+      // resend-webhook's opens/clicks, gmail-sync's "Email replied" -- never do, so this
+      // excludes them from showing up here as if they were something the user sent.
+      .not('email_to', 'is', null)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit)
 
