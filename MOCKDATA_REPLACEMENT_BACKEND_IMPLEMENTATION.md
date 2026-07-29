@@ -61,17 +61,10 @@ Reuse the same RLS policies already governing `activities` for notes.
 
 ---
 
-## Phase 5 — EmailsPage Inbox (parked, needs a decision)
+## Phase 5 — EmailsPage Inbox — RESOLVED 2026-07-29, see EMAIL_INBOX_SENT_DRAFTS_BACKEND_IMPLEMENTATION.md
 
-This is the one item that may need real backend work, and the shape of it depends entirely on
-which approach gets picked when this phase starts:
-
-- **Gmail API sync**: OAuth to the outreach Gmail account, a scheduled edge function (or the
-  existing `crm-mcp`/pg_cron pattern already used for `send-scheduled-emails`) to pull new
-  messages, a table to store synced inbox messages, mapping to the existing `EmailMessage` shape
-  in `mockEmails.ts`.
-- **IMAP polling**: similar shape, different auth (username/password or app password) and a
-  different edge function library.
-- **Skip entirely**: leave Inbox on mock data, document it as a known permanent placeholder.
-
-No decision is made yet — do not start any of this until the user picks a direction.
+Decision: Gmail API sync, matched-replies-only, polling every ~10 min. This isn't a fresh decision
+made in isolation — it's the deferred Phase 0/3/4 of the pre-existing
+`EMAIL_INBOX_SENT_DRAFTS_BACKEND_IMPLEMENTATION.md` plan (Sent and Drafts phases of that plan were
+already done). Full design, migration shape, Edge Function scope, and manual OAuth setup steps are
+documented there — this file just cross-references rather than duplicating.

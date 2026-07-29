@@ -36,13 +36,17 @@ So this isn't a from-scratch UI build — it's reconnecting existing, already-de
 - Clicking a draft in the Drafts list reopens `ComposeModal` pre-filled with that draft's `to`/`cc`/`bcc`/`subject`/`body`/linked template/prospect
 - Add a delete action on each draft row (reuse `EmailList`'s existing row actions if present, or add one)
 
-## Phase 4 — Inbox UI (depends on Backend Phase 0 decision)
+## Phase 4 — Inbox UI (Backend Phase 0 resolved: Gmail sync)
 
-- **If Option A (true inbound):** Inbox behaves like a real mail client — read real incoming messages, reply threads to the original, mark read/unread
-- **If Option B (engagement feed):** Relabel the nav item accordingly (e.g. "Engagement" instead of "Inbox") so it's honest about showing opens/clicks rather than replies — this is a labeling decision, not just data wiring, so flagging it here rather than assuming
-- **If Option C (manual reply log):** Add a lightweight "Log a reply" action from a prospect's detail view or from the Sent list, which becomes the read data source for a genuinely minimal Inbox view
+**Goal:** Inbox behaves like a real mail client — reads real incoming replies (Backend Phase 3), same list/detail UX Sent and Drafts already use.
 
-Scope finalized once the backend decision is confirmed.
+- New `src/services/receivedEmails.service.ts` — query `received_emails`, normalized into the existing `EmailMessage` shape (same contract `mockEmails.ts` already defines, so `EmailList`/`EmailDetail` don't change).
+- New hook `src/hooks/useInboxMessages.ts` — same shape as `useSentEmails`/`useDrafts`.
+- `EmailsPage.tsx`: replace the `MOCK_EMAILS`-seeded `mailMessages` state for the `'inbox'` folder with real data from the new hook. `handleToggleStar`/mark-read currently only mutate local state — wire them to real mutations (`receivedEmails.service.ts` update calls) once real rows exist.
+- Settings UI: a "Connect Gmail" button/card (alongside the existing Airtable/MightyCall integration cards) that kicks off the OAuth flow from Backend Phase 3a.
+- Reply flow (`handleReplyToEmail` → `ComposeModal`) already works off the `EmailMessage` shape — no changes needed there once real inbox rows match that shape.
+
+Known scope boundary: this phase reads and displays replies; it does not add inbox-side actions Gmail itself would have (archive, labels, multi-account). Reply is already covered via the existing Compose flow.
 
 ## Verification, every phase
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Copy, Check, Plus, X, Trash2, RefreshCw, Eye, EyeOff,
-  Zap, Link, Key, Webhook, PlugZap, AlertTriangle, Clock,
+  Zap, Link, Key, Webhook, PlugZap, AlertTriangle, Clock, Mail,
 } from 'lucide-react'
 import airtableLogo   from '@/assets/AirTable.png'
 import mightcallLogo  from '@/assets/MightyCall.png'
@@ -12,6 +13,7 @@ import { apiKeysService, type ApiKeyRow } from '@/services/apiKeys.service'
 import { integrationsService, type IntegrationRow, type IntegrationProvider } from '@/services/integrations.service'
 import { webhooksService, type WebhookRow, WEBHOOK_EVENTS } from '@/services/webhooks.service'
 import { supabase } from '@/lib/supabase'
+import { getGmailAuthUrl, isGmailOAuthConfigured } from '@/lib/gmailOAuth'
 import { McpConnectorCard } from './McpConnectorCard'
 
 // ── helpers ────────────────────────────────────────────────────
@@ -220,7 +222,16 @@ function AddWebhookModal({ onClose, onCreated }: { onClose: () => void; onCreate
 }
 
 // ── Connect Integration Modal ──────────────────────────────────
-const PROVIDER_META: Record<IntegrationProvider, { label: string; logo: string; fields: { key: string; label: string; placeholder: string; hint?: string }[] }> = {
+interface ProviderMeta {
+  label: string
+  logo?: string
+  icon?: React.ElementType
+  fields: { key: string; label: string; placeholder: string; hint?: string }[]
+  // OAuth providers (Gmail) redirect instead of opening the field-based Connect modal.
+  oauth?: boolean
+}
+
+const PROVIDER_META: Record<IntegrationProvider, ProviderMeta> = {
   airtable: {
     label: 'AirTable',
     logo: airtableLogo,
@@ -237,6 +248,24 @@ const PROVIDER_META: Record<IntegrationProvider, { label: string; logo: string; 
       { key: 'api_key', label: 'API Key', placeholder: 'Paste your MightCall API key', hint: 'Found in MightCall → Settings → Integrations → API' },
     ],
   },
+  gmail: {
+    label: 'Gmail',
+    icon: Mail,
+    fields: [],
+    oauth: true,
+  },
+}
+
+function ProviderLogo({ meta, className }: { meta: ProviderMeta; className: string }) {
+  if (meta.icon) {
+    const Icon = meta.icon
+    return (
+      <div className={cn('bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center', className)}>
+        <Icon className="h-4 w-4 text-rose-500" />
+      </div>
+    )
+  }
+  return <img src={meta.logo} alt={meta.label} className={cn('object-contain', className)} />
 }
 
 function ConnectIntegrationModal({ provider, onClose, onConnected }: { provider: IntegrationProvider; onClose: () => void; onConnected: (row: IntegrationRow) => void }) {
@@ -273,7 +302,7 @@ function ConnectIntegrationModal({ provider, onClose, onConnected }: { provider:
       <div className="relative z-10 w-full sm:max-w-md bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={meta.logo} alt={meta.label} className="h-7 w-7 rounded object-contain" />
+            <ProviderLogo meta={meta} className="h-7 w-7 rounded" />
             <h3 className="text-sm font-bold text-foreground">Connect {meta.label}</h3>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
@@ -306,6 +335,23 @@ function ConnectIntegrationModal({ provider, onClose, onConnected }: { provider:
 // ── Main ApiTab ────────────────────────────────────────────────
 export function ApiTab() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Toast + clean up the URL after returning from the Gmail OAuth redirect
+  useEffect(() => {
+    const gmailResult = searchParams.get('gmail')
+    if (!gmailResult) return
+    if (gmailResult === 'connected') {
+      toast.success('Gmail connected')
+    } else {
+      toast.error(`Gmail connection failed${searchParams.get('gmail_error') ? `: ${searchParams.get('gmail_error')}` : ''}`)
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete('gmail')
+    next.delete('gmail_error')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // API Keys
   const [apiKeys,         setApiKeys]         = useState<ApiKeyRow[]>([])
@@ -383,7 +429,9 @@ export function ApiTab() {
   async function handleSync(integration: IntegrationRow) {
     setSyncing(prev => ({ ...prev, [integration.id]: true }))
     try {
-      const fnName = integration.provider === 'airtable' ? 'airtable-sync' : 'mightcall-sync'
+      const fnName = integration.provider === 'airtable'
+        ? 'airtable-sync'
+        : integration.provider === 'gmail' ? 'gmail-sync' : 'mightcall-sync'
       const { error } = await supabase.functions.invoke(fnName)
       if (error) throw new Error(error.message)
       await integrationsService.updateLastSynced(integration.id)
@@ -557,7 +605,7 @@ export function ApiTab() {
 
               return (
                 <div key={provider} className="flex items-center gap-4 px-5 py-4 hover:bg-muted/20 transition-colors">
-                  <img src={meta.logo} alt={meta.label} className="h-9 w-9 rounded-lg object-contain shrink-0" />
+                  <ProviderLogo meta={meta} className="h-9 w-9 rounded-lg shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">{meta.label}</p>
                     {isConnected && integration?.last_synced_at && (
@@ -567,7 +615,16 @@ export function ApiTab() {
                     )}
                     {!isConnected && (
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {provider === 'airtable' ? 'Sync prospects to an AirTable base' : 'Import call logs as CRM activities'}
+                        {provider === 'airtable'
+                          ? 'Sync prospects to an AirTable base'
+                          : provider === 'gmail'
+                            ? 'Sync replies from lazanpeterpaul@gmail.com into the Inbox'
+                            : 'Import call logs as CRM activities'}
+                      </p>
+                    )}
+                    {!isConnected && provider === 'gmail' && !isGmailOAuthConfigured() && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                        Not configured yet — needs VITE_GOOGLE_CLIENT_ID (see setup steps)
                       </p>
                     )}
                   </div>
@@ -587,6 +644,13 @@ export function ApiTab() {
                           Disconnect
                         </button>
                       </>
+                    ) : meta.oauth ? (
+                      <button type="button"
+                        disabled={!isGmailOAuthConfigured()}
+                        onClick={() => { if (user) window.location.href = getGmailAuthUrl(user.id) }}
+                        className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        <Plus className="h-3 w-3" /> Connect
+                      </button>
                     ) : (
                       <button type="button" onClick={() => setConnectTarget(provider)}
                         className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors">

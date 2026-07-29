@@ -89,8 +89,8 @@ added in Phase 3 also show up in the Activity feed (same underlying table).
 
 ---
 
-## Phase 5 — EmailsPage Inbox (parked)
+## Phase 5 — EmailsPage Inbox — RESOLVED 2026-07-29, see EMAIL_INBOX_SENT_DRAFTS_FRONTEND_IMPLEMENTATION.md
 
-Do not start without a fresh discussion — this phase is intentionally undecided pending an
-architecture choice (see backend doc). When resumed, this file will be updated with the actual
-plan once that decision is made.
+Decision: Gmail API sync. Frontend scope (new `receivedEmails.service.ts`, `useInboxMessages`
+hook, `EmailsPage.tsx` wiring, Settings "Connect Gmail" UI) is documented in that file's Phase 4
+rather than duplicated here.

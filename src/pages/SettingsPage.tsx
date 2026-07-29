@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { User, Shield, Settings, Puzzle, Mail } from 'lucide-react'
 import { TopbarSlot } from '@/context/TopbarContext'
 import { PageWrapper } from '@/components/layout/PageWrapper'
@@ -23,7 +24,10 @@ const TABS: { id: Tab; label: string; icon: typeof User; adminOnly?: boolean }[]
 export function SettingsPage() {
   const { hasPermission } = useAuth()
   const isSuperAdmin = hasPermission('settings_manage')
-  const [tab, setTab] = useState<Tab>('profile')
+  const [searchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const initialTab: Tab = TABS.some(t => t.id === tabParam) ? (tabParam as Tab) : 'profile'
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   const visibleTabs = TABS.filter(t => !t.adminOnly || isSuperAdmin)
 

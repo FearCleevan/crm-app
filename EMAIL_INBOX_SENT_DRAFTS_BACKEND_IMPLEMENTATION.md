@@ -12,17 +12,16 @@
 - **Drafts:** `EmailsPage.tsx` passes `onSaveDraft={() => {}}` to `ComposeModal` — the Save Draft button currently does **nothing** except show a success toast. No `drafts` table exists anywhere in the migrations.
 - **Inbox:** Resend (the only email provider wired up) is send-only here. `resend-webhook/index.ts`'s `EVENT_MAP` only covers `email.opened` / `email.clicked` / `email.bounced` / `email.complained` — there is no event, table, or function anywhere that represents a prospect's incoming reply. `'replied'` exists in `STATUS_PRIORITY` and `STAGE_MAP` as dead code with nothing that ever sets it.
 
-## Phase 0 — Decision required before Phase 3 (blocking)
+## Phase 0 — Decision, RESOLVED 2026-07-29
 
-"Inbox" needs one of these three approaches. This is a product/infrastructure decision, not something to default silently:
+Decided: a variant of Option A, using Gmail instead of a dedicated inbound-parse provider. Context that made this the obvious choice: every outreach send already sets `reply_to: lazanpeterpaul@gmail.com` (added 2026-07-27 as a stopgap because the sending domain has no MX record — see commits `89eac5a`, `8e8cb43`). Prospect replies are *already* landing in a real Gmail inbox today; they're just invisible to the CRM. So instead of standing up new inbound-email infrastructure (DNS, Cloudflare Email Routing/Postmark/SendGrid Inbound Parse), Phase 3 syncs from that existing Gmail inbox via the Gmail API.
 
-**Option A — True inbound email.** Set up a real inbound route: a dedicated receiving address/domain, an inbound-parse-capable provider (Resend does not do this; would need e.g. a Cloudflare Email Routing + Worker, Postmark inbound, SendGrid Inbound Parse, or similar), which POSTs parsed incoming mail to a new Edge Function → stored in a new `received_emails` table, matched back to a prospect by sender email. Real infrastructure setup outside just writing code — DNS, a new provider or routing rule, ongoing cost/complexity.
+Two scope decisions confirmed with the user:
 
-**Option B — Repurpose "Inbox" as an engagement feed.** Don't claim to show replies at all. Show real data that already exists — opens, clicks, bounces — as an "Activity" or "Engagement" view instead of a literal Inbox. Zero new infrastructure, but it's not what "Inbox" implies to a user, so the label needs to change too.
+- **Sync scope: matched replies only, not the whole inbox.** `lazanpeterpaul@gmail.com` is a personal account, not dedicated to the CRM. The sync must match incoming senders against `prospects.email` and discard (never store) anything that doesn't match — keeps personal email out of the database entirely.
+- **Sync mechanism: polling, not push.** A pg_cron-scheduled Edge Function every ~10 minutes, same pattern already used for `send-scheduled-emails`. Real-time Gmail push notifications would need a Google Cloud Pub/Sub topic/subscription — meaningfully more external setup, not justified for a first version.
 
-**Option C — Manual reply logging (stopgap).** Add a simple "Log a reply" action on a prospect (paste in what they wrote, or just mark "Replied") that writes a `replied` event by hand. Low engineering effort, no inbound infra, but a manual step every time — doesn't scale, but unblocks the dead `'replied'` status path immediately.
-
-These aren't mutually exclusive — B or C can ship now while A is decided/built later. Recommend confirming this before Phase 3 starts; Phases 1 and 2 (Sent, Drafts) don't depend on this decision at all and can proceed regardless.
+This also unblocks Phase 4 below (the dead `'replied'` path) for the first time, since matched replies are a real trigger source now.
 
 ## Phase 1 — Sent tab data — DONE, simpler than originally scoped
 
@@ -47,13 +46,34 @@ These aren't mutually exclusive — B or C can ship now while A is decided/built
 - `EmailsPage.tsx`'s real `onSaveDraft` now creates a new draft, or updates the one being edited (tracked via `editingDraftId`) if resuming an existing one
 - Known simplification: resuming a draft only restores `to` (first recipient only)/`subject`/`body` via `ComposeModal`'s existing `initialTo`/`initialSubject`/`initialBody` props — `cc`/`bcc`/linked template/linked prospect are saved correctly in the database but not yet re-populated into the compose UI on resume. Flagging as a known gap, not silently dropped.
 
-## Phase 3 — Inbox (depends on Phase 0 decision)
+## Phase 3 — Inbox: Gmail sync
 
-Scope written once Phase 0 is confirmed — will differ substantially between Option A (new provider integration + `received_emails` table + matching logic) vs. Option B (read-only view over existing `email_events`) vs. Option C (one new "log reply" mutation on top of existing `activities`).
+### 3a — Connect Gmail (OAuth)
+
+- Extend `IntegrationProvider` in `src/services/integrations.service.ts` to include `'gmail'`. No new table needed for token storage — the existing `integrations` table (`provider`, `config` jsonb, `status`, `last_synced_at`) already fits; `config` holds `{ refresh_token, email }`.
+- New migration `received_emails` table: `id`, `gmail_message_id` (unique, for dedup), `gmail_thread_id`, `prospect_id` (FK → `prospects.id`, nullable until matched), `from_email`, `from_name`, `to_email`, `subject`, `body_html`, `body_text`, `snippet`, `received_at`, `is_read boolean default false`, `is_starred boolean default false`, `created_at`. RLS: readable by any authenticated CRM user (team-shared inbox concept, not per-user — matches how `lazanpeterpaul@gmail.com` is one shared reply-to for the whole team's outreach).
+- New Edge Function `gmail-oauth-callback` — exchanges Google's auth code for `access_token`/`refresh_token`, upserts into `integrations` (`provider: 'gmail'`).
+- **Manual steps, only doable by the user (Google Cloud Console + Supabase Dashboard, no CLI):**
+  1. Create/select a Google Cloud project, enable the **Gmail API**.
+  2. Create OAuth 2.0 credentials (type: Web application), scope `https://www.googleapis.com/auth/gmail.readonly`, authorized redirect URI = the deployed `gmail-oauth-callback` function URL.
+  3. Add `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` as Edge Function secrets via Supabase Dashboard → Edge Functions → Secrets.
+  4. Click "Connect Gmail" in the CRM (Settings), complete Google's consent screen once — this captures the refresh token.
+
+### 3b — Sync job
+
+- New Edge Function `gmail-sync`, registered via pg_cron (Dashboard SQL Editor, ~every 10 min — same registration pattern as `send-scheduled-emails`'s cron job).
+- Loads the stored `integrations` row for `provider = 'gmail'`, refreshes the access token via the stored refresh token.
+- Calls Gmail API `users.messages.list` (scoped to `in:inbox`, bounded by a `last_synced_at`-derived time window to avoid rescanning everything each run), fetches each message's content.
+- For each message: match `from` address against `prospects.email` (case-insensitive). **No match → discard, never persisted.** Match → upsert into `received_emails` keyed on `gmail_message_id` (idempotent against re-runs).
+- Updates `integrations.last_synced_at`.
 
 ## Phase 4 — Wire the dead 'replied' path
 
-Once Phase 3 lands (any option), extend `resend-webhook` (Option A) or add the equivalent write path (Option C) so `STATUS_PRIORITY`'s `'replied'` state and `STAGE_MAP`'s auto-deal-creation-on-reply logic (already written in `autoPipelineUpdate`, currently unreachable) actually fire. This makes "Avg Reply Rate" on the Campaigns dashboard a real, non-zero-capable number for the first time.
+`resend-webhook/index.ts` already has `STATUS_PRIORITY`, `STAGE_MAP`, and `autoPipelineUpdate()` (upgrade-only stage progression, auto-creates a deal at stage "Qualified" on first reply) — currently unreachable because nothing ever fires a `'replied'` event. `gmail-sync` (3b) is the first real trigger:
+
+- On each newly-matched reply, insert an `activities` row (`type: 'email'`, `title: 'Email replied'`, `prospect_id`, `completed_at`) — same logging convention `resend-webhook` already uses for opens/clicks.
+- Run the same upgrade-only pipeline logic as `autoPipelineUpdate` (extract to a shared helper or duplicate the ~15 lines — small enough that duplication may be simpler than a shared module across two Edge Functions) with `eventType: 'replied'` for the matched `prospect_id`. Note: unlike the webhook, this isn't tied to a specific `campaign_recipients` row (a reply could be to a one-off Compose send, not just a campaign) — key off `prospect_id` directly.
+- This makes "Avg Reply Rate" on the Campaigns dashboard a real, non-zero-capable number for the first time.
 
 ## Verification, every phase
 

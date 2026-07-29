@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 
-export type IntegrationProvider = 'airtable' | 'mightcall'
+export type IntegrationProvider = 'airtable' | 'mightcall' | 'gmail'
 export type IntegrationStatus  = 'active' | 'inactive' | 'error'
 
 export interface IntegrationRow {
