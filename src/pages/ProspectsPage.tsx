@@ -21,6 +21,9 @@ import { PipelineUploadModal } from '@/components/pipeline/PipelineUploadModal'
 import { ExportColumnModal } from '@/components/prospects/ExportColumnModal'
 import { ProspectDetailSheet } from '@/components/prospects/ProspectDetailSheet'
 import { PermissionGate } from '@/components/auth/PermissionGate'
+import { ComposeModal, type DraftPayload } from '@/components/emails/ComposeModal'
+import { useTemplates } from '@/hooks/useTemplates'
+import { draftsService } from '@/services/drafts.service'
 import { useProspects } from '@/hooks/useProspects'
 import { useFilterOptions, invalidateFilterCache } from '@/hooks/useFilterOptions'
 import { prospectsService } from '@/services/prospects.service'
@@ -267,6 +270,7 @@ export function ProspectsPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [pipelineOpen, setPipelineOpen] = useState(false)
   const [detailRow, setDetailRow] = useState<ProspectRow | null>(null)
+  const [composeProspect, setComposeProspect] = useState<ProspectRow | null>(null)
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const mobileActionsRef = useRef<HTMLDivElement>(null)
@@ -283,6 +287,7 @@ export function ProspectsPage() {
   }, [mobileActionsOpen])
 
   const detailProspect = detailRow ? rowToProspect(detailRow) : null
+  const { templates } = useTemplates(user?.id ?? null)
 
   const activeFilterCount = Object.values(filters).reduce<number>(
     (n, v) => n + (Array.isArray(v) ? v.length : v ? 1 : 0), 0
@@ -389,6 +394,29 @@ export function ProspectsPage() {
     toast.success(`${detailRow.fullname ?? 'Prospect'} deleted`)
     setDetailRow(null)
   }, [detailRow, remove])
+
+  const handleComposeSent = useCallback((prospectId: number) => {
+    setDetailRow(prev => prev && prev.id === prospectId ? { ...prev, status: 'Contacted' } : prev)
+  }, [])
+
+  async function handleComposeSaveDraft(payload: DraftPayload) {
+    if (!user?.id) return
+    try {
+      await draftsService.createDraft({
+        user_id:     user.id,
+        to_emails:   payload.to,
+        cc_emails:   payload.cc,
+        bcc_emails:  payload.bcc,
+        subject:     payload.subject,
+        body:        payload.body,
+        template_id: payload.templateId,
+        prospect_id: payload.prospectId,
+      })
+      toast.success('Draft saved')
+    } catch {
+      toast.error('Failed to save draft')
+    }
+  }
 
   // ── Export ────────────────────────────────────────────────
   // Exact company column order
@@ -686,8 +714,28 @@ export function ProspectsPage() {
           onClose={() => setDetailRow(null)}
           onUpdate={handleDetailUpdate}
           onDelete={handleDetailDelete}
+          onEmail={() => setComposeProspect(detailRow)}
         />
       )}
+
+      <ComposeModal
+        open={!!composeProspect}
+        templates={templates}
+        initialProspect={composeProspect ? {
+          id:        composeProspect.id,
+          fullname:  composeProspect.fullname ?? '',
+          email:     composeProspect.email ?? '',
+          firstname: composeProspect.firstname ?? undefined,
+          lastname:  composeProspect.lastname ?? undefined,
+          company:   composeProspect.company ?? undefined,
+          jobtitle:  composeProspect.jobtitle ?? undefined,
+          website:   composeProspect.website ?? undefined,
+        } : undefined}
+        onClose={() => setComposeProspect(null)}
+        onSend={() => {}}
+        onSent={handleComposeSent}
+        onSaveDraft={handleComposeSaveDraft}
+      />
 
       <ExportColumnModal
         prospects={data}
