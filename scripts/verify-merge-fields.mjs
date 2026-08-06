@@ -13,10 +13,10 @@ assertEqual(
     {
       first_name: 'John', last_name: 'Smith', full_name: 'John Smith',
       company: 'Acme Corp', job_title: 'CEO', website: 'acme.com',
-      my_name: 'Peter Lazan', my_portfolio: 'lazandev.vercel.app',
+      my_name: 'Peter Lazan', my_portfolio: 'peterpaullazan.com',
     },
   ),
-  'Hi John Smith (John Smith) at Acme Corp, CEO, acme.com — Peter Lazan / lazandev.vercel.app',
+  'Hi John Smith (John Smith) at Acme Corp, CEO, acme.com — Peter Lazan / peterpaullazan.com',
   'all 8 tokens resolve when every value is supplied',
 )
 

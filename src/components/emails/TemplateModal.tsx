@@ -12,7 +12,7 @@ import { MERGE_FIELDS, resolveMergeFields } from '@/lib/mergeFields'
 const SAMPLE = {
   first_name: 'John', last_name: 'Smith', full_name: 'John Smith',
   company: 'Acme Corp', job_title: 'CEO', website: 'acmecorp.com',
-  my_name: 'Peter Lazan', my_portfolio: 'lazandev.vercel.app',
+  my_name: 'Peter Lazan', my_portfolio: 'peterpaullazan.com',
 }
 
 function resolvePreview(text: string): string {

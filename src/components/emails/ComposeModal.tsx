@@ -31,7 +31,7 @@ function resolveVars(text: string, prospect: {
     job_title:    prospect?.jobtitle  ?? '',
     website:      prospect?.website   ?? '',
     my_name:      'Peter Paul Lazan',
-    my_portfolio: 'lazandev.vercel.app',
+    my_portfolio: 'peterpaullazan.com',
   })
 }
 

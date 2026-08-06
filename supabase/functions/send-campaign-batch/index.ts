@@ -16,7 +16,7 @@ function resolveVars(template: string, prospect: Record<string, string | null>):
     .replace(/{{job_title}}/g,    prospect.jobtitle    ?? '')
     .replace(/{{website}}/g,      prospect.website     ?? '')
     .replace(/{{my_name}}/g,      'Peter Paul Lazan')
-    .replace(/{{my_portfolio}}/g, 'lazandev.vercel.app')
+    .replace(/{{my_portfolio}}/g, 'peterpaullazan.com')
 }
 
 const SIGNATURE = '\n\nBest regards,\nPeter Paul Lazan\nWhatsApp: 09515379127\nhttps://www.peterpaullazan.com/\nhttps://github.com/FearCleevan/'
