@@ -3,7 +3,7 @@ import {
   X, Pencil, Trash2, Phone, Mail, ExternalLink, Globe,
   Building2, MapPin, User, Calendar, Tag, Briefcase,
   Clock, PhoneCall, Send, FileText, RefreshCw,
-  ChevronRight, Save, XCircle,
+  ChevronRight, Save, XCircle, Copy, Check,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -63,6 +63,35 @@ function SectionCard({ title, children }: { title: string; children: React.React
   )
 }
 
+// ── Plain-text summary for copy-to-clipboard ────────────────────
+function buildProspectSummary(prospect: Prospect): string {
+  const lines: string[] = []
+  const push = (label: string, value?: string | number | null) => {
+    if (!value && value !== 0) return
+    lines.push(`${label}: ${value}`)
+  }
+
+  push('Name', prospect.fullname)
+  push('Title', prospect.jobtitle)
+  push('Company', prospect.company)
+  lines.push('')
+  push('Email', prospect.email)
+  push('Alt Phone', prospect.altphonenumber !== '0' ? prospect.altphonenumber : undefined)
+  push('Company Phone', prospect.companyphonenumber !== '0' ? prospect.companyphonenumber : undefined)
+  push('Personal LinkedIn', prospect.personallinkedin)
+  push('Company LinkedIn', prospect.companylinkedin)
+  push('Website', prospect.website)
+  lines.push('')
+  push('Industry', prospect.industry)
+  push('Employee Size', prospect.employeesize ? prospect.employeesize.toLocaleString() : undefined)
+  push('Annual Revenue', prospect.annualrevenue ? `$${prospect.annualrevenue.toLocaleString()}` : undefined)
+  push('Street', prospect.street)
+  push('City / State', [prospect.city, prospect.state, prospect.postalcode].filter(Boolean).join(', ') || undefined)
+  push('Country', prospect.country)
+
+  return lines.join('\n').trim()
+}
+
 // ── Delete Confirmation ───────────────────────────────────────
 function DeleteConfirm({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
   return (
@@ -111,6 +140,7 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete, onE
   const { user: currentUser } = useCurrentUser()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [editing, setEditing] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [notes, setNotes] = useState<NoteRow[]>([])
@@ -182,6 +212,17 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete, onE
       toast.error('Failed to save changes')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(buildProspectSummary(prospect))
+      setCopied(true)
+      toast.success('Prospect details copied')
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      toast.error('Failed to copy prospect details')
     }
   }
 
@@ -263,6 +304,12 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete, onE
                   <button type="button" onClick={() => setEditing(true)}
                     className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-card hover:bg-accent text-xs font-medium text-foreground transition-colors">
                     <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
+                  <button type="button" onClick={handleCopy}
+                    className="h-8 w-8 rounded-lg border border-border bg-card hover:bg-accent flex items-center justify-center transition-colors" title="Copy details">
+                    {copied
+                      ? <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                   </button>
                   <a href={`tel:${prospect.companyphonenumber}`}
                     className="h-8 w-8 rounded-lg border border-border bg-card hover:bg-accent flex items-center justify-center transition-colors" title="Call">
