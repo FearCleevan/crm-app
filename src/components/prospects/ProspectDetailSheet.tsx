@@ -104,9 +104,10 @@ interface ProspectDetailSheetProps {
   onClose: () => void
   onUpdate: (values: ProspectFormValues) => Promise<void>
   onDelete: () => Promise<void>
+  onEmail: () => void
 }
 
-export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: ProspectDetailSheetProps) {
+export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete, onEmail }: ProspectDetailSheetProps) {
   const { user: currentUser } = useCurrentUser()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [editing, setEditing] = useState(false)
@@ -267,10 +268,10 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
                     className="h-8 w-8 rounded-lg border border-border bg-card hover:bg-accent flex items-center justify-center transition-colors" title="Call">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                   </a>
-                  <a href={`mailto:${prospect.email}`}
+                  <button type="button" onClick={onEmail}
                     className="h-8 w-8 rounded-lg border border-border bg-card hover:bg-accent flex items-center justify-center transition-colors" title="Email">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                  </a>
+                  </button>
                   <button type="button" onClick={() => setConfirmDelete(true)}
                     className="h-8 w-8 rounded-lg border border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center justify-center transition-colors" title="Delete">
                     <Trash2 className="h-3.5 w-3.5 text-rose-500" />
@@ -505,10 +506,10 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete }: P
               </div>
               <p className="font-semibold text-foreground">Email History</p>
               <p className="text-sm text-muted-foreground">Email thread view will be available after Phase 9 (Emails page).</p>
-              <a href={`mailto:${prospect.email}`}
+              <button type="button" onClick={onEmail}
                 className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
                 <Mail className="h-4 w-4" /> Send Email
-              </a>
+              </button>
             </div>
           )}
 
