@@ -224,12 +224,18 @@ export function ComposeModal({
   const { results: suggestions,     clear: clearToSuggestions }   = useProspectSearch(toSearchQuery)
   const { results: prospectResults, clear: clearProspectResults }  = useProspectSearch(prospectQuery)
 
+  // ── New state: variable preview ───────────────────────────
+  const [previewMode,      setPreviewMode]      = useState(false)
+
   // Re-seed a fresh message whenever Compose opens pre-linked to a prospect
   // (e.g. from the prospect detail sheet's Email icon). The component stays
   // mounted between opens, so without this a second prospect would inherit
   // the first one's subject/body/template.
+  // Intentional: syncs internal state from the initialProspect prop on open,
+  // there's no other lifecycle hook available for this in this component.
   useEffect(() => {
     if (!open || !initialProspect) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLinkedProspect(initialProspect)
     setToChips(initialProspect.email ? [initialProspect.email] : [])
     setCcChips([])
@@ -241,9 +247,6 @@ export function ComposeModal({
     setPresetKey(k => k + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialProspect?.id])
-
-  // ── New state: variable preview ───────────────────────────
-  const [previewMode,      setPreviewMode]      = useState(false)
 
   // ── New state: schedule send ──────────────────────────────
   const [scheduledAt,      setScheduledAt]      = useState('')

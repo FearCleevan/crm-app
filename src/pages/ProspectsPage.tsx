@@ -400,7 +400,10 @@ export function ProspectsPage() {
   }, [])
 
   async function handleComposeSaveDraft(payload: DraftPayload) {
-    if (!user?.id) return
+    if (!user?.id) {
+      toast.error('Failed to save draft')
+      return
+    }
     try {
       await draftsService.createDraft({
         user_id:     user.id,
@@ -412,7 +415,6 @@ export function ProspectsPage() {
         template_id: payload.templateId,
         prospect_id: payload.prospectId,
       })
-      toast.success('Draft saved')
     } catch {
       toast.error('Failed to save draft')
     }
