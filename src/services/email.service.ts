@@ -7,6 +7,7 @@ interface SendEmailParams {
   subject:  string
   html:     string
   threadId?: string
+  prospectId?: number | null
 }
 
 interface ScheduleSendParams extends SendEmailParams {
@@ -20,11 +21,12 @@ function toArray(v: string | string[] | undefined): string[] {
 }
 
 export const emailService = {
-  async send(params: SendEmailParams): Promise<void> {
-    const { error } = await supabase.functions.invoke('send-email', {
+  async send(params: SendEmailParams): Promise<{ statusUpdated: boolean }> {
+    const { data, error } = await supabase.functions.invoke('send-email', {
       body: params,
     })
     if (error) throw new Error(error.message ?? 'Failed to send email')
+    return { statusUpdated: Boolean((data as { status_updated?: boolean } | null)?.status_updated) }
   },
 
   async scheduleSend(params: ScheduleSendParams): Promise<void> {
