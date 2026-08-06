@@ -6,7 +6,6 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 const resend = new Resend(Deno.env.get('RESEND_API_KEY')!)
-const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev'
 
 function resolveVars(template: string, prospect: Record<string, string | null>): string {
   return template
@@ -75,11 +74,10 @@ Deno.serve(async () => {
       const senderName = `${campaign.crm_users?.first_name ?? ''} ${campaign.crm_users?.last_name ?? ''}`.trim()
 
       const { data: sent, error: sendError } = await resend.emails.send({
-        from:    `${senderName} <${fromEmail}>`,
+        from:    `${senderName} <peter@peterpaullazan.com>`,
         to:      prospect.email,
         subject,
         text:    body + SIGNATURE,
-        replyTo: 'peter@peterpaullazan.com',
       })
 
       if (!sendError && sent?.id) {

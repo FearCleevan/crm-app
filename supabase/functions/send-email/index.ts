@@ -66,14 +66,13 @@ Deno.serve(async (req) => {
 
     // ── 4. Send via Resend ────────────────────────────────────
     const resendKey  = Deno.env.get('RESEND_API_KEY')
-    const fromEmail  = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev'
 
     if (!resendKey) {
       console.error('[send-email] RESEND_API_KEY not set')
       return json({ error: 'Email service not configured — add RESEND_API_KEY to Supabase Secrets' }, 503)
     }
 
-    console.log('[send-email] sending to:', to, 'from:', fromEmail)
+    console.log('[send-email] sending to:', to, 'from: peter@peterpaullazan.com')
 
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -82,11 +81,10 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from:    `Peter Paul Lazan <${fromEmail}>`,
+        from:    'Peter Paul Lazan <peter@peterpaullazan.com>',
         to:      Array.isArray(to) ? to : [to],
         subject,
         html,
-        reply_to: 'peter@peterpaullazan.com',
         ...(cc ? { cc: Array.isArray(cc) ? cc : [cc] } : {}),
       }),
     })

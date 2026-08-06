@@ -18,7 +18,6 @@ const BATCH_LIMIT = 50
 
 Deno.serve(async () => {
   const resendKey = Deno.env.get('RESEND_API_KEY')
-  const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev'
 
   if (!resendKey) {
     console.error('[send-scheduled-emails] RESEND_API_KEY not set')
@@ -55,11 +54,10 @@ Deno.serve(async () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from:    `Peter Paul Lazan <${fromEmail}>`,
+          from:    'Peter Paul Lazan <peter@peterpaullazan.com>',
           to:      row.to_addresses,
           subject: row.subject,
           html:    row.html,
-          reply_to: 'peter@peterpaullazan.com',
           ...(row.cc_addresses?.length ? { cc: row.cc_addresses } : {}),
           ...(row.bcc_addresses?.length ? { bcc: row.bcc_addresses } : {}),
         }),

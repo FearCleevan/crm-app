@@ -40,7 +40,6 @@ export const outreachTools: ToolDef[] = [
       if (!prospect.email) return errorResult(`Prospect ${prospect_id} has no email address on file`)
 
       const resendKey = Deno.env.get('RESEND_API_KEY')
-      const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev'
       if (!resendKey) {
         return errorResult('RESEND_API_KEY not set — add it in Supabase Edge Function Secrets')
       }
@@ -52,11 +51,10 @@ export const outreachTools: ToolDef[] = [
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: `Peter Paul Lazan <${fromEmail}>`,
+          from: 'Peter Paul Lazan <peter@peterpaullazan.com>',
           to: [prospect.email],
           subject,
           html: body,
-          reply_to: 'peter@peterpaullazan.com',
         }),
       })
 
