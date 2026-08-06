@@ -59,7 +59,7 @@ Deno.serve(async () => {
           to:      row.to_addresses,
           subject: row.subject,
           html:    row.html,
-          reply_to: 'lazanpeterpaul@gmail.com',
+          reply_to: 'peter@peterpaullazan.com',
           ...(row.cc_addresses?.length ? { cc: row.cc_addresses } : {}),
           ...(row.bcc_addresses?.length ? { bcc: row.bcc_addresses } : {}),
         }),

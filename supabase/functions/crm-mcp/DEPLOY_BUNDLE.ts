@@ -950,7 +950,7 @@ const outreachTools: ToolDef[] = [
           to: [prospect.email],
           subject,
           html: body,
-          reply_to: 'lazanpeterpaul@gmail.com',
+          reply_to: 'peter@peterpaullazan.com',
         }),
       })
 
