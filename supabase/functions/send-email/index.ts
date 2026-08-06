@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     console.log('[send-email] caller:', caller.id)
 
     // ── 2. Parse body ─────────────────────────────────────────
-    let body: { to?: unknown; cc?: unknown; subject?: unknown; html?: unknown; threadId?: unknown }
+    let body: { to?: unknown; cc?: unknown; subject?: unknown; html?: unknown; threadId?: unknown; prospectId?: unknown }
     try {
       body = await req.json()
     } catch (e) {
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Invalid request body' }, 400)
     }
 
-    const { to, cc, subject, html, threadId } = body
+    const { to, cc, subject, html, threadId, prospectId } = body
 
     if (!to || !subject || !html) {
       return json({ error: 'Missing required fields: to, subject, html' }, 400)
@@ -98,7 +98,30 @@ Deno.serve(async (req) => {
       return json({ error: resendData?.message ?? 'Failed to send email' }, 502)
     }
 
-    // ── 5. Log to activities (best-effort) ────────────────────
+    // ── 5. Bump prospect status New -> Contacted (upgrade-only, best-effort) ──
+    // Same guard as crm-mcp/tools/outreach.ts's send_outreach_email tool: a send
+    // is a weak signal the prospect has been reached out to, but must never
+    // downgrade an already further-along status (Qualified/Closed/etc).
+    let statusUpdated = false
+    if (typeof prospectId === 'number') {
+      const { data: prospectRow, error: prospectErr } = await admin
+        .from('prospects')
+        .select('status')
+        .eq('id', prospectId)
+        .maybeSingle()
+      if (prospectErr) {
+        console.warn('[send-email] prospect lookup failed:', prospectErr.message)
+      } else if (prospectRow?.status === 'New') {
+        const { error: statusErr } = await admin
+          .from('prospects')
+          .update({ status: 'Contacted', updated_on: new Date().toISOString() })
+          .eq('id', prospectId)
+        if (statusErr) console.warn('[send-email] status update failed:', statusErr.message)
+        else statusUpdated = true
+      }
+    }
+
+    // ── 6. Log to activities (best-effort) ────────────────────
     if (crmUser) {
       const toList = Array.isArray(to) ? to.join(', ') : String(to)
       const { error: actErr } = await admin
@@ -115,7 +138,7 @@ Deno.serve(async (req) => {
         })
       if (actErr) console.warn('[send-email] activity log failed:', actErr.message)
 
-      // ── 6. Fire webhook event (fire-and-forget) ───────────────
+      // ── 7. Fire webhook event (fire-and-forget) ───────────────
       admin.functions.invoke('trigger-webhook', {
         body: {
           event:       'email.sent',
@@ -131,7 +154,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    return json({ success: true })
+    return json({ success: true, status_updated: statusUpdated })
   } catch (err) {
     console.error('[send-email] unhandled error:', err)
     return json({ error: 'Internal server error' }, 500)
