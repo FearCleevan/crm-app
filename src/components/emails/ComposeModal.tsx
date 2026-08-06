@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type KeyboardEvent } from 'react'
+import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from 'react'
 import { X, Minus, Maximize2, Minimize2, Paperclip, Send, Clock, ChevronDown, PenSquare, Eye, Edit2 } from 'lucide-react'
 import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
@@ -155,6 +155,17 @@ interface ComposeModalProps {
   initialTo?: string
   initialSubject?: string
   initialBody?: string
+  initialProspect?: {
+    id: number
+    fullname: string
+    email: string
+    firstname?: string
+    lastname?: string
+    company?: string
+    jobtitle?: string
+    website?: string
+  }
+  onSent?: (prospectId: number) => void
 }
 
 // ── Template body -> editor content ───────────────────────────
@@ -177,6 +188,7 @@ function highlightUnresolved(html: string): string {
 export function ComposeModal({
   open, onClose, onSend, onSaveDraft, templates = [],
   initialTo = '', initialSubject = '', initialBody = '',
+  initialProspect, onSent,
 }: ComposeModalProps) {
   const { user } = useAuth()
   const [minimized,        setMinimized]        = useState(false)
@@ -211,6 +223,24 @@ export function ComposeModal({
   const [prospectQuery,    setProspectQuery]    = useState('')
   const { results: suggestions,     clear: clearToSuggestions }   = useProspectSearch(toSearchQuery)
   const { results: prospectResults, clear: clearProspectResults }  = useProspectSearch(prospectQuery)
+
+  // Re-seed a fresh message whenever Compose opens pre-linked to a prospect
+  // (e.g. from the prospect detail sheet's Email icon). The component stays
+  // mounted between opens, so without this a second prospect would inherit
+  // the first one's subject/body/template.
+  useEffect(() => {
+    if (!open || !initialProspect) return
+    setLinkedProspect(initialProspect)
+    setToChips(initialProspect.email ? [initialProspect.email] : [])
+    setCcChips([])
+    setBccChips([])
+    setSubject('')
+    setBody('<p></p>')
+    setSelectedTemplate(null)
+    setPreviewMode(false)
+    setPresetKey(k => k + 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialProspect?.id])
 
   // ── New state: variable preview ───────────────────────────
   const [previewMode,      setPreviewMode]      = useState(false)
@@ -348,14 +378,16 @@ export function ComposeModal({
 
     setSending(true)
     try {
-      await emailService.send({
+      const result = await emailService.send({
         to:      toChips,
         ...(ccChips.length > 0 ? { cc: ccChips } : {}),
         ...(bccChips.length > 0 ? { bcc: bccChips } : {}),
         subject: subject || '(no subject)',
         html:    getFinalHtml(),
+        prospectId: linkedProspect?.id ?? null,
       })
       onSend()
+      if (result.statusUpdated && linkedProspect) onSent?.(linkedProspect.id)
       toast.success('Email sent')
       onClose()
     } catch (err) {
