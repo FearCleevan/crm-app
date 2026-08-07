@@ -130,5 +130,13 @@ export function useProspects({
     setData(prev => prev.map(p => ids.includes(p.id) ? { ...p, status } : p))
   }, [cacheKey])
 
-  return { data, total, loading, error, refetch, create, update, remove, bulkRemove, bulkUpdateStatus }
+  // Patches locally-held rows without a server round-trip — for when something else
+  // (an edge function, a webhook) has already changed the row server-side and the
+  // caller just needs the already-loaded list to reflect it immediately.
+  const patchLocal = useCallback((id: number, patch: Partial<ProspectRow>) => {
+    cache.delete(cacheKey)
+    setData(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p))
+  }, [cacheKey])
+
+  return { data, total, loading, error, refetch, create, update, remove, bulkRemove, bulkUpdateStatus, patchLocal }
 }

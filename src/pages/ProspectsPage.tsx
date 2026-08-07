@@ -198,7 +198,7 @@ export function ProspectsPage() {
 
   const serviceFilters = useMemo(() => uiFiltersToService(filters), [filters])
 
-  const { data, total, loading, refetch, create, update, remove, bulkRemove, bulkUpdateStatus } =
+  const { data, total, loading, refetch, create, update, remove, bulkRemove, bulkUpdateStatus, patchLocal } =
     useProspects({
       page,
       limit: pageSize,
@@ -397,7 +397,8 @@ export function ProspectsPage() {
 
   const handleComposeSent = useCallback((prospectId: number) => {
     setDetailRow(prev => prev && prev.id === prospectId ? { ...prev, status: 'Contacted' } : prev)
-  }, [])
+    patchLocal(prospectId, { status: 'Contacted' })
+  }, [patchLocal])
 
   async function handleComposeSaveDraft(payload: DraftPayload) {
     if (!user?.id) {
