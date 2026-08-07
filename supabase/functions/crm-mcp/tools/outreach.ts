@@ -52,6 +52,7 @@ export const outreachTools: ToolDef[] = [
         },
         body: JSON.stringify({
           from: 'Peter Paul Lazan <peter@peterpaullazan.com>',
+          reply_to: 'lazanpeterpaul@gmail.com',
           to: [prospect.email],
           subject,
           html: body,

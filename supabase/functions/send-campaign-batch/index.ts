@@ -75,6 +75,7 @@ Deno.serve(async () => {
 
       const { data: sent, error: sendError } = await resend.emails.send({
         from:    `${senderName} <peter@peterpaullazan.com>`,
+        replyTo: 'lazanpeterpaul@gmail.com',
         to:      prospect.email,
         subject,
         text:    body + SIGNATURE,

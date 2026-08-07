@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from:    'Peter Paul Lazan <peter@peterpaullazan.com>',
+        reply_to: 'lazanpeterpaul@gmail.com',
         to:      Array.isArray(to) ? to : [to],
         subject,
         html,
