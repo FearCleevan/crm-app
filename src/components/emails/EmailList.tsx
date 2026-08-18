@@ -2,6 +2,15 @@ import { Star, Paperclip, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { EmailMessage } from '@/constants/mockEmails'
 
+function nameFromEmail(email: string): string {
+  const local = email.split('@')[0] ?? email
+  return local
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map(w => w[0].toUpperCase() + w.slice(1))
+    .join(' ') || email
+}
+
 function timeLabel(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60000)
@@ -25,9 +34,10 @@ interface EmailListProps {
   onSelect: (email: EmailMessage) => void
   onToggleStar: (id: string) => void
   onDelete?: (id: string) => void
+  isSent?: boolean
 }
 
-export function EmailList({ emails, selectedId, onSelect, onToggleStar, onDelete }: EmailListProps) {
+export function EmailList({ emails, selectedId, onSelect, onToggleStar, onDelete, isSent }: EmailListProps) {
   if (emails.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
@@ -38,7 +48,12 @@ export function EmailList({ emails, selectedId, onSelect, onToggleStar, onDelete
 
   return (
     <div className="divide-y divide-border">
-      {emails.map(email => (
+      {emails.map(email => {
+        const party = isSent ? email.to[0] : email.from
+        const displayName = party?.name?.trim() || (party?.email ? nameFromEmail(party.email) : 'Unknown')
+        const extraRecipients = isSent && email.to.length > 1 ? email.to.length - 1 : 0
+
+        return (
         <div
           key={email.id}
           onClick={() => onSelect(email)}
@@ -50,14 +65,14 @@ export function EmailList({ emails, selectedId, onSelect, onToggleStar, onDelete
         >
           {/* Avatar */}
           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5">
-            {email.from.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+            {displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
           </div>
 
           <div className="flex-1 min-w-0">
             {/* Top row */}
             <div className="flex items-center gap-2">
               <span className={cn('text-sm truncate flex-1', !email.read ? 'font-bold text-foreground' : 'font-medium text-foreground/80')}>
-                {email.from.name}
+                {displayName}{extraRecipients > 0 ? ` +${extraRecipients}` : ''}
               </span>
               <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">{timeLabel(email.date)}</span>
             </div>
@@ -103,7 +118,8 @@ export function EmailList({ emails, selectedId, onSelect, onToggleStar, onDelete
             </button>
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

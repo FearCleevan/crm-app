@@ -369,6 +369,7 @@ export function EmailsPage() {
                     onSelect={isDrafts ? handleEditDraft : e => { setSelectedEmailId(e.id); if (view === 'inbox' && !e.read) markInboxRead(e.id) }}
                     onToggleStar={isSent || isDrafts ? () => toast.info('Not supported for this folder yet') : handleToggleStar}
                     onDelete={isDrafts ? handleDeleteDraft : undefined}
+                    isSent={isSent}
                   />
                 </div>
                 <div className="flex-1 min-w-0 overflow-hidden">
