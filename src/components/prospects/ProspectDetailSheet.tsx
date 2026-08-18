@@ -275,30 +275,32 @@ export function ProspectDetailSheet({ prospect, onClose, onUpdate, onDelete, onE
 
         {/* ── Header ── */}
         <div className="px-6 py-5 border-b border-border bg-card">
-          <div className="flex items-start gap-4">
-            {/* Avatar */}
-            <div className="h-12 w-12 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-lg font-bold text-brand-700 dark:text-brand-300 shrink-0">
-              {prospect.firstname[0]?.toUpperCase()}{prospect.lastname[0]?.toUpperCase()}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold text-foreground">{prospect.fullname}</h2>
-                <StatusBadge status={prospect.status} />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+            <div className="flex items-start gap-4 min-w-0 sm:flex-1">
+              {/* Avatar */}
+              <div className="h-12 w-12 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-lg font-bold text-brand-700 dark:text-brand-300 shrink-0">
+                {prospect.firstname[0]?.toUpperCase()}{prospect.lastname[0]?.toUpperCase()}
               </div>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {prospect.jobtitle}{prospect.jobtitle && prospect.company ? ' · ' : ''}{prospect.company}
-              </p>
-              {prospect.country && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                  <MapPin className="h-3 w-3" />
-                  {[prospect.city, prospect.country].filter(Boolean).join(', ')}
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold text-foreground">{prospect.fullname}</h2>
+                  <StatusBadge status={prospect.status} />
+                </div>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {prospect.jobtitle}{prospect.jobtitle && prospect.company ? ' · ' : ''}{prospect.company}
                 </p>
-              )}
+                {prospect.country && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    <MapPin className="h-3 w-3" />
+                    {[prospect.city, prospect.country].filter(Boolean).join(', ')}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Action buttons */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0 justify-end sm:justify-start">
               {!editing && (
                 <>
                   <button type="button" onClick={() => setEditing(true)}
