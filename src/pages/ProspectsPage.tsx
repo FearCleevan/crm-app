@@ -468,7 +468,7 @@ export function ProspectsPage() {
           <div className="relative md:hidden">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
-              type="search"
+              type="text"
               value={searchInput}
               onChange={e => handleSearchChange(e.target.value)}
               placeholder="Search name, email, company…"
@@ -489,7 +489,7 @@ export function ProspectsPage() {
             <div className="relative hidden md:block flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <input
-                type="search"
+                type="text"
                 value={searchInput}
                 onChange={e => handleSearchChange(e.target.value)}
                 placeholder="Search name, email, company…"
