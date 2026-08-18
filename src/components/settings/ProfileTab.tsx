@@ -31,6 +31,7 @@ export function ProfileTab() {
 
   const [firstName,    setFirstName]    = useState(user?.first_name ?? '')
   const [lastName,     setLastName]     = useState(user?.last_name ?? '')
+  const [email,        setEmail]        = useState(user?.email ?? '')
   const [phone,        setPhone]        = useState(user?.phone_no ?? '')
   const [department,   setDepartment]   = useState(user?.department ?? '')
   const [address,      setAddress]      = useState(user?.address ?? '')
@@ -75,6 +76,7 @@ export function ProfileTab() {
       await usersService.updateUser(user.id, {
         first_name:  firstName,
         last_name:   lastName,
+        email:       email,
         phone_no:    phone      || null,
         department:  department || null,
         profile_url: profileUrl || null,
@@ -179,6 +181,12 @@ export function ProfileTab() {
                 className={inputCls()} />
             </Field>
           </div>
+          <Field label="Email" id="profile-email">
+            <input id="profile-email" type="email" value={email}
+              onChange={e => { setEmail(e.target.value); setProfileDirty(true) }}
+              placeholder="you@example.com"
+              className={inputCls()} />
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Phone Number" id="profile-phone">
               <input id="profile-phone" value={phone}
