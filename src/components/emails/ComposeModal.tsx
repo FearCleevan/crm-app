@@ -203,7 +203,7 @@ export function ComposeModal({
   const [toSearchQuery,    setToSearchQuery]    = useState('')
   const [showPresets,      setShowPresets]      = useState(false)
   const [presetKey,        setPresetKey]        = useState(0)
-  const [sigEnabled,       setSigEnabled]       = useState(true)
+  const [sigEnabled,       setSigEnabled]       = useState(false)
 
   // ── New state: template picker ────────────────────────────
   const [selectedTemplate, setSelectedTemplate] = useState<RichTemplateDB | null>(null)
