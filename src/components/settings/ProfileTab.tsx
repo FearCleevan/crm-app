@@ -73,6 +73,13 @@ export function ProfileTab() {
         setAvatarFile(null)
       }
 
+      const emailChanged = email !== user.email
+
+      if (emailChanged) {
+        const { error: emailErr } = await supabase.auth.updateUser({ email })
+        if (emailErr) throw new Error(`Login email update failed: ${emailErr.message}`)
+      }
+
       await usersService.updateUser(user.id, {
         first_name:  firstName,
         last_name:   lastName,
@@ -95,7 +102,9 @@ export function ProfileTab() {
         birthday,
       })
 
-      toast.success('Profile updated successfully')
+      toast.success(emailChanged
+        ? 'Profile updated — check your new inbox to confirm the login email change'
+        : 'Profile updated successfully')
       setProfileDirty(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save profile')
