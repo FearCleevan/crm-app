@@ -15,6 +15,7 @@ interface AuthContextValue {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => void
   hasPermission: (key: PermissionKey) => boolean
+  updateUser: (patch: Partial<CRMUser>) => void
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextValue>({
   login: async () => {},
   logout: () => {},
   hasPermission: () => false,
+  updateUser: () => {},
 })
 
 async function fetchProfile(authId: string): Promise<CRMUser | null> {
@@ -171,6 +173,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false)
   }, [])
 
+  const updateUser = useCallback((patch: Partial<CRMUser>) => {
+    setUser(prev => prev ? { ...prev, ...patch } : prev)
+  }, [])
+
   const permissions: PermissionKey[] = user
     ? (ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] ?? [])
     : []
@@ -191,6 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       hasPermission,
+      updateUser,
     }}>
       {children}
     </AuthContext.Provider>

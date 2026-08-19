@@ -26,7 +26,7 @@ function Field({ label, id, children, error }: { label: string; id: string; chil
 }
 
 export function ProfileTab() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [firstName,    setFirstName]    = useState(user?.first_name ?? '')
@@ -82,6 +82,17 @@ export function ProfileTab() {
         profile_url: profileUrl || null,
         address:     address    || null,
         birthday:    birthday   || null,
+      })
+
+      updateUser({
+        first_name:  firstName,
+        last_name:   lastName,
+        email,
+        phone_no:    phone,
+        department,
+        profile_url: profileUrl,
+        address,
+        birthday,
       })
 
       toast.success('Profile updated successfully')
