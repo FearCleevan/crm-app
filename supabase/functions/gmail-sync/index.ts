@@ -187,14 +187,18 @@ Deno.serve(async (req) => {
   }
   const accessToken = tokenData.access_token as string
 
-  // ── 3. List new inbox messages since the last sync ──────────
+  // ── 3. List new messages since the last sync ─────────────────
+  // Deliberately NOT scoped to in:inbox — tools like Front archive the underlying Gmail
+  // message the moment it's triaged there, which strips the INBOX label. Search All Mail
+  // instead (still excluding Spam/Trash) so replies that got auto-archived elsewhere are
+  // still picked up.
   const sinceMs = integration.last_synced_at
     ? new Date(integration.last_synced_at).getTime() - OVERLAP_MS
     : Date.now() - DEFAULT_LOOKBACK_MS
   const afterEpochSeconds = Math.floor(sinceMs / 1000)
 
   const listUrl = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages')
-  listUrl.searchParams.set('q', `in:inbox after:${afterEpochSeconds}`)
+  listUrl.searchParams.set('q', `after:${afterEpochSeconds} -in:spam -in:trash`)
   listUrl.searchParams.set('maxResults', String(MAX_MESSAGES_PER_RUN))
 
   const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } })
